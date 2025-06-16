@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip } from "lucide-react";
+import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
+import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -21,20 +23,24 @@ const fileToDataUri = (file: File): Promise<string> => {
   });
 };
 
+const MAX_DOCUMENTS = 4;
+const MIN_DOCUMENTS = 2;
+
 export default function ContratoPage() {
   const router = useRouter();
   const { toast } = useToast();
 
   const [contractPhoto, setContractPhoto] = useState<File | null>(null);
   const [contractPhotoPreview, setContractPhotoPreview] = useState<string | null>(null);
+  
   const [isVerifyingPhoto, setIsVerifyingPhoto] = useState(false);
   const [photoVerificationResult, setPhotoVerificationResult] = useState<VerifyContractPhotoOutput | null>(null);
   const [photoVerified, setPhotoVerified] = useState(false);
 
-  const [attachedDocuments, setAttachedDocuments] = useState<File[]>([]);
-  const MAX_DOCUMENTS = 4; 
-  const MIN_DOCUMENTS = 2;
+  const [isExtractingData, setIsExtractingData] = useState(false);
+  const [extractedData, setExtractedData] = useState<ExtractContractDataOutput | null>(null);
 
+  const [attachedDocuments, setAttachedDocuments] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -46,8 +52,9 @@ export default function ContratoPage() {
       }
       const preview = URL.createObjectURL(file);
       setContractPhotoPreview(preview);
-      setPhotoVerificationResult(null); 
+      setPhotoVerificationResult(null);
       setPhotoVerified(false);
+      setExtractedData(null); // Reset extracted data if photo changes
     }
   };
 
@@ -58,6 +65,7 @@ export default function ContratoPage() {
     }
     setIsVerifyingPhoto(true);
     setPhotoVerificationResult(null);
+    setExtractedData(null); 
     try {
       const photoDataUri = await fileToDataUri(contractPhoto);
       const result = await verifyContractPhoto({ photoDataUri });
@@ -76,6 +84,26 @@ export default function ContratoPage() {
       toast({ title: "Erro na Verificação", description: "Não foi possível verificar a foto. Tente novamente.", variant: "destructive" });
     } finally {
       setIsVerifyingPhoto(false);
+    }
+  };
+
+  const handleExtractContractData = async () => {
+    if (!contractPhoto || !photoVerified) {
+      toast({ title: "Ação Necessária", description: "Por favor, carregue e verifique a foto do contrato primeiro.", variant: "destructive" });
+      return;
+    }
+    setIsExtractingData(true);
+    try {
+      const photoDataUri = await fileToDataUri(contractPhoto);
+      const result = await extractContractData({ photoDataUri });
+      setExtractedData(result);
+      toast({ title: "Análise Concluída", description: "Dados extraídos do contrato." });
+    } catch (error) {
+      console.error("AI Extraction Error:", error);
+      setExtractedData(null);
+      toast({ title: "Erro na Análise", description: "Não foi possível extrair os dados do contrato. Verifique a qualidade da imagem ou tente novamente.", variant: "destructive" });
+    } finally {
+      setIsExtractingData(false);
     }
   };
 
@@ -111,8 +139,8 @@ export default function ContratoPage() {
 
     setIsSubmitting(true);
     try {
-      console.log("Submitting data:", { contractPhoto, attachedDocuments });
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
+      console.log("Submitting data:", { contractPhoto, attachedDocuments, extractedData });
+      await new Promise(resolve => setTimeout(resolve, 2000)); 
       toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso."});
       router.push("/confirmation");
     } catch (error) {
@@ -131,12 +159,20 @@ export default function ContratoPage() {
     };
   }, [contractPhotoPreview]);
 
+  const isExtractedDataEmpty = (data: ExtractContractDataOutput | null): boolean => {
+    if (!data) return true;
+    return !Object.values(data).some(value => {
+      if (Array.isArray(value)) return value.length > 0;
+      return value !== undefined && value !== null && value !== '';
+    });
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-start bg-background p-4 sm:p-8">
       <div className="w-full max-w-2xl space-y-8">
         <header className="text-center py-6">
           <h1 className="text-4xl font-headline text-primary">Contrato Fácil</h1>
-          <p className="mt-2 text-lg text-muted-foreground">Capture a foto do contrato e anexe os documentos necessários.</p>
+          <p className="mt-2 text-lg text-muted-foreground">Capture a foto do contrato, analise-o e anexe os documentos necessários.</p>
         </header>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -170,7 +206,7 @@ export default function ContratoPage() {
             </CardContent>
             {contractPhoto && !photoVerified && (
               <CardFooter>
-                <Button type="button" onClick={handleVerifyPhoto} disabled={isVerifyingPhoto} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
+                <Button type="button" onClick={handleVerifyPhoto} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
                   {isVerifyingPhoto && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                   Verificar Foto com IA
                 </Button>
@@ -205,6 +241,74 @@ export default function ContratoPage() {
               </CardContent>
             </Card>
           )}
+
+          {photoVerified && !extractedData && !isExtractingData && (
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato</CardTitle>
+                <CardDescription>Extraia informações chave do contrato para facilitar o preenchimento e verificação.</CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button type="button" onClick={handleExtractContractData} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
+                   Analisar Contrato com IA
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+
+          {isExtractingData && (
+            <Card className="shadow-md">
+              <CardContent className="p-6 flex flex-col items-center justify-center space-y-3">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="text-muted-foreground font-medium">Analisando o contrato e extraindo dados...</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {extractedData && (
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Dados Extraídos do Contrato</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {isExtractedDataEmpty(extractedData) ? (
+                   <p className="text-muted-foreground">Nenhum dado específico pôde ser extraído automaticamente ou o contrato não contém essas informações de forma clara. Verifique a qualidade da imagem.</p>
+                ) : (
+                  <>
+                    {extractedData.nomesDasPartes && extractedData.nomesDasPartes.length > 0 && (
+                      <div><strong>Partes:</strong> {extractedData.nomesDasPartes.join('; ')}</div>
+                    )}
+                    {extractedData.documentosDasPartes && extractedData.documentosDasPartes.length > 0 && (
+                      <div><strong>Documentos das Partes:</strong> {extractedData.documentosDasPartes.join('; ')}</div>
+                    )}
+                    {extractedData.objetoDoContrato && (
+                      <div><strong>Objeto do Contrato:</strong> {extractedData.objetoDoContrato}</div>
+                    )}
+                    {extractedData.valorPrincipal && (
+                      <div><strong>Valor Principal:</strong> {extractedData.valorPrincipal}</div>
+                    )}
+                    {extractedData.prazoContrato && (
+                      <div><strong>Prazo do Contrato:</strong> {extractedData.prazoContrato}</div>
+                    )}
+                    {extractedData.localEDataAssinatura && (
+                      <div><strong>Local e Data de Assinatura:</strong> {extractedData.localEDataAssinatura}</div>
+                    )}
+                    {extractedData.foroEleito && (
+                      <div><strong>Foro Eleito:</strong> {extractedData.foroEleito}</div>
+                    )}
+                    {extractedData.outrasObservacoesRelevantes && (
+                      <div><strong>Outras Observações:</strong> {extractedData.outrasObservacoesRelevantes}</div>
+                    )}
+                  </>
+                )}
+                 <Button type="button" onClick={handleExtractContractData} variant="outline" disabled={isExtractingData || isVerifyingPhoto} className="w-full mt-4 border-primary text-primary hover:bg-primary/5">
+                    {isExtractingData ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ScanText className="mr-2 h-5 w-5" />}
+                    Reanalisar Contrato
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
 
           <Card className="shadow-lg">
             <CardHeader>
@@ -256,7 +360,7 @@ export default function ContratoPage() {
                 <CardDescription>Revise as informações e envie o contrato e os documentos.</CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button type="submit" disabled={isSubmitting || !photoVerified || attachedDocuments.length < MIN_DOCUMENTS} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3">
+              <Button type="submit" disabled={isSubmitting || !photoVerified || attachedDocuments.length < MIN_DOCUMENTS || isVerifyingPhoto || isExtractingData} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3">
                 {isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                 {isSubmitting ? "Enviando..." : "Enviar Contrato e Documentos"}
               </Button>
