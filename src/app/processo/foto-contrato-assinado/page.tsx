@@ -9,8 +9,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, clearProcessState, loadPrintData } from "@/lib/process-store";
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, clearProcessState, loadPrintData, DocumentFile } from "@/lib/process-store";
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud } from "lucide-react";
+
+// Firestore imports - Assuming Firebase is initialized and db is exported from a firebase config file
+// e.g., import { db } from '@/lib/firebase'; // You'll need to set this up
+import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
+import { firebaseApp } from '@/lib/firebase'; // Assuming firebaseApp is exported from your firebase.ts
+
+const db = getFirestore(firebaseApp); // Initialize Firestore
 
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -20,6 +27,22 @@ const fileToDataUri = (file: File): Promise<string> => {
     reader.readAsDataURL(file);
   });
 };
+
+interface DocumentToSave {
+  name?: string;
+  photoDataUri?: string | null; // Store Data URI
+  analysisResult?: any; // Keep analysis flexible
+}
+
+const mapDocumentFileToSave = (docFile: DocumentFile | null): DocumentToSave | null => {
+  if (!docFile) return null;
+  return {
+    name: docFile.name,
+    photoDataUri: docFile.previewUrl, // This is the Data URI
+    analysisResult: docFile.analysisResult,
+  };
+};
+
 
 export default function FotoContratoAssinadoPage() {
   const router = useRouter();
@@ -35,7 +58,6 @@ export default function FotoContratoAssinadoPage() {
     const loadedState = loadProcessState();
     const printData = loadPrintData();
 
-    // Corrected condition: check for buyerInfo instead of responsavel
     if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) {
       toast({
         title: 'Sequência Incorreta',
@@ -95,33 +117,63 @@ export default function FotoContratoAssinadoPage() {
 
     setIsSubmitting(true);
     try {
-      // Simulate API call or data processing
-      console.log("Submitting final data (simulated):", { 
-        ...processState,
-        // If you need the actual file object for submission, you'd handle it here.
-        // For localStorage, we're just storing the name and preview.
-        signedContractActualFile: signedContractPhotoFile ? signedContractPhotoFile.name : undefined 
-      });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+      // Prepare data for Firestore
+      const submissionData = {
+        // Metadata
+        submissionTimestamp: Timestamp.now(),
+        contractSourceType: processState.contractSourceType,
+        selectedPlayer: processState.selectedPlayer,
+        selectedContractTemplateName: processState.selectedContractTemplateName,
+        
+        // Parties
+        buyerType: processState.buyerType,
+        buyerInfo: processState.buyerInfo,
+        companyInfo: processState.companyInfo,
+        internalTeamMemberInfo: processState.internalTeamMemberInfo,
+        
+        // Contract
+        extractedContractData: processState.extractedData,
+        originalContractPhotoDataUri: processState.contractSourceType === 'new' ? processState.contractPhotoPreview : null,
+        originalContractPhotoName: processState.contractSourceType === 'new' ? processState.contractPhotoName : null,
+
+        // Documents (Storing Data URIs directly, be mindful of Firestore limits)
+        rgFrente: mapDocumentFileToSave(processState.rgFrente),
+        rgVerso: mapDocumentFileToSave(processState.rgVerso),
+        cnhFrente: mapDocumentFileToSave(processState.cnhFrente),
+        cnhVerso: mapDocumentFileToSave(processState.cnhVerso),
+        cartaoCnpjFile: mapDocumentFileToSave(processState.cartaoCnpjFile),
+        docSocioFrente: mapDocumentFileToSave(processState.docSocioFrente),
+        docSocioVerso: mapDocumentFileToSave(processState.docSocioVerso),
+        comprovanteEndereco: mapDocumentFileToSave(processState.comprovanteEndereco),
+        
+        // Signed Contract
+        signedContractPhotoDataUri: processState.signedContractPhotoPreview,
+        signedContractPhotoName: processState.signedContractPhotoName,
+      };
+
+      // IMPORTANT: Storing full Data URIs in Firestore can lead to large documents
+      // and may hit the 1MB document size limit.
+      // Consider Cloud Storage for Firebase for actual file storage.
+      console.log("Attempting to save to Firestore:", submissionData);
+      const docRef = await addDoc(collection(db, "submittedContracts"), submissionData);
+      console.log("Document written with ID: ", docRef.id);
       
       // --- SIMULATING EMAIL ---
-      // This is a placeholder. In a real app, you'd use a backend service to send emails.
       console.log("\n--- SIMULANDO ENVIO DE EMAIL FINAL ---");
-      const recipients = ['financeiro@empresa.com', 'juridico@empresa.com']; // Example recipients
+      const recipients = ['financeiro@empresa.com', 'juridico@empresa.com']; 
       if (processState.buyerInfo.email) {
         recipients.push(processState.buyerInfo.email);
       }
       console.log(`Destinatários: ${recipients.join(', ')}`);
       const subject = `CONTRATO FINALIZADO: ${processState.extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Comprador: ${processState.buyerInfo.nome} ${processState.selectedPlayer ? `(Player: ${processState.selectedPlayer})` : ''}`;
       console.log(`Assunto: ${subject}`);
-      let emailBody = `Um processo de contrato foi finalizado e submetido com os seguintes detalhes:\n`;
+      let emailBody = `Um processo de contrato foi finalizado e submetido com os seguintes detalhes (Firestore ID: ${docRef.id}):\n`;
       if (processState.selectedPlayer) emailBody += `Player: ${processState.selectedPlayer}\n`;
       if (processState.selectedContractTemplateName) emailBody += `Modelo do Contrato: ${processState.selectedContractTemplateName}\n`;
       emailBody += `Comprador: ${processState.buyerInfo.nome} (CPF: ${processState.buyerInfo.cpf})\n`;
       emailBody += `Objeto do Contrato: ${processState.extractedData?.objetoDoContrato || 'N/A'}\n`;
       
       const attachedDocs: string[] = [];
-      // List all document slots that might have a name
       if (processState.rgFrente?.name) attachedDocs.push(processState.rgFrente.name);
       if (processState.rgVerso?.name) attachedDocs.push(processState.rgVerso.name);
       if (processState.cnhFrente?.name) attachedDocs.push(processState.cnhFrente.name);
@@ -132,7 +184,7 @@ export default function FotoContratoAssinadoPage() {
       if (processState.comprovanteEndereco?.name) attachedDocs.push(processState.comprovanteEndereco.name);
       
       if(attachedDocs.length > 0) {
-        emailBody += `Documentos Comprobatórios Anexados: ${attachedDocs.join(', ')}\n`;
+        emailBody += `Documentos Comprobatórios Anexados (nomes): ${attachedDocs.join(', ')}\n`;
       }
 
       if(processState.signedContractPhotoName) emailBody += `Foto do Contrato Assinado Anexada: ${processState.signedContractPhotoName}\n`;
@@ -144,15 +196,15 @@ export default function FotoContratoAssinadoPage() {
 
       toast({ 
         title: "Processo Enviado com Sucesso!", 
-        description: "Contrato assinado e documentos enviados (simulado). Você será redirecionado.",
+        description: `Contrato assinado e documentos enviados para Firestore (ID: ${docRef.id}). Você será redirecionado.`,
         className: "bg-primary text-primary-foreground border-primary-foreground/30"
       });
-      clearProcessState(); // Clear state after successful submission
+      clearProcessState(); 
       router.push("/confirmation");
 
     } catch (error) {
-      console.error("Final Submission Error:", error);
-      toast({ title: "Erro no Envio Final", description: "Não foi possível enviar os dados. Tente novamente.", variant: "destructive" });
+      console.error("Final Submission Error (Firestore or other):", error);
+      toast({ title: "Erro no Envio Final", description: `Não foi possível enviar os dados para o Firestore. Verifique o console para detalhes. ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -160,15 +212,14 @@ export default function FotoContratoAssinadoPage() {
 
 
   const handleBack = () => {
-    saveProcessState(processState); // Save current state before going back
+    saveProcessState(processState); 
     router.push("/print-contract"); 
   };
   
-  // Clean up blob URL on component unmount or when preview changes
   useEffect(() => {
     const previewUrl = processState.signedContractPhotoPreview;
     return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) { // Only revoke if it's a blob URL
+      if (previewUrl && previewUrl.startsWith('blob:')) { 
         URL.revokeObjectURL(previewUrl);
       }
     };
@@ -231,7 +282,7 @@ export default function FotoContratoAssinadoPage() {
       <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary"><UploadCloud className="mr-3 h-7 w-7" />Finalizar Processo</CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Após anexar a foto do contrato assinado, envie o processo completo.</CardDescription>
+            <CardDescription className="text-foreground/70 pt-1">Após anexar a foto do contrato assinado, envie o processo completo para o banco de dados.</CardDescription>
         </CardHeader>
         <CardFooter className="p-6">
           <Button 
@@ -258,3 +309,5 @@ export default function FotoContratoAssinadoPage() {
     </>
   );
 }
+
+    
