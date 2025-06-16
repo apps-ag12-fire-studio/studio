@@ -8,10 +8,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from "@/lib/process-store";
-import { ArrowRight, UserRound, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog } from "lucide-react";
+import { ArrowRight, UserRound, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon } from "lucide-react";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
+
+const players = [
+  "Pablo Marçal",
+  "Antônio Fogaça",
+  "Diego Vicente",
+  "Diego Abner",
+  "Patrícia Pimentel",
+  "Matheus Ribeiro",
+  "Rogério Penna"
+];
 
 export default function DadosIniciaisPage() {
   const router = useRouter();
@@ -20,12 +31,17 @@ export default function DadosIniciaisPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    // Ensure buyerInfo and internalTeamMemberInfo are always objects
     if (!loadedState.buyerInfo) {
       loadedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
     }
     if (!loadedState.internalTeamMemberInfo) {
       loadedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
+    }
+    if (loadedState.selectedPlayer === undefined) {
+      loadedState.selectedPlayer = null;
+    }
+    if (loadedState.selectedContractTemplateName === undefined) {
+      loadedState.selectedContractTemplateName = null;
     }
     setProcessState(loadedState);
   }, []);
@@ -58,27 +74,44 @@ export default function DadosIniciaisPage() {
       contractPhotoName: undefined,
       photoVerificationResult: null,
       photoVerified: false,
-      extractedData: value === 'existing' ? prevState.extractedData : null,
+      extractedData: value === 'existing' ? prevState.extractedData : null, // Keep if already selected
+      selectedPlayer: value === 'existing' ? prevState.selectedPlayer : null,
+      selectedContractTemplateName: value === 'existing' ? prevState.selectedContractTemplateName : null,
+    }));
+  };
+
+  const handlePlayerSelect = (playerName: string) => {
+    setProcessState(prevState => ({
+      ...prevState,
+      selectedPlayer: playerName,
+      extractedData: null, // Reset contract data when player changes
+      selectedContractTemplateName: null,
     }));
   };
 
   const handleSelectExistingContract = () => {
+    if (!processState.selectedPlayer) {
+      toast({ title: "Player Não Selecionado", description: "Por favor, selecione um Player primeiro.", variant: "destructive" });
+      return;
+    }
+    const templateName = "Modelo de Compra de Produto Digital";
     const sampleContractData: ExtractContractDataOutput = {
-      nomesDasPartes: ["CLIENTE EXEMPLO, COMO COMPRADOR", "PABLO MARÇAL, COMO VENDEDOR"],
+      nomesDasPartes: ["CLIENTE EXEMPLO, COMO COMPRADOR", `${processState.selectedPlayer}, COMO VENDEDOR`],
       documentosDasPartes: ["000.000.000-00", "[CNPJ DA EMPRESA VENDEDORA]"],
-      objetoDoContrato: "PRODUTO DIGITAL EXEMPLO (ex: Mentoria XPTO)",
+      objetoDoContrato: `PRODUTO DIGITAL (Player: ${processState.selectedPlayer})`,
       valorPrincipal: "R$ 1.000,00 (mil reais)",
       condicoesDePagamento: "Pagamento único via Pix.",
       prazoContrato: "Acesso por 12 meses",
-      localEDataAssinatura: "São Paulo, 15 de Agosto de 2024",
+      localEDataAssinatura: "São Paulo, Data Atual",
       foroEleito: "Comarca de São Paulo/SP",
-      outrasObservacoesRelevantes: "Este é um contrato modelo carregado para demonstração."
+      outrasObservacoesRelevantes: `Contrato modelo para ${processState.selectedPlayer} carregado para demonstração.`
     };
     setProcessState(prevState => ({
       ...prevState,
       extractedData: sampleContractData,
+      selectedContractTemplateName: templateName,
     }));
-    toast({ title: "Modelo Carregado", description: "Contrato de Produto Digital carregado com dados de exemplo.", className: "bg-secondary text-secondary-foreground border-secondary" });
+    toast({ title: "Modelo Carregado", description: `${templateName} para ${processState.selectedPlayer} carregado.`, className: "bg-secondary text-secondary-foreground border-secondary" });
   };
   
   const validateStep = () => {
@@ -87,9 +120,15 @@ export default function DadosIniciaisPage() {
       toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Comprador'.", variant: "destructive" });
       return false;
     }
-    if (processState.contractSourceType === 'existing' && !processState.extractedData) {
-      toast({ title: "Ação Necessária", description: "Selecione um modelo de contrato existente para prosseguir.", variant: "destructive" });
-      return false;
+    if (processState.contractSourceType === 'existing') {
+      if (!processState.selectedPlayer) {
+        toast({ title: "Ação Necessária", description: "Selecione um Player.", variant: "destructive" });
+        return false;
+      }
+      if (!processState.extractedData) {
+        toast({ title: "Ação Necessária", description: "Selecione um modelo de contrato para o Player escolhido.", variant: "destructive" });
+        return false;
+      }
     }
     return true;
   };
@@ -203,9 +242,34 @@ export default function DadosIniciaisPage() {
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
+              <PlayersIcon className="mr-3 h-7 w-7" /> Selecionar Player
+            </CardTitle>
+            <CardDescription className="text-foreground/70 pt-1">Escolha o produtor do conteúdo.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 pt-0">
+            <Select value={processState.selectedPlayer || ""} onValueChange={handlePlayerSelect}>
+              <SelectTrigger className="w-full bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-3 placeholder:text-muted-foreground/70">
+                <SelectValue placeholder="Selecione um Player..." />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                {players.map(player => (
+                  <SelectItem key={player} value={player} className="text-popover-foreground hover:bg-accent/50 focus:bg-accent/70">
+                    {player}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
+
+      {processState.contractSourceType === 'existing' && processState.selectedPlayer && (
+        <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
+          <CardHeader className="p-6">
+            <CardTitle className="flex items-center text-2xl font-headline text-primary">
               <FileTextIcon className="mr-3 h-7 w-7" /> Selecionar Modelo de Contrato
             </CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Escolha um modelo pré-definido.</CardDescription>
+            <CardDescription className="text-foreground/70 pt-1">Escolha um modelo pré-definido para o Player: <strong>{processState.selectedPlayer}</strong></CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 p-6 pt-0">
               <Button 
@@ -216,15 +280,15 @@ export default function DadosIniciaisPage() {
               >
                 <div className="flex items-center">
                   <FileTextIcon className="mr-3 h-5 w-5" /> 
-                  Modelo de Compra de Produto Digital (Pablo Marçal)
+                  Modelo de Compra de Produto Digital
                 </div>
                 <ChevronRight className="h-5 w-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all"/>
               </Button>
               {processState.extractedData && (
-                <p className="text-sm text-green-400 text-center">Modelo de contrato carregado com sucesso.</p>
+                <p className="text-sm text-green-400 text-center">Modelo de contrato para {processState.selectedPlayer} carregado com sucesso.</p>
               )}
               <p className="text-xs text-muted-foreground text-center pt-2">
-                Simulação: Funcionalidade completa de listagem de contratos salvos será implementada futuramente.
+                Simulação: Para cada player, o mesmo modelo de contrato será carregado. Funcionalidade completa de listagem de contratos específicos por player será implementada futuramente.
               </p>
           </CardContent>
         </Card>

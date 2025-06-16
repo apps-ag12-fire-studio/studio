@@ -15,8 +15,10 @@ export interface BuyerInfo {
 export interface StoredProcessState {
   currentStep: string;
   contractSourceType: 'new' | 'existing';
+  selectedPlayer: string | null; // Added for player selection
+  selectedContractTemplateName: string | null; // Added for template name
   buyerInfo: BuyerInfo;
-  internalTeamMemberInfo: BuyerInfo; // Added for internal team member
+  internalTeamMemberInfo: BuyerInfo;
   contractPhotoPreview: string | null;
   contractPhotoName?: string;
   photoVerificationResult: VerifyContractPhotoOutput | null;
@@ -28,8 +30,10 @@ export interface StoredProcessState {
 export const initialStoredProcessState: StoredProcessState = {
   currentStep: '/processo/dados-iniciais',
   contractSourceType: 'new',
+  selectedPlayer: null,
+  selectedContractTemplateName: null,
   buyerInfo: { nome: '', cpf: '', telefone: '', email: '' },
-  internalTeamMemberInfo: { nome: '', cpf: '', telefone: '', email: '' }, // Initialized
+  internalTeamMemberInfo: { nome: '', cpf: '', telefone: '', email: '' },
   contractPhotoPreview: null,
   contractPhotoName: undefined,
   photoVerificationResult: null,
@@ -38,8 +42,8 @@ export const initialStoredProcessState: StoredProcessState = {
   attachedDocumentNames: [],
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v2';
-const PRINT_DATA_KEY = 'contractPrintData';
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v3'; // Incremented version
+const PRINT_DATA_KEY = 'contractPrintData_v2'; // Incremented version
 
 
 export function saveProcessState(state: StoredProcessState) {
@@ -54,13 +58,19 @@ export function loadProcessState(): StoredProcessState {
   try {
     const storedState = localStorage.getItem(PROCESS_STATE_KEY);
     if (storedState) {
-      const parsedState = JSON.parse(storedState);
+      const parsedState = JSON.parse(storedState) as StoredProcessState;
       // Ensure new fields have default values if loading older state
       if (!parsedState.internalTeamMemberInfo) {
         parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
       }
       if (!parsedState.buyerInfo) {
         parsedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
+      }
+      if (parsedState.selectedPlayer === undefined) { // Check for undefined to ensure backward compatibility
+        parsedState.selectedPlayer = null;
+      }
+      if (parsedState.selectedContractTemplateName === undefined) {
+        parsedState.selectedContractTemplateName = null;
       }
       return parsedState;
     }
@@ -82,7 +92,8 @@ export function clearProcessState() {
 // Helper for print page data
 export interface PrintData {
   extractedData: ExtractContractDataOutput | null;
-  responsavel: BuyerInfo | null; // This 'responsavel' is the actual buyer for the contract
+  responsavel: BuyerInfo | null;
+  selectedPlayer: string | null; // Added for print page
 }
 
 export function savePrintData(data: PrintData) {
@@ -97,7 +108,11 @@ export function loadPrintData(): PrintData | null {
   try {
     const dataString = localStorage.getItem(PRINT_DATA_KEY);
     if (dataString) {
-      return JSON.parse(dataString) as PrintData;
+      const parsedData = JSON.parse(dataString) as PrintData;
+      if (parsedData.selectedPlayer === undefined) {
+        parsedData.selectedPlayer = null;
+      }
+      return parsedData;
     }
   } catch (error) {
     console.error("Error loading print data from localStorage:", error);

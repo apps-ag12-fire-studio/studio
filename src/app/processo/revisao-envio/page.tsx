@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, clearProcessState, initialStoredProcessState, savePrintData } from "@/lib/process-store";
-import { ArrowLeft, Printer, UploadCloud, Sparkles, Loader2, FileText, UserRound, Camera, ListChecks, Paperclip, UserCog } from "lucide-react";
+import { ArrowLeft, Printer, UploadCloud, Sparkles, Loader2, FileText, UserRound, Camera, ListChecks, Paperclip, UserCog, Users as PlayersIcon } from "lucide-react";
 
 const MIN_DOCUMENTS = 2; 
 
@@ -19,12 +19,10 @@ export default function RevisaoEnvioPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    if (!loadedState.buyerInfo.nome || 
-        (loadedState.contractSourceType === 'new' && !loadedState.extractedData) ||
-        (loadedState.contractSourceType === 'existing' && !loadedState.extractedData) ||
-        loadedState.attachedDocumentNames.length < MIN_DOCUMENTS
-    ) {
-      // Consider redirecting if essential data is missing, for now, allow to load.
+    // Basic validation on load - can be expanded
+    if (!loadedState.buyerInfo.nome) {
+        // Optionally redirect if core data is missing, e.g., router.replace('/processo/dados-iniciais');
+        // For now, allow loading and let user see what's missing.
     }
     setProcessState(loadedState);
   }, [router, toast]);
@@ -47,8 +45,11 @@ export default function RevisaoEnvioPage() {
        toast({ title: "Ação Necessária", description: "Complete todas as etapas obrigatórias para preparar a impressão.", variant: "destructive" });
        return;
     }
-    // Pass buyerInfo as 'responsavel' for the contract print
-    savePrintData({ extractedData: processState.extractedData, responsavel: processState.buyerInfo });
+    savePrintData({ 
+      extractedData: processState.extractedData, 
+      responsavel: processState.buyerInfo,
+      selectedPlayer: processState.selectedPlayer // Pass selectedPlayer
+    });
     saveProcessState({ ...processState, currentStep: "/print-contract" });
     router.push('/print-contract');
   };
@@ -61,27 +62,33 @@ export default function RevisaoEnvioPage() {
 
     setIsSubmitting(true);
     try {
-      // Simulate submission
       console.log("Submitting data (simulated):", { 
-        contractSourceType: processState.contractSourceType, 
+        contractSourceType: processState.contractSourceType,
+        selectedPlayer: processState.selectedPlayer,
+        selectedContractTemplateName: processState.selectedContractTemplateName,
         contractPhotoName: processState.contractPhotoName, 
         attachedDocumentNames: processState.attachedDocumentNames, 
         extractedData: processState.extractedData,
         comprador: processState.buyerInfo,
-        responsavelInterno: processState.internalTeamMemberInfo, // Include internal team member
+        responsavelInterno: processState.internalTeamMemberInfo,
       });
       await new Promise(resolve => setTimeout(resolve, 1500)); 
       
-      // Simulate email notification
       console.log("\n--- SIMULANDO ENVIO DE EMAIL ---");
       const recipients = ['financeiro@empresa.com', 'juridico@empresa.com'];
       if (processState.buyerInfo.email) {
         recipients.push(processState.buyerInfo.email);
       }
       console.log(`Destinatários: ${recipients.join(', ')}`);
-      const subject = `Novo Contrato Submetido: ${processState.extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Comprador: ${processState.buyerInfo.nome}`;
+      const subject = `Novo Contrato Submetido: ${processState.extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Comprador: ${processState.buyerInfo.nome} ${processState.selectedPlayer ? `(Player: ${processState.selectedPlayer})` : ''}`;
       console.log(`Assunto: ${subject}`);
       let emailBody = `Um novo contrato foi submetido com os seguintes detalhes:\n`;
+      if (processState.selectedPlayer) {
+        emailBody += `Player: ${processState.selectedPlayer}\n`;
+      }
+      if (processState.selectedContractTemplateName) {
+        emailBody += `Modelo do Contrato: ${processState.selectedContractTemplateName}\n`;
+      }
       emailBody += `Comprador: ${processState.buyerInfo.nome} (CPF: ${processState.buyerInfo.cpf})\n`;
       emailBody += `Objeto do Contrato: ${processState.extractedData?.objetoDoContrato || 'N/A'}\n`;
       emailBody += `Valor Principal: ${processState.extractedData?.valorPrincipal || 'N/A'}\n`;
@@ -118,6 +125,7 @@ export default function RevisaoEnvioPage() {
       if (!processState.photoVerified) return true; 
       if (!processState.extractedData || isExtractedDataEmpty(processState.extractedData)) return true; 
     } else if (processState.contractSourceType === 'existing') {
+      if (!processState.selectedPlayer) return true;
       if (!processState.extractedData || isExtractedDataEmpty(processState.extractedData)) return true; 
     } else {
       return true; 
@@ -153,6 +161,17 @@ export default function RevisaoEnvioPage() {
             <p className="text-foreground/80">{processState.contractSourceType === 'new' ? 'Novo Contrato (Foto)' : 'Contrato Existente (Modelo)'}</p>
           </div>
           <hr className="border-border/30"/>
+
+          {processState.contractSourceType === 'existing' && processState.selectedPlayer && (
+            <>
+              <div className="space-y-2">
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><PlayersIcon className="mr-2 h-5 w-5" />Player Selecionado</h3>
+                <p className="text-foreground/80">{processState.selectedPlayer}</p>
+                {processState.selectedContractTemplateName && <p className="text-sm text-muted-foreground">Modelo: {processState.selectedContractTemplateName}</p>}
+              </div>
+              <hr className="border-border/30"/>
+            </>
+          )}
           
           <div className="space-y-2">
             <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />Informações do Comprador</h3>
@@ -191,7 +210,7 @@ export default function RevisaoEnvioPage() {
            
           {processState.extractedData && !isExtractedDataEmpty(processState.extractedData) && (
             <div className="space-y-2">
-              <h3 className="flex items-center text-lg font-semibold text-primary/90"><FileText className="mr-2 h-5 w-5" />Dados do Contrato {processState.contractSourceType === 'existing' ? '(Modelo Selecionado)' : '(Extraídos da Foto)'}</h3>
+              <h3 className="flex items-center text-lg font-semibold text-primary/90"><FileText className="mr-2 h-5 w-5" />Dados do Contrato {processState.contractSourceType === 'existing' ? `(Modelo de ${processState.selectedPlayer})` : '(Extraídos da Foto)'}</h3>
               <ul className="list-disc list-inside text-foreground/80 space-y-1 pl-2">
                 {processState.extractedData.objetoDoContrato && <li><strong>Objeto:</strong> {processState.extractedData.objetoDoContrato}</li>}
                 {processState.extractedData.valorPrincipal && <li><strong>Valor:</strong> {processState.extractedData.valorPrincipal}</li>}

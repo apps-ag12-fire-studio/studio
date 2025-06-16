@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
-import { loadPrintData, type PrintData } from '@/lib/process-store'; // Updated import
+import { loadPrintData, type PrintData } from '@/lib/process-store';
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function PrintContractPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const data = loadPrintData(); // Use new helper from process-store
+    const data = loadPrintData();
     if (data) {
       setPrintData(data);
     } else {
@@ -25,7 +25,7 @@ export default function PrintContractPage() {
         description: 'Dados do contrato não encontrados para impressão. Redirecionando...',
         variant: 'destructive',
       });
-      router.replace('/processo/dados-iniciais'); // Redirect to start of process
+      router.replace('/processo/dados-iniciais');
     }
     setIsLoading(false);
   }, [router, toast]);
@@ -61,10 +61,19 @@ export default function PrintContractPage() {
     );
   }
   
-  const { extractedData, responsavel } = printData;
+  const { extractedData, responsavel, selectedPlayer } = printData;
 
-  const vendedorNome = extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR") || nome.toUpperCase().includes("PABLO MARÇAL")) || "PABLO MARÇAL (ou empresa representante oficial)";
-  const vendedorDocumento = extractedData?.documentosDasPartes?.find((doc, index) => extractedData.nomesDasPartes?.[index]?.toUpperCase().includes("VENDEDOR")) || "[CNPJ DA EMPRESA VENDEDORA]";
+  // The VENDEDOR name should ideally come directly from extractedData.nomesDasPartes 
+  // if it was set correctly based on selectedPlayer in the "dados-iniciais" step.
+  // We use selectedPlayer as a fallback or primary source here if needed.
+  const vendedorNome = selectedPlayer || 
+                       extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR")) || 
+                       "PABLO MARÇAL (ou empresa representante oficial)";
+  
+  const vendedorDocumento = extractedData?.documentosDasPartes?.find((doc, index) => {
+    const nomeParte = extractedData.nomesDasPartes?.[index]?.toUpperCase();
+    return nomeParte?.includes("VENDEDOR") || (selectedPlayer && nomeParte?.includes(selectedPlayer.toUpperCase()));
+  }) || "[CNPJ DA EMPRESA VENDEDORA]";
 
 
   return (
@@ -80,7 +89,7 @@ export default function PrintContractPage() {
               Contrato de Compra de Produto Digital
             </CardTitle>
             <CardDescription className="text-center text-muted-foreground mt-2 text-sm">
-              Instrumento Particular de Compra e Acesso
+              Instrumento Particular de Compra e Acesso {selectedPlayer ? ` - Player: ${selectedPlayer}` : ''}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 sm:p-8 space-y-6 text-sm contract-text-content text-foreground/90 leading-relaxed">
@@ -109,7 +118,7 @@ export default function PrintContractPage() {
             <hr className="my-4 border-border/30"/>
 
             <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">1. OBJETO DO CONTRATO</h3>
-            <p className="pl-4">1.1. O presente contrato tem por objeto a aquisição do produto digital denominado: <strong>{extractedData?.objetoDoContrato || '[NOME DO PRODUTO DIGITAL]'}</strong>, de autoria de Pablo Marçal (ou empresa representante), disponibilizado via acesso online, conforme especificações detalhadas na oferta do produto.</p>
+            <p className="pl-4">1.1. O presente contrato tem por objeto a aquisição do produto digital denominado: <strong>{extractedData?.objetoDoContrato || '[NOME DO PRODUTO DIGITAL]'}</strong>, de autoria de {selectedPlayer || 'Pablo Marçal'} (ou empresa representante), disponibilizado via acesso online, conforme especificações detalhadas na oferta do produto.</p>
 
             <hr className="my-4 border-border/30"/>
 
@@ -154,7 +163,7 @@ export default function PrintContractPage() {
               </div>
               <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
                  <p className="text-sm min-h-[1.25rem]">[ESPAÇO PARA ASSINATURA DO REPRESENTANTE LEGAL]</p>
-                 <p className="text-xs text-muted-foreground">(VENDEDOR - Representante Legal)</p>
+                 <p className="text-xs text-muted-foreground">(VENDEDOR - Representante Legal {selectedPlayer ? `- ${selectedPlayer}`: ''})</p>
               </div>
             </div>
             
