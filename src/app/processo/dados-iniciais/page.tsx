@@ -18,7 +18,7 @@ const players = [
   "Pablo Marçal",
   "Antônio Fogaça",
   "Diego Vicente",
-  "Diego Abner",
+  "Diego Abner (Já é kkk)",
   "Patrícia Pimentel",
   "Matheus Ribeiro",
   "Rogério Penna"
@@ -341,5 +341,7 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
+
+    
 
     
