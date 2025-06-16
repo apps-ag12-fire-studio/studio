@@ -9,18 +9,30 @@ import { useToast } from '@/hooks/use-toast';
 import type { ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
 import { ArrowLeft, Printer } from 'lucide-react';
 
+interface ResponsavelData {
+  nome: string;
+  cpf: string;
+  telefone: string;
+  email: string;
+}
+
+interface PrintData {
+  extractedData: ExtractContractDataOutput | null;
+  responsavel: ResponsavelData | null;
+}
+
 export default function PrintContractPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [contractData, setContractData] = useState<ExtractContractDataOutput | null>(null);
+  const [printData, setPrintData] = useState<PrintData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     try {
-      const dataString = localStorage.getItem('extractedContractData');
+      const dataString = localStorage.getItem('contractPrintData');
       if (dataString) {
-        const parsedData: ExtractContractDataOutput = JSON.parse(dataString);
-        setContractData(parsedData);
+        const parsedData: PrintData = JSON.parse(dataString);
+        setPrintData(parsedData);
       } else {
         toast({
           title: 'Erro ao carregar dados',
@@ -54,7 +66,7 @@ export default function PrintContractPage() {
     );
   }
 
-  if (!contractData) {
+  if (!printData || !printData.responsavel) { // Check for responsavel data specifically
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md shadow-xl">
@@ -62,7 +74,7 @@ export default function PrintContractPage() {
             <CardTitle className="text-2xl text-destructive">Erro</CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados do contrato para impressão.</p>
+            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato para impressão (dados do responsável ausentes).</p>
             <Button onClick={() => router.push('/')} variant="outline">
               <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Início
             </Button>
@@ -72,9 +84,7 @@ export default function PrintContractPage() {
     );
   }
   
-  const compradorNome = contractData.nomesDasPartes && contractData.nomesDasPartes.length > 0 ? contractData.nomesDasPartes[0].split(', COMO')[0] : '[NOME DO COMPRADOR]';
-  const compradorDocumento = contractData.documentosDasPartes && contractData.documentosDasPartes.length > 0 ? contractData.documentosDasPartes[0] : '[CPF ou CNPJ DO COMPRADOR]';
-
+  const { extractedData, responsavel } = printData;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background p-4 sm:p-8">
@@ -91,10 +101,10 @@ export default function PrintContractPage() {
 
             <div className="space-y-1 pl-4">
               <p><strong>COMPRADOR:</strong></p>
-              <p>Nome: {compradorNome}</p>
-              <p>CPF/CNPJ: {compradorDocumento}</p>
-              <p>E-mail: [E-MAIL DO COMPRADOR]</p>
-              <p>Telefone: [WHATSAPP DO COMPRADOR]</p>
+              <p>Nome: {responsavel.nome || '[NOME DO COMPRADOR]'}</p>
+              <p>CPF/CNPJ: {responsavel.cpf || '[CPF ou CNPJ DO COMPRADOR]'}</p>
+              <p>E-mail: {responsavel.email || '[E-MAIL DO COMPRADOR]'}</p>
+              <p>Telefone: {responsavel.telefone || '[WHATSAPP DO COMPRADOR]'}</p>
             </div>
 
             <p>E de outro lado:</p>
@@ -102,7 +112,7 @@ export default function PrintContractPage() {
             <div className="space-y-1 pl-4">
               <p><strong>VENDEDOR:</strong></p>
               <p>Nome: PABLO MARÇAL (ou empresa representante oficial)</p>
-              <p>CNPJ: [CNPJ DA EMPRESA VENDEDORA]</p>
+              <p>CNPJ: {extractedData?.documentosDasPartes && extractedData.documentosDasPartes.length > 1 ? extractedData.documentosDasPartes[1] : '[CNPJ DA EMPRESA VENDEDORA]'}</p>
               <p>Endereço: [ENDEREÇO COMPLETO DA EMPRESA VENDEDORA]</p>
               <p>E-mail: [E-MAIL DA EMPRESA VENDEDORA]</p>
             </div>
@@ -112,12 +122,12 @@ export default function PrintContractPage() {
             <hr className="my-3"/>
 
             <h3 className="font-semibold text-base text-primary">1. OBJETO</h3>
-            <p className="pl-4">1.1. O presente contrato tem por objeto a <strong>compra do produto digital</strong> denominado: <strong>{contractData.objetoDoContrato || '[NOME DO PRODUTO – ex: Mentoria Código do Reino, Evento Empresas Exponenciais, etc.]'}</strong>, de autoria de Pablo Marçal, disponibilizado via acesso online.</p>
+            <p className="pl-4">1.1. O presente contrato tem por objeto a <strong>compra do produto digital</strong> denominado: <strong>{extractedData?.objetoDoContrato || '[NOME DO PRODUTO – ex: Mentoria Código do Reino, Evento Empresas Exponenciais, etc.]'}</strong>, de autoria de Pablo Marçal, disponibilizado via acesso online.</p>
 
             <hr className="my-3"/>
 
             <h3 className="font-semibold text-base text-primary">2. VALOR E FORMA DE PAGAMENTO</h3>
-            <p className="pl-4">2.1. O valor acordado para a aquisição do produto é de <strong>{contractData.valorPrincipal || 'R$ [VALOR]'}</strong>.</p>
+            <p className="pl-4">2.1. O valor acordado para a aquisição do produto é de <strong>{extractedData?.valorPrincipal || 'R$ [VALOR]'}</strong>.</p>
             <p className="pl-4">2.2. O pagamento poderá ser efetuado via [Pix / Cartão de Crédito / Boleto], conforme escolha do comprador no ato da compra.</p>
             <p className="pl-4">2.3. A liberação do acesso ao produto ocorrerá após a <strong>confirmação do pagamento</strong>.</p>
             
@@ -142,26 +152,27 @@ export default function PrintContractPage() {
             <hr className="my-3"/>
 
             <h3 className="font-semibold text-base text-primary">6. DISPOSIÇÕES FINAIS</h3>
-            <p className="pl-4">6.1. As partes elegem o foro da comarca de {contractData.foroEleito || '[CIDADE/UF DO FORO]'} para dirimir eventuais conflitos decorrentes deste contrato.</p>
-            <p className="pl-4">6.2. Este contrato entra em vigor na data da efetivação da compra, tendo validade até a entrega integral do conteúdo ou conforme os termos de acesso estabelecidos. {contractData.prazoContrato ? `(Prazo extraído: ${contractData.prazoContrato})` : ''}</p>
+            <p className="pl-4">6.1. As partes elegem o foro da comarca de {extractedData?.foroEleito || '[CIDADE/UF DO FORO]'} para dirimir eventuais conflitos decorrentes deste contrato.</p>
+            <p className="pl-4">6.2. Este contrato entra em vigor na data da efetivação da compra, tendo validade até a entrega integral do conteúdo ou conforme os termos de acesso estabelecidos. {extractedData?.prazoContrato ? `(Prazo extraído: ${extractedData.prazoContrato})` : ''}</p>
             
             <hr className="my-3"/>
 
-            <p className="text-center mt-6">{contractData.localEDataAssinatura || '[Local], [Data]'}</p>
+            <p className="text-center mt-6">{extractedData?.localEDataAssinatura || '[Local], [Data]'}</p>
             
             <div className="mt-10 space-y-8">
               <div className="w-3/4 mx-auto border-b border-foreground pb-1 text-center">
-                <p className="text-xs">(Assinatura do Comprador)</p>
+                 <p className="text-xs">{responsavel.nome || '[ASSINATURA DO COMPRADOR]'}</p>
+                 <p className="text-xs">(Assinatura do Comprador)</p>
               </div>
               <div className="w-3/4 mx-auto border-b border-foreground pb-1 text-center">
                  <p className="text-xs">(Assinatura do Representante Legal - Equipe Pablo Marçal)</p>
               </div>
             </div>
 
-            {contractData.outrasObservacoesRelevantes && (
+            {extractedData?.outrasObservacoesRelevantes && (
                 <div className="mt-6 pt-4 border-t">
                     <h3 className="font-semibold text-base text-primary">Outras Observações Extraídas:</h3>
-                    <p className="text-muted-foreground text-xs">{contractData.outrasObservacoesRelevantes}</p>
+                    <p className="text-muted-foreground text-xs">{extractedData.outrasObservacoesRelevantes}</p>
                 </div>
             )}
           </CardContent>
@@ -179,3 +190,5 @@ export default function PrintContractPage() {
     </div>
   );
 }
+
+    

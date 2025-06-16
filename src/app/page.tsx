@@ -4,7 +4,7 @@
 import { useState, ChangeEvent, FormEvent, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText, Printer as PrinterIcon, FileSearch, ListChecks, Users, Banknote, Scale, LifeBuoy } from "lucide-react";
+import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText, Printer as PrinterIcon, FileSearch, ListChecks, Users, Banknote, Scale, LifeBuoy, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +42,11 @@ export default function ContratoPage() {
 
   const [isExtractingData, setIsExtractingData] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractContractDataOutput | null>(null);
+
+  const [responsavelNome, setResponsavelNome] = useState("");
+  const [responsavelCpf, setResponsavelCpf] = useState("");
+  const [responsavelTelefone, setResponsavelTelefone] = useState("");
+  const [responsavelEmail, setResponsavelEmail] = useState("");
 
   const [attachedDocuments, setAttachedDocuments] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,6 +156,12 @@ export default function ContratoPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) {
+      toast({ title: "Envio Falhou", description: "Por favor, preencha todos os campos do Responsável pela Assinatura.", variant: "destructive" });
+      return;
+    }
+
     if (contractSourceType === 'new' && (!contractPhoto || !photoVerified)) {
       toast({ title: "Envio Falhou", description: "Por favor, capture e verifique a foto do contrato.", variant: "destructive" });
       return;
@@ -166,7 +177,18 @@ export default function ContratoPage() {
 
     setIsSubmitting(true);
     try {
-      console.log("Submitting data:", { contractSourceType, contractPhoto, attachedDocuments, extractedData });
+      console.log("Submitting data:", { 
+        contractSourceType, 
+        contractPhoto, 
+        attachedDocuments, 
+        extractedData,
+        responsavel: {
+          nome: responsavelNome,
+          cpf: responsavelCpf,
+          telefone: responsavelTelefone,
+          email: responsavelEmail,
+        }
+      });
       await new Promise(resolve => setTimeout(resolve, 2000)); 
       toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso."});
       router.push("/confirmation");
@@ -179,16 +201,30 @@ export default function ContratoPage() {
   };
 
   const handlePrepareForPrint = () => {
-    if (extractedData) {
-      try {
-        localStorage.setItem('extractedContractData', JSON.stringify(extractedData));
-        router.push('/print-contract');
-      } catch (error) {
-        console.error("Error saving to localStorage:", error);
-        toast({ title: "Erro", description: "Não foi possível preparar os dados para impressão.", variant: "destructive" });
-      }
-    } else {
-      toast({ title: "Erro", description: "Nenhum dado extraído para preparar para impressão.", variant: "destructive" });
+    if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) {
+      toast({ title: "Ação Necessária", description: "Preencha os dados do Responsável pela Assinatura para preparar a impressão.", variant: "destructive" });
+      return;
+    }
+    if ( (contractSourceType === 'new' && !extractedData) && (contractSourceType === 'existing' && !extractedData) ) {
+       toast({ title: "Erro", description: "Nenhum dado de contrato (extraído ou selecionado) para preparar para impressão.", variant: "destructive" });
+       return;
+    }
+
+    try {
+      const printData = {
+        extractedData: extractedData,
+        responsavel: {
+          nome: responsavelNome,
+          cpf: responsavelCpf,
+          telefone: responsavelTelefone,
+          email: responsavelEmail,
+        }
+      };
+      localStorage.setItem('contractPrintData', JSON.stringify(printData));
+      router.push('/print-contract');
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+      toast({ title: "Erro", description: "Não foi possível preparar os dados para impressão.", variant: "destructive" });
     }
   };
 
@@ -211,6 +247,7 @@ export default function ContratoPage() {
 
   const isSubmitDisabled = () => {
     if (isSubmitting) return true;
+    if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) return true;
     if (attachedDocuments.length < MIN_DOCUMENTS) return true;
 
     if (contractSourceType === 'new') {
@@ -248,7 +285,6 @@ export default function ContratoPage() {
                   setPhotoVerificationResult(null);
                   setPhotoVerified(false);
                   setExtractedData(null);
-                  // setAttachedDocuments([]); 
                   if (contractPhotoInputRef.current) {
                     contractPhotoInputRef.current.value = ""; 
                   }
@@ -266,6 +302,34 @@ export default function ContratoPage() {
               </RadioGroup>
             </CardContent>
           </Card>
+          
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-xl font-headline">
+                <UserRound className="mr-3 h-7 w-7 text-primary" /> Informações do Responsável pela Assinatura (Comprador)
+              </CardTitle>
+              <CardDescription>Preencha os dados da pessoa que assinará o contrato como comprador.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="responsavel-nome">Nome Completo</Label>
+                <Input id="responsavel-nome" value={responsavelNome} onChange={(e) => setResponsavelNome(e.target.value)} placeholder="Nome completo do comprador" />
+              </div>
+              <div>
+                <Label htmlFor="responsavel-cpf">CPF</Label>
+                <Input id="responsavel-cpf" value={responsavelCpf} onChange={(e) => setResponsavelCpf(e.target.value)} placeholder="000.000.000-00" />
+              </div>
+              <div>
+                <Label htmlFor="responsavel-telefone">Telefone (WhatsApp)</Label>
+                <Input id="responsavel-telefone" type="tel" value={responsavelTelefone} onChange={(e) => setResponsavelTelefone(e.target.value)} placeholder="(00) 00000-0000" />
+              </div>
+              <div>
+                <Label htmlFor="responsavel-email">E-mail</Label>
+                <Input id="responsavel-email" type="email" value={responsavelEmail} onChange={(e) => setResponsavelEmail(e.target.value)} placeholder="seuemail@exemplo.com" />
+              </div>
+            </CardContent>
+          </Card>
+
 
           {contractSourceType === 'new' && (
             <>
@@ -339,8 +403,8 @@ export default function ContratoPage() {
               {photoVerified && !extractedData && !isExtractingData && (
                 <Card className="shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato</CardTitle>
-                    <CardDescription>Extraia informações chave do contrato para facilitar o preenchimento e verificação.</CardDescription>
+                    <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato (Opcional)</CardTitle>
+                    <CardDescription>Se desejar, extraia informações chave do contrato para facilitar o preenchimento e verificação.</CardDescription>
                   </CardHeader>
                   <CardFooter>
                     <Button type="button" onClick={handleExtractContractData} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
@@ -367,7 +431,7 @@ export default function ContratoPage() {
                 <CardTitle className="flex items-center text-xl font-headline">
                   <ListChecks className="mr-3 h-7 w-7 text-primary" /> Selecionar Contrato Existente
                 </CardTitle>
-                <CardDescription>Escolha um modelo de contrato da lista abaixo para carregar dados de exemplo.</CardDescription>
+                <CardDescription>Escolha um modelo de contrato da lista abaixo para carregar dados de exemplo para o contrato.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                  <Button 
@@ -380,7 +444,7 @@ export default function ContratoPage() {
                     Selecionar 'Modelo de Compra de Produto Digital (Pablo Marçal)'
                   </Button>
                   <p className="text-xs text-muted-foreground text-center pt-2">
-                    Esta é uma simulação. A funcionalidade completa de listagem e seleção de contratos salvos será implementada futuramente.
+                    Esta é uma simulação. A funcionalidade completa de listagem e seleção de contratos salvos será implementada futuramente. Os dados do responsável (acima) ainda são necessários.
                   </p>
               </CardContent>
             </Card>
@@ -389,7 +453,8 @@ export default function ContratoPage() {
           {extractedData && (
             <Card className="shadow-md">
               <CardHeader>
-                <CardTitle className="flex items-center font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Dados Extraídos/Carregados do Contrato</CardTitle>
+                <CardTitle className="flex items-center font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Dados Extraídos/Carregados do Contrato (Referência)</CardTitle>
+                <CardDescription>Estes são dados extraídos pela IA (se novo contrato) ou carregados de um modelo (se existente). O contrato para impressão usará os dados do "Responsável pela Assinatura" para o Comprador.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {isExtractedDataEmpty(extractedData) ? (
@@ -397,10 +462,10 @@ export default function ContratoPage() {
                 ) : (
                   <>
                     {extractedData.nomesDasPartes && extractedData.nomesDasPartes.length > 0 && (
-                      <div><strong>Partes:</strong> {extractedData.nomesDasPartes.join('; ')}</div>
+                      <div><strong>Partes (conforme extraído/modelo):</strong> {extractedData.nomesDasPartes.join('; ')}</div>
                     )}
                     {extractedData.documentosDasPartes && extractedData.documentosDasPartes.length > 0 && (
-                      <div><strong>Documentos das Partes:</strong> {extractedData.documentosDasPartes.join('; ')}</div>
+                      <div><strong>Documentos das Partes (conforme extraído/modelo):</strong> {extractedData.documentosDasPartes.join('; ')}</div>
                     )}
                     {extractedData.objetoDoContrato && (
                       <div><strong>Objeto do Contrato:</strong> {extractedData.objetoDoContrato}</div>
@@ -422,24 +487,17 @@ export default function ContratoPage() {
                     )}
                   </>
                 )}
-                {contractSourceType === 'new' && (
+                {contractSourceType === 'new' && photoVerified && (
                   <Button type="button" onClick={handleExtractContractData} variant="outline" disabled={isExtractingData || isVerifyingPhoto} className="w-full mt-4 border-primary text-primary hover:bg-primary/5">
                       {isExtractingData ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ScanText className="mr-2 h-5 w-5" />}
                       Reanalisar Contrato
                   </Button>
                 )}
               </CardContent>
-              {!isExtractedDataEmpty(extractedData) && (
-                <CardFooter className="flex-col space-y-2">
-                    <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-green-600 hover:bg-green-700 text-white text-base py-3">
-                        <PrinterIcon className="mr-2 h-5 w-5" /> Preparar Contrato para Impressão
-                    </Button>
-                </CardFooter>
-              )}
+             
             </Card>
           )}
-
-
+          
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center text-xl font-headline"><Paperclip className="mr-3 h-7 w-7 text-primary" />Etapa 2: Documentos Comprobatórios</CardTitle>
@@ -483,10 +541,22 @@ export default function ContratoPage() {
               )}
             </CardContent>
           </Card>
+          
+          <Card className="shadow-lg">
+             <CardHeader>
+                <CardTitle className="flex items-center text-xl font-headline"><PrinterIcon className="mr-3 h-7 w-7 text-primary" />Etapa 3: Preparar para Impressão</CardTitle>
+                <CardDescription>Após preencher os dados do responsável e do contrato, prepare para impressão.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-green-600 hover:bg-green-700 text-white text-base py-3"  disabled={isSubmitDisabled() || (!extractedData && contractSourceType === 'new') || (!extractedData && contractSourceType === 'existing' && !photoVerified) }>
+                    <PrinterIcon className="mr-2 h-5 w-5" /> Preparar Contrato para Impressão
+                </Button>
+            </CardContent>
+          </Card>
 
           <Card className="shadow-lg">
             <CardHeader>
-                <CardTitle className="flex items-center text-xl font-headline"><UploadCloud className="mr-3 h-7 w-7 text-primary" />Etapa 3: Enviar Tudo</CardTitle>
+                <CardTitle className="flex items-center text-xl font-headline"><UploadCloud className="mr-3 h-7 w-7 text-primary" />Etapa 4: Enviar Tudo</CardTitle>
                 <CardDescription>Revise as informações e envie o contrato e os documentos.</CardDescription>
             </CardHeader>
             <CardFooter>
@@ -526,3 +596,5 @@ export default function ContratoPage() {
     </main>
   );
 }
+
+    
