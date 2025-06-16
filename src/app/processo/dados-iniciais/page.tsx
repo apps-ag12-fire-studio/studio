@@ -119,9 +119,13 @@ export default function DadosIniciaisPage() {
   };
   
   const validateStep = () => {
-    const { buyerInfo } = processState;
+    const { buyerInfo, internalTeamMemberInfo } = processState;
     if (!buyerInfo.nome || !buyerInfo.cpf || !buyerInfo.telefone || !buyerInfo.email) {
       toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Comprador'.", variant: "destructive" });
+      return false;
+    }
+    if (!internalTeamMemberInfo.nome || !internalTeamMemberInfo.cpf || !internalTeamMemberInfo.telefone || !internalTeamMemberInfo.email) {
+      toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Responsável Interno'.", variant: "destructive" });
       return false;
     }
     if (processState.contractSourceType === 'existing') {
@@ -216,7 +220,7 @@ export default function DadosIniciaisPage() {
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-2xl font-headline text-primary">
-            <UserCog className="mr-3 h-7 w-7" /> Informações do Responsável Interno (Opcional)
+            <UserCog className="mr-3 h-7 w-7" /> Informações do Responsável Interno
           </CardTitle>
           <CardDescription className="text-foreground/70 pt-1">Dados do membro da equipe que está conduzindo este processo.</CardDescription>
         </CardHeader>
@@ -309,3 +313,6 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
+
+
+    
