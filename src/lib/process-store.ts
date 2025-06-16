@@ -16,6 +16,7 @@ export interface StoredProcessState {
   currentStep: string;
   contractSourceType: 'new' | 'existing';
   buyerInfo: BuyerInfo;
+  internalTeamMemberInfo: BuyerInfo; // Added for internal team member
   contractPhotoPreview: string | null;
   contractPhotoName?: string;
   photoVerificationResult: VerifyContractPhotoOutput | null;
@@ -28,6 +29,7 @@ export const initialStoredProcessState: StoredProcessState = {
   currentStep: '/processo/dados-iniciais',
   contractSourceType: 'new',
   buyerInfo: { nome: '', cpf: '', telefone: '', email: '' },
+  internalTeamMemberInfo: { nome: '', cpf: '', telefone: '', email: '' }, // Initialized
   contractPhotoPreview: null,
   contractPhotoName: undefined,
   photoVerificationResult: null,
@@ -36,7 +38,7 @@ export const initialStoredProcessState: StoredProcessState = {
   attachedDocumentNames: [],
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v2'; // v2 to avoid conflicts with old structure if any
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v2';
 const PRINT_DATA_KEY = 'contractPrintData';
 
 
@@ -52,7 +54,15 @@ export function loadProcessState(): StoredProcessState {
   try {
     const storedState = localStorage.getItem(PROCESS_STATE_KEY);
     if (storedState) {
-      return JSON.parse(storedState);
+      const parsedState = JSON.parse(storedState);
+      // Ensure new fields have default values if loading older state
+      if (!parsedState.internalTeamMemberInfo) {
+        parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
+      }
+      if (!parsedState.buyerInfo) {
+        parsedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
+      }
+      return parsedState;
     }
   } catch (error) {
     console.error("Error loading process state from localStorage:", error);
@@ -72,7 +82,7 @@ export function clearProcessState() {
 // Helper for print page data
 export interface PrintData {
   extractedData: ExtractContractDataOutput | null;
-  responsavel: BuyerInfo | null;
+  responsavel: BuyerInfo | null; // This 'responsavel' is the actual buyer for the contract
 }
 
 export function savePrintData(data: PrintData) {

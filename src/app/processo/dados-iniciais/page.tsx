@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from "@/lib/process-store";
-import { ArrowRight, UserRound, FileSearch, FileText as FileTextIcon, ChevronRight } from "lucide-react";
+import { ArrowRight, UserRound, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog } from "lucide-react";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 
 export default function DadosIniciaisPage() {
@@ -20,18 +20,31 @@ export default function DadosIniciaisPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    // Ensure buyerInfo is always an object
+    // Ensure buyerInfo and internalTeamMemberInfo are always objects
     if (!loadedState.buyerInfo) {
       loadedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
+    }
+    if (!loadedState.internalTeamMemberInfo) {
+      loadedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
     }
     setProcessState(loadedState);
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
+  const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     setProcessState(prevState => ({
       ...prevState,
       buyerInfo: {
         ...prevState.buyerInfo,
+        [field]: e.target.value,
+      }
+    }));
+  };
+  
+  const handleInternalTeamMemberInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
+    setProcessState(prevState => ({
+      ...prevState,
+      internalTeamMemberInfo: {
+        ...prevState.internalTeamMemberInfo,
         [field]: e.target.value,
       }
     }));
@@ -41,12 +54,11 @@ export default function DadosIniciaisPage() {
     setProcessState(prevState => ({
       ...prevState,
       contractSourceType: value,
-      // Reset photo and AI related fields if switching source
       contractPhotoPreview: null,
       contractPhotoName: undefined,
       photoVerificationResult: null,
       photoVerified: false,
-      extractedData: value === 'existing' ? prevState.extractedData : null, // Keep existing extracted data if switching to existing
+      extractedData: value === 'existing' ? prevState.extractedData : null,
     }));
   };
 
@@ -138,22 +150,51 @@ export default function DadosIniciaisPage() {
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div>
-            <Label htmlFor="responsavel-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
-            <Input id="responsavel-nome" value={processState.buyerInfo.nome} onChange={(e) => handleInputChange(e, 'nome')} placeholder="Nome completo do comprador" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            <Label htmlFor="comprador-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
+            <Input id="comprador-nome" value={processState.buyerInfo.nome} onChange={(e) => handleBuyerInputChange(e, 'nome')} placeholder="Nome completo do comprador" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label htmlFor="responsavel-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
-              <Input id="responsavel-cpf" value={processState.buyerInfo.cpf} onChange={(e) => handleInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+              <Label htmlFor="comprador-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
+              <Input id="comprador-cpf" value={processState.buyerInfo.cpf} onChange={(e) => handleBuyerInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
             </div>
             <div>
-              <Label htmlFor="responsavel-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone (WhatsApp)</Label>
-              <Input id="responsavel-telefone" type="tel" value={processState.buyerInfo.telefone} onChange={(e) => handleInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+              <Label htmlFor="comprador-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone (WhatsApp)</Label>
+              <Input id="comprador-telefone" type="tel" value={processState.buyerInfo.telefone} onChange={(e) => handleBuyerInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
             </div>
           </div>
           <div>
-            <Label htmlFor="responsavel-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
-            <Input id="responsavel-email" type="email" value={processState.buyerInfo.email} onChange={(e) => handleInputChange(e, 'email')} placeholder="seu.email@dominio.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            <Label htmlFor="comprador-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
+            <Input id="comprador-email" type="email" value={processState.buyerInfo.email} onChange={(e) => handleBuyerInputChange(e, 'email')} placeholder="seu.email@dominio.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+          </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
+        <CardHeader className="p-6">
+          <CardTitle className="flex items-center text-2xl font-headline text-primary">
+            <UserCog className="mr-3 h-7 w-7" /> Informações do Responsável Interno (Opcional)
+          </CardTitle>
+          <CardDescription className="text-foreground/70 pt-1">Dados do membro da equipe que está conduzindo este processo.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 p-6 pt-0">
+          <div>
+            <Label htmlFor="internal-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
+            <Input id="internal-nome" value={processState.internalTeamMemberInfo.nome} onChange={(e) => handleInternalTeamMemberInputChange(e, 'nome')} placeholder="Nome do responsável interno" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="internal-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
+              <Input id="internal-cpf" value={processState.internalTeamMemberInfo.cpf} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            </div>
+            <div>
+              <Label htmlFor="internal-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone</Label>
+              <Input id="internal-telefone" type="tel" value={processState.internalTeamMemberInfo.telefone} onChange={(e) => handleInternalTeamMemberInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="internal-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
+            <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo.email} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="email.interno@empresa.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
           </div>
         </CardContent>
       </Card>
