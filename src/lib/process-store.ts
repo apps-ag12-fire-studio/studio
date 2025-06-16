@@ -4,6 +4,7 @@
 import type { VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
+import { toast } from '@/hooks/use-toast'; // Import useToast
 
 export interface BuyerInfo {
   nome: string;
@@ -45,14 +46,12 @@ export interface StoredProcessState {
   cnhVerso: DocumentFile | null;
   
   // Pessoa Jurídica specific documents
-  cartaoCnpjFile: DocumentFile | null; // Changed name to avoid conflict if buyerInfo had 'cartaoCnpj' field
+  cartaoCnpjFile: DocumentFile | null;
   docSocioFrente: DocumentFile | null;
   docSocioVerso: DocumentFile | null;
 
   // Common documents
   comprovanteEndereco: DocumentFile | null;
-  // Replacing generic multiple uploads with specific slots and a more limited "outros" if needed later.
-  // For now, focusing on the requested specific documents.
 
   contractPhotoPreview: string | null;
   contractPhotoName?: string;
@@ -93,8 +92,8 @@ export const initialStoredProcessState: StoredProcessState = {
   signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v6'; // Incremented version
-const PRINT_DATA_KEY = 'contractPrintData_v3'; // Incremented version
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v6';
+const PRINT_DATA_KEY = 'contractPrintData_v3';
 
 
 export function saveProcessState(state: StoredProcessState) {
@@ -102,6 +101,13 @@ export function saveProcessState(state: StoredProcessState) {
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(state));
   } catch (error) {
     console.error("Error saving process state to localStorage:", error);
+    // Attempt to notify the user if saving fails (e.g., quota exceeded)
+    toast({
+      title: "Erro ao Salvar Progresso",
+      description: "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio. Tente limpar alguns dados ou arquivos grandes.",
+      variant: "destructive",
+      duration: 10000, // Show for longer
+    });
   }
 }
 
@@ -111,17 +117,15 @@ export function loadProcessState(): StoredProcessState {
     if (storedState && storedState !== "undefined") { 
       let parsedState = JSON.parse(storedState) as StoredProcessState;
       
-      // Ensure new fields have default values if loading older state
-      parsedState = { ...initialStoredProcessState, ...parsedState }; // Merge with defaults
+      parsedState = { ...initialStoredProcessState, ...parsedState }; 
       
-      // Specific checks for potentially missing nested objects after merge
       if (!parsedState.buyerInfo) {
         parsedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
       }
       if (parsedState.buyerType === 'pj' && !parsedState.companyInfo) {
          parsedState.companyInfo = { razaoSocial: '', nomeFantasia: '', cnpj: '' };
       } else if (parsedState.buyerType === 'pf') {
-        parsedState.companyInfo = null; // Ensure company info is null for PF
+        parsedState.companyInfo = null; 
       }
       if (!parsedState.internalTeamMemberInfo) {
         parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
@@ -159,6 +163,11 @@ export function savePrintData(data: PrintData) {
     localStorage.setItem(PRINT_DATA_KEY, JSON.stringify(data));
   } catch (error) {
     console.error("Error saving print data to localStorage:", error);
+     toast({
+      title: "Erro ao Salvar Dados para Impressão",
+      description: "Não foi possível salvar os dados para impressão.",
+      variant: "destructive",
+    });
   }
 }
 
