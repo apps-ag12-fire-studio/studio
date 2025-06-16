@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, clearProcessState } from "@/lib/process-store";
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, clearProcessState, loadPrintData } from "@/lib/process-store";
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud } from "lucide-react";
 
 const fileToDataUri = (file: File): Promise<string> => {
@@ -27,15 +27,29 @@ export default function FotoContratoAssinadoPage() {
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [signedContractPhotoFile, setSignedContractPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const loadedState = loadProcessState();
+    const printData = loadPrintData();
+
+    if (!printData || !printData.extractedData || !printData.responsavel || !printData.internalTeamMemberInfo) {
+      toast({
+        title: 'Sequência Incorreta',
+        description: 'Por favor, prepare o contrato para impressão antes de anexar a foto do contrato assinado.',
+        variant: 'destructive',
+      });
+      router.replace('/processo/revisao-envio'); // Redirect if print data is missing
+      return;
+    }
+
     setProcessState(loadedState);
+    setIsLoading(false);
     // If navigating back and photo was already uploaded, re-set the file for potential re-upload (though not strictly necessary for just display)
     // For simplicity, we rely on processState.signedContractPhotoPreview for display.
-  }, []);
+  }, [router, toast]);
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -145,6 +159,14 @@ export default function FotoContratoAssinadoPage() {
     };
   }, [processState.signedContractPhotoPreview]);
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Verificando etapa do processo...</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -218,3 +240,5 @@ export default function FotoContratoAssinadoPage() {
     </>
   );
 }
+
+    
