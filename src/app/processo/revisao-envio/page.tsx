@@ -10,25 +10,53 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, savePrintData, BuyerInfo } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
+import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
 import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon } from "lucide-react";
 
-const MIN_DOCUMENTS = 2; 
+const MIN_DOCUMENTS = 1; 
 
-// Helper function to attempt pre-filling buyer info from extracted contract data
-const attemptToPreFillBuyerInfo = (extractedData: ExtractContractDataOutput | null): BuyerInfo => {
-  const newBuyerInfo = { ...initialStoredProcessState.buyerInfo }; 
-  if (extractedData?.nomesDasPartes) {
-    for (let i = 0; i < extractedData.nomesDasPartes.length; i++) {
-      const parte = extractedData.nomesDasPartes[i].toUpperCase();
+// Helper function to attempt pre-filling buyer info
+const attemptToPreFillBuyerInfo = (
+  docAnalysisResults: Record<string, ExtractBuyerDocumentDataOutput | null>,
+  contractExtractedData: ExtractContractDataOutput | null
+): BuyerInfo => {
+  const newBuyerInfo = { ...initialStoredProcessState.buyerInfo };
+
+  // Prioritize data from analyzed documents
+  let bestDocMatch: ExtractBuyerDocumentDataOutput | null = null;
+
+  for (const result of Object.values(docAnalysisResults)) {
+    if (result && !(result as any).error) {
+      if (result.nomeCompleto && result.cpf) { // Ideal: found name and CPF
+        bestDocMatch = result;
+        break;
+      }
+      if (!bestDocMatch && (result.nomeCompleto || result.cpf)) { // Good: found at least one
+        bestDocMatch = result;
+      }
+    }
+  }
+
+  if (bestDocMatch) {
+    if (bestDocMatch.nomeCompleto) newBuyerInfo.nome = bestDocMatch.nomeCompleto;
+    if (bestDocMatch.cpf) newBuyerInfo.cpf = bestDocMatch.cpf;
+    // Could also pre-fill other fields like dataNascimento if the form had them
+    return newBuyerInfo;
+  }
+
+  // Fallback to contract data if document analysis didn't yield results
+  if (contractExtractedData?.nomesDasPartes) {
+    for (let i = 0; i < contractExtractedData.nomesDasPartes.length; i++) {
+      const parte = contractExtractedData.nomesDasPartes[i].toUpperCase();
       if (parte.includes("COMPRADOR") || parte.includes("CLIENTE")) {
-        let nome = extractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b|\bCLIENTE\b/i)[0].trim();
+        let nome = contractExtractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b|\bCLIENTE\b/i)[0].trim();
         nome = nome.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
-        newBuyerInfo.nome = nome;
+        if (nome) newBuyerInfo.nome = nome;
 
-        if (extractedData.documentosDasPartes && extractedData.documentosDasPartes[i]) {
-          const doc = extractedData.documentosDasPartes[i].replace(/\D/g, '');
+        if (contractExtractedData.documentosDasPartes && contractExtractedData.documentosDasPartes[i]) {
+          const doc = contractExtractedData.documentosDasPartes[i].replace(/\D/g, '');
           if (doc.length === 11 || doc.length === 14) { 
-               newBuyerInfo.cpf = extractedData.documentosDasPartes[i];
+               newBuyerInfo.cpf = contractExtractedData.documentosDasPartes[i];
           }
         }
         break; 
@@ -49,21 +77,16 @@ export default function RevisaoEnvioPage() {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
 
-    // Attempt to pre-fill buyer info form based on data extracted from contract/model
-    if (loadedState.extractedData) {
-      const preFilledInfo = attemptToPreFillBuyerInfo(loadedState.extractedData);
-      // Only update if the current buyer info in state is still initial (empty)
-      // This prevents overwriting user's manual edits if they navigate back and forth
-      if (JSON.stringify(currentBuyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo) || 
-          JSON.stringify(loadedState.buyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo)) {
-        setCurrentBuyerInfo(preFilledInfo);
-        // Optionally save this pre-fill to global state immediately or wait for "Prepare for Print"
-        // setProcessState(prevState => ({ ...prevState, buyerInfo: preFilledInfo }));
-      } else {
-        setCurrentBuyerInfo(loadedState.buyerInfo); // Load existing edits
-      }
+    // Ensure buyerDocumentAnalysisResults exists
+    const analysisResults = loadedState.buyerDocumentAnalysisResults || {};
+    
+    const preFilledInfo = attemptToPreFillBuyerInfo(analysisResults, loadedState.extractedData);
+    
+    if (JSON.stringify(currentBuyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo) || 
+        JSON.stringify(loadedState.buyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo)) {
+      setCurrentBuyerInfo(preFilledInfo);
     } else {
-        setCurrentBuyerInfo(loadedState.buyerInfo); // Load existing if no extractedData
+      setCurrentBuyerInfo(loadedState.buyerInfo); 
     }
   }, []); 
   
@@ -120,7 +143,6 @@ export default function RevisaoEnvioPage() {
   };
 
   const handleBack = () => {
-    // Save current buyer info edits before going back
     saveProcessState({ ...processState, buyerInfo: currentBuyerInfo });
     router.push("/processo/documentos");
   };
@@ -159,7 +181,7 @@ export default function RevisaoEnvioPage() {
             <UserRound className="mr-3 h-7 w-7" /> Informações do Comprador
           </CardTitle>
           <CardDescription className="text-foreground/70 pt-1">
-            Confirme ou preencha os dados do comprador. Para 'Novos Contratos', os campos podem ter sido pré-preenchidos pela análise da IA do contrato principal. Para 'Contratos Existentes', são baseados no modelo. Utilize os documentos anexados na etapa anterior como referência.
+            Confirme ou preencha os dados do comprador. Os campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou dos dados do contrato principal/modelo. Utilize os documentos anexados na etapa anterior como referência.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
@@ -254,7 +276,13 @@ export default function RevisaoEnvioPage() {
             <h3 className="flex items-center text-lg font-semibold text-primary/90"><Paperclip className="mr-2 h-5 w-5" />Documentos Anexados</h3>
             {processState.attachedDocumentNames.length > 0 ? (
               <ul className="list-disc list-inside text-foreground/80 space-y-1 pl-2">
-                {processState.attachedDocumentNames.map((name, index) => <li key={index}>{name}</li>)}
+                {processState.attachedDocumentNames.map((name, index) => (
+                  <li key={index}>
+                    {name}
+                    {processState.buyerDocumentAnalysisResults[name] && !(processState.buyerDocumentAnalysisResults[name] as any)?.error && <span className="text-xs text-green-400 ml-2">(Dados da IA disponíveis)</span>}
+                    {processState.buyerDocumentAnalysisResults[name] && (processState.buyerDocumentAnalysisResults[name] as any)?.error && <span className="text-xs text-red-400 ml-2">(Falha na análise IA)</span>}
+                  </li>
+                ))}
               </ul>
             ) : (
               <p className="text-muted-foreground">Nenhum documento anexado.</p>
@@ -289,7 +317,3 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-
-    
-
-    

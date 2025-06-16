@@ -3,6 +3,7 @@
 
 import type { VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
+import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow"; // Import new type
 
 export interface BuyerInfo {
   nome: string;
@@ -25,6 +26,7 @@ export interface StoredProcessState {
   photoVerified: boolean;
   extractedData: ExtractContractDataOutput | null;
   attachedDocumentNames: string[];
+  buyerDocumentAnalysisResults: Record<string, ExtractBuyerDocumentDataOutput | null>; // New field
   signedContractPhotoPreview: string | null; // Photo of the printed and signed contract
   signedContractPhotoName?: string;
 }
@@ -42,11 +44,12 @@ export const initialStoredProcessState: StoredProcessState = {
   photoVerified: false,
   extractedData: null,
   attachedDocumentNames: [],
+  buyerDocumentAnalysisResults: {}, // Initialized as empty object
   signedContractPhotoPreview: null,
   signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v4'; // Incremented version
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v5'; // Incremented version
 const PRINT_DATA_KEY = 'contractPrintData_v2';
 
 
@@ -82,6 +85,9 @@ export function loadProcessState(): StoredProcessState {
       }
       if (parsedState.signedContractPhotoName === undefined) {
         parsedState.signedContractPhotoName = undefined;
+      }
+      if (!parsedState.buyerDocumentAnalysisResults) { // Ensure new field for analysis results
+        parsedState.buyerDocumentAnalysisResults = {};
       }
       return parsedState;
     }
@@ -126,14 +132,13 @@ export function loadPrintData(): PrintData | null {
         parsedData.selectedPlayer = null;
       }
       if (parsedData.internalTeamMemberInfo === undefined) {
-        parsedData.internalTeamMemberInfo = null; // Or provide a default empty BuyerInfo
+        parsedData.internalTeamMemberInfo = null; 
       }
       return parsedData;
     }
   } catch (error) {
     console.error("Error loading print data from localStorage:", error);
-    // Fallback to null on error or if undefined is stored
-    localStorage.removeItem(PRINT_DATA_KEY); // Clear corrupted/invalid state
+    localStorage.removeItem(PRINT_DATA_KEY); 
   }
   return null;
 }
