@@ -82,10 +82,12 @@ export default function RevisaoEnvioPage() {
     
     const preFilledInfo = attemptToPreFillBuyerInfo(analysisResults, loadedState.extractedData);
     
+    // Only pre-fill if currentBuyerInfo is initial OR loadedState.buyerInfo is initial (meaning it hasn't been set by user yet)
+    // This prevents overwriting user's manual input on page re-renders unless it's the very first load or state was cleared.
     if (JSON.stringify(currentBuyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo) || 
-        JSON.stringify(loadedState.buyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo)) {
+        (loadedState.buyerInfo && JSON.stringify(loadedState.buyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo))) {
       setCurrentBuyerInfo(preFilledInfo);
-    } else {
+    } else if (loadedState.buyerInfo) { // If there's existing buyerInfo from previous save, use that
       setCurrentBuyerInfo(loadedState.buyerInfo); 
     }
   }, []); 
@@ -106,6 +108,11 @@ export default function RevisaoEnvioPage() {
   };
   
   const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo']): boolean => {
+    if (!data) return true;
+    return !data.nome && !data.cpf && !data.email && !data.telefone;
+  }
+
+  const isBuyerInfoEmpty = (data: BuyerInfo): boolean => {
     if (!data) return true;
     return !data.nome && !data.cpf && !data.email && !data.telefone;
   }
@@ -148,7 +155,7 @@ export default function RevisaoEnvioPage() {
   };
 
   const isPrintDisabled = (currentState: StoredProcessState) => { 
-    if (!currentState.buyerInfo.nome || !currentState.buyerInfo.cpf || !currentState.buyerInfo.telefone || !currentState.buyerInfo.email) return true; 
+    if (isBuyerInfoEmpty(currentState.buyerInfo)) return true; 
     if (currentState.attachedDocumentNames.length < MIN_DOCUMENTS) return true; 
     if (isInternalTeamMemberInfoEmpty(currentState.internalTeamMemberInfo)) return true;
 
@@ -181,7 +188,7 @@ export default function RevisaoEnvioPage() {
             <UserRound className="mr-3 h-7 w-7" /> Informações do Comprador
           </CardTitle>
           <CardDescription className="text-foreground/70 pt-1">
-            Confirme ou preencha os dados do comprador. Os campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou dos dados do contrato principal/modelo. Utilize os documentos anexados na etapa anterior como referência.
+            Confirme ou preencha os dados do comprador. Os campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados (se analisados) ou dos dados do contrato principal/modelo. Utilize os documentos anexados na etapa anterior como referência.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
@@ -225,6 +232,19 @@ export default function RevisaoEnvioPage() {
                 <h3 className="flex items-center text-lg font-semibold text-primary/90"><PlayersIcon className="mr-2 h-5 w-5" />Player Selecionado</h3>
                 <p className="text-foreground/80">{processState.selectedPlayer}</p>
                 {processState.selectedContractTemplateName && <p className="text-sm text-muted-foreground">Modelo: {processState.selectedContractTemplateName}</p>}
+              </div>
+              <hr className="border-border/30"/>
+            </>
+          )}
+
+          {!isBuyerInfoEmpty(processState.buyerInfo) && (
+            <>
+              <div className="space-y-2">
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />Dados do Comprador</h3>
+                <p className="text-foreground/80"><strong>Nome:</strong> {processState.buyerInfo.nome}</p>
+                <p className="text-foreground/80"><strong>CPF:</strong> {processState.buyerInfo.cpf || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>Telefone:</strong> {processState.buyerInfo.telefone || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>E-mail:</strong> {processState.buyerInfo.email || 'Não informado'}</p>
               </div>
               <hr className="border-border/30"/>
             </>
@@ -317,3 +337,4 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
