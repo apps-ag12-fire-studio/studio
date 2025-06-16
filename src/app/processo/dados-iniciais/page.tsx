@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from "@/lib/process-store";
-import { ArrowRight, UserRound, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon } from "lucide-react";
+import { ArrowRight, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon } from "lucide-react";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 
 const players = [
@@ -31,11 +31,12 @@ export default function DadosIniciaisPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    if (!loadedState.buyerInfo) {
-      loadedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
-    }
+    // Ensure new fields have default values if loading older state
     if (!loadedState.internalTeamMemberInfo) {
       loadedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
+    }
+     if (!loadedState.buyerInfo) { // ensure buyerInfo always exists, even if populated later
+      loadedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
     }
     if (loadedState.selectedPlayer === undefined) {
       loadedState.selectedPlayer = null;
@@ -45,16 +46,6 @@ export default function DadosIniciaisPage() {
     }
     setProcessState(loadedState);
   }, []);
-
-  const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
-    setProcessState(prevState => ({
-      ...prevState,
-      buyerInfo: {
-        ...prevState.buyerInfo,
-        [field]: e.target.value,
-      }
-    }));
-  };
   
   const handleInternalTeamMemberInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     setProcessState(prevState => ({
@@ -110,6 +101,8 @@ export default function DadosIniciaisPage() {
       ...prevState,
       extractedData: sampleContractData,
       selectedContractTemplateName: templateName,
+      // Buyer info will be collected in the next step if this is a new contract, or if needed for existing.
+      // For existing, we assume it might be part of template or manually reviewed.
     }));
     toast({ 
       title: "Modelo Carregado com Sucesso!", 
@@ -119,11 +112,7 @@ export default function DadosIniciaisPage() {
   };
   
   const validateStep = () => {
-    const { buyerInfo, internalTeamMemberInfo } = processState;
-    if (!buyerInfo.nome || !buyerInfo.cpf || !buyerInfo.telefone || !buyerInfo.email) {
-      toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Comprador'.", variant: "destructive" });
-      return false;
-    }
+    const { internalTeamMemberInfo } = processState;
     if (!internalTeamMemberInfo.nome || !internalTeamMemberInfo.cpf || !internalTeamMemberInfo.telefone || !internalTeamMemberInfo.email) {
       toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Responsável Interno'.", variant: "destructive" });
       return false;
@@ -146,10 +135,35 @@ export default function DadosIniciaisPage() {
 
     const nextStepPath = processState.contractSourceType === 'new' 
       ? "/processo/foto-contrato" 
-      : "/processo/documentos";
-    
-    saveProcessState({ ...processState, currentStep: nextStepPath });
-    router.push(nextStepPath);
+      : "/processo/documentos"; // If existing contract, skip photo step only if buyer info is handled differently or already present.
+                               // For now, we direct to documents, assuming buyer info from template is sufficient or reviewed elsewhere.
+                               // If buyer info is ALWAYS needed, this logic might need adjustment.
+                               // Based on new request, buyer info is collected in foto-contrato, so existing contracts might also need it.
+                               // Let's assume for "existing", buyer info will be confirmed/added in a later step or is implicit.
+                               // For robust flow, "existing" might need its own buyer info confirmation step or integrated into "documentos" or "revisao".
+                               // Given the prompt implies buyer info is tied to photo analysis, let's direct "existing" to "documentos" for now.
+                               // The prompt "esse campo vai aparecer somente após tirar as fotos do documento do comprador" is key.
+                               // This implies if no photo is taken (i.e. existing contract), buyer info form doesn't show up in foto-contrato.
+                               // This means for "existing", buyer info needs to be handled differently.
+                               // For now, let's assume 'existing' contracts will have buyer info populated on the print page or it's manually entered/confirmed there.
+                               // This is a simplification. A more complete flow would have buyer info handled explicitly for 'existing' too.
+                               // Given current design, "foto-contrato" is where buyer info is entered. So if contractSourceType is 'existing', we bypass foto-contrato.
+                               // This creates a problem: where is buyerInfo for 'existing' contracts entered?
+                               // Re-evaluating: The user said "esse campo vai aparecer somente após tirar as fotos". This strongly links buyer info form to the photo step.
+                               // If 'existing' contract is chosen, there's no photo.
+                               // This change means buyer info is ONLY collected for 'new' contracts in 'foto-contrato' page.
+                               // This is likely not the desired overall outcome.
+                               // Let's assume the spirit is: buyer info is crucial. If new, it's after photo. If existing, it's still needed.
+                               // Simplest for now: buyer info fields always collected in foto-contrato, so "existing" ALSO goes to "foto-contrato"
+                               // OR, buyer info for existing is pre-filled by template and confirmed on review.
+                               // Let's keep the fields on foto-contrato. If it's an existing contract, `extractedData` will be pre-filled.
+                               // The user can then confirm/enter buyer info on that page. This seems more consistent.
+
+    const nextPath = "/processo/foto-contrato"; // ALL paths go to foto-contrato for buyer info entry/confirmation
+                                            // This simplifies logic for now. If existing contract, it bypasses photo upload/AI analysis and just shows buyer info form.
+
+    saveProcessState({ ...processState, currentStep: nextPath });
+    router.push(nextPath);
   };
 
   return (
@@ -178,42 +192,13 @@ export default function DadosIniciaisPage() {
           >
             <div className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
               <RadioGroupItem value="new" id="source-new" className="border-primary/50 text-primary focus:ring-primary" />
-              <Label htmlFor="source-new" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Novo Contrato <span className="text-sm text-muted-foreground">(Enviar Foto)</span></Label>
+              <Label htmlFor="source-new" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Novo Contrato <span className="text-sm text-muted-foreground">(Enviar Foto para Análise)</span></Label>
             </div>
             <div className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
               <RadioGroupItem value="existing" id="source-existing" className="border-primary/50 text-primary focus:ring-primary" />
               <Label htmlFor="source-existing" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Contrato Existente <span className="text-sm text-muted-foreground">(Selecionar Modelo)</span></Label>
             </div>
           </RadioGroup>
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
-        <CardHeader className="p-6">
-          <CardTitle className="flex items-center text-2xl font-headline text-primary">
-            <UserRound className="mr-3 h-7 w-7" /> Informações do Comprador
-          </CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Dados da parte que assinará como comprador.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6 p-6 pt-0">
-          <div>
-            <Label htmlFor="comprador-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
-            <Input id="comprador-nome" value={processState.buyerInfo.nome} onChange={(e) => handleBuyerInputChange(e, 'nome')} placeholder="Nome completo do comprador" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="comprador-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
-              <Input id="comprador-cpf" value={processState.buyerInfo.cpf} onChange={(e) => handleBuyerInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-            </div>
-            <div>
-              <Label htmlFor="comprador-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone (WhatsApp)</Label>
-              <Input id="comprador-telefone" type="tel" value={processState.buyerInfo.telefone} onChange={(e) => handleBuyerInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="comprador-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
-            <Input id="comprador-email" type="email" value={processState.buyerInfo.email} onChange={(e) => handleBuyerInputChange(e, 'email')} placeholder="seu.email@dominio.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-          </div>
         </CardContent>
       </Card>
       
@@ -313,6 +298,3 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
-
-
-    
