@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Contrato Fácil',
+  title: 'Contrato Fácil - Financeiro Plataforma Internacional - Pablo Marçal',
   description: 'Capture fotos de contratos e anexe documentos de forma fácil.',
 };
 

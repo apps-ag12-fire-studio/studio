@@ -187,7 +187,7 @@ export default function ContratoPage() {
     <main className="flex min-h-screen flex-col items-center justify-start bg-background p-4 sm:p-8">
       <div className="w-full max-w-2xl space-y-8">
         <header className="text-center py-6">
-          <h1 className="text-4xl font-headline text-primary">Contrato Fácil</h1>
+          <h1 className="text-3xl sm:text-4xl font-headline text-primary">Contrato Fácil - Financeiro Plataforma Internacional - Pablo Marçal</h1>
           <p className="mt-2 text-lg text-muted-foreground">Capture a foto do contrato, analise-o e anexe os documentos necessários.</p>
         </header>
 
@@ -390,6 +390,10 @@ export default function ContratoPage() {
             </CardFooter>
           </Card>
         </form>
+        <footer className="text-center py-8 text-xs text-muted-foreground space-y-1">
+            <p>© 2025 Financeiro Pablo Marçal - Todos os direitos reservados.</p>
+            <p>Uma solução SAAS com Inteligência Artificial treinada por CFO - Antônio Fogaça.</p>
+        </footer>
       </div>
     </main>
   );
