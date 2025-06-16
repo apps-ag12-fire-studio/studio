@@ -159,7 +159,7 @@ export default function ContratoPage() {
     event.preventDefault();
 
     if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) {
-      toast({ title: "Envio Falhou", description: "Por favor, preencha todos os campos do Responsável pela Assinatura.", variant: "destructive" });
+      toast({ title: "Envio Falhou", description: "Por favor, preencha todos os campos de 'Informações do Comprador'.", variant: "destructive" });
       return;
     }
 
@@ -184,7 +184,7 @@ export default function ContratoPage() {
         contractPhotoName: contractPhoto?.name, 
         attachedDocumentNames: attachedDocuments.map(d => d.name), 
         extractedData,
-        responsavel: {
+        comprador: { // Changed from 'responsavel' for clarity in logs
           nome: responsavelNome,
           cpf: responsavelCpf,
           telefone: responsavelTelefone,
@@ -195,12 +195,12 @@ export default function ContratoPage() {
       
       // Simulate email notification
       console.log("\n--- SIMULANDO ENVIO DE EMAIL ---");
-      console.log(`Destinatários: financeiro@empresa.com, juridico@empresa.com, ${responsavelEmail}`);
-      const subject = `Novo Contrato Submetido: ${extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Resp: ${responsavelNome}`;
+      console.log(`Destinatários: financeiro@empresa.com, juridico@empresa.com, ${responsavelEmail}`); // Email do comprador
+      const subject = `Novo Contrato Submetido: ${extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Comprador: ${responsavelNome}`;
       console.log(`Assunto: ${subject}`);
       console.log("Corpo do Email (Resumo):");
       console.log(`  Tipo de Submissão: ${contractSourceType === 'new' ? "Novo Contrato (Foto)" : "Contrato Existente (Modelo)"}`);
-      console.log(`  Responsável pela Assinatura (Comprador):`);
+      console.log(`  Dados do Comprador (Informado no formulário):`);
       console.log(`    Nome: ${responsavelNome}`);
       console.log(`    CPF: ${responsavelCpf}`);
       console.log(`    Telefone: ${responsavelTelefone}`);
@@ -234,7 +234,7 @@ export default function ContratoPage() {
 
   const handlePrepareForPrint = () => {
     if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) {
-      toast({ title: "Ação Necessária", description: "Preencha os dados do Responsável pela Assinatura para preparar a impressão.", variant: "destructive" });
+      toast({ title: "Ação Necessária", description: "Preencha os 'Informações do Comprador' para preparar a impressão.", variant: "destructive" });
       return;
     }
     if ( (contractSourceType === 'new' && !extractedData) && (contractSourceType === 'existing' && !extractedData) ) {
@@ -245,7 +245,7 @@ export default function ContratoPage() {
     try {
       const printData = {
         extractedData: extractedData,
-        responsavel: {
+        responsavel: { // This 'responsavel' object name is used by print page, will keep for now to avoid breaking it, but it refers to buyer.
           nome: responsavelNome,
           cpf: responsavelCpf,
           telefone: responsavelTelefone,
@@ -346,9 +346,9 @@ export default function ContratoPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center text-xl font-headline">
-                <UserRound className="mr-3 h-7 w-7 text-primary" /> Informações do Responsável pela Assinatura (Comprador)
+                <UserRound className="mr-3 h-7 w-7 text-primary" /> Informações do Comprador
               </CardTitle>
-              <CardDescription>Preencha os dados da pessoa que assinará o contrato como comprador.</CardDescription>
+              <CardDescription>Preencha os dados da pessoa que assinará o contrato como comprador. Estes dados serão utilizados para preencher a seção 'COMPRADOR' do contrato.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -639,5 +639,7 @@ export default function ContratoPage() {
     </main>
   );
 }
+
+    
 
     
