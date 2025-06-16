@@ -43,7 +43,7 @@ export default function PrintContractPage() {
     );
   }
 
-  if (!printData || !printData.responsavel || !printData.extractedData) { 
+  if (!printData || !printData.responsavel || !printData.extractedData || !printData.internalTeamMemberInfo) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
@@ -61,11 +61,8 @@ export default function PrintContractPage() {
     );
   }
   
-  const { extractedData, responsavel, selectedPlayer } = printData;
+  const { extractedData, responsavel, selectedPlayer, internalTeamMemberInfo } = printData;
 
-  // The VENDEDOR name should ideally come directly from extractedData.nomesDasPartes 
-  // if it was set correctly based on selectedPlayer in the "dados-iniciais" step.
-  // We use selectedPlayer as a fallback or primary source here if needed.
   const vendedorNome = selectedPlayer || 
                        extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR")) || 
                        "PABLO MARÇAL (ou empresa representante oficial)";
@@ -166,6 +163,21 @@ export default function PrintContractPage() {
                  <p className="text-xs text-muted-foreground">(VENDEDOR - Representante Legal {selectedPlayer ? `- ${selectedPlayer}`: ''})</p>
               </div>
             </div>
+
+            <hr className="my-6 border-border/30"/>
+            <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide text-center">TESTEMUNHAS</h3>
+            <div className="mt-8 space-y-10">
+              <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
+                 <p className="text-sm min-h-[1.25rem]">{internalTeamMemberInfo.nome || '[ESPAÇO PARA ASSINATURA DA TESTEMUNHA]'}</p>
+                 <p className="text-xs text-muted-foreground">(Testemunha - Responsável Interno)</p>
+                 {internalTeamMemberInfo.cpf && <p className="text-xs text-muted-foreground">CPF: {internalTeamMemberInfo.cpf}</p>}
+              </div>
+              <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
+                 <p className="text-sm min-h-[1.25rem]">[ESPAÇO PARA ASSINATURA DA SEGUNDA TESTEMUNHA]</p>
+                 <p className="text-xs text-muted-foreground">(Testemunha)</p>
+                 <p className="text-xs text-muted-foreground">CPF: [CPF DA SEGUNDA TESTEMUNHA]</p>
+              </div>
+            </div>
             
           </CardContent>
         </Card>
@@ -182,3 +194,4 @@ export default function PrintContractPage() {
     </div>
   );
 }
+

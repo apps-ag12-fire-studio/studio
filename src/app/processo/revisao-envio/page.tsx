@@ -43,7 +43,8 @@ export default function RevisaoEnvioPage() {
     savePrintData({ 
       extractedData: processState.extractedData, 
       responsavel: processState.buyerInfo,
-      selectedPlayer: processState.selectedPlayer
+      selectedPlayer: processState.selectedPlayer,
+      internalTeamMemberInfo: processState.internalTeamMemberInfo // Add internal team member info
     });
     saveProcessState({ ...processState, currentStep: "/print-contract" });
     router.push('/print-contract');
@@ -119,6 +120,7 @@ export default function RevisaoEnvioPage() {
   const isPrintDisabled = () => {
     if (!processState.buyerInfo.nome || !processState.buyerInfo.cpf || !processState.buyerInfo.telefone || !processState.buyerInfo.email) return true; 
     if (processState.attachedDocumentNames.length < MIN_DOCUMENTS) return true; 
+    if (isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) return true; // Responsavel interno is now mandatory
 
     if (processState.contractSourceType === 'new') {
       if (!processState.photoVerified) return true; 
@@ -273,3 +275,4 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+

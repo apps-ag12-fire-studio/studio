@@ -57,9 +57,9 @@ export function saveProcessState(state: StoredProcessState) {
 export function loadProcessState(): StoredProcessState {
   try {
     const storedState = localStorage.getItem(PROCESS_STATE_KEY);
-    if (storedState && storedState !== "undefined") { // Check for null, empty, and the literal string "undefined"
+    if (storedState && storedState !== "undefined") { 
       const parsedState = JSON.parse(storedState) as StoredProcessState;
-      // Ensure new fields have default values if loading older state
+      
       if (!parsedState.internalTeamMemberInfo) {
         parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
       }
@@ -76,9 +76,8 @@ export function loadProcessState(): StoredProcessState {
     }
   } catch (error) {
     console.error("Error loading process state from localStorage:", error);
-    // If parsing fails, or storedState was "undefined", return initial state
   }
-  return JSON.parse(JSON.stringify(initialStoredProcessState)); // Return a deep copy
+  return JSON.parse(JSON.stringify(initialStoredProcessState)); 
 }
 
 export function clearProcessState() {
@@ -90,11 +89,11 @@ export function clearProcessState() {
   }
 }
 
-// Helper for print page data
 export interface PrintData {
   extractedData: ExtractContractDataOutput | null;
-  responsavel: BuyerInfo | null;
+  responsavel: BuyerInfo | null; 
   selectedPlayer: string | null;
+  internalTeamMemberInfo: BuyerInfo | null;
 }
 
 export function savePrintData(data: PrintData) {
@@ -108,16 +107,19 @@ export function savePrintData(data: PrintData) {
 export function loadPrintData(): PrintData | null {
   try {
     const dataString = localStorage.getItem(PRINT_DATA_KEY);
-    if (dataString && dataString !== "undefined") { // Check for null, empty, and the literal string "undefined"
+    if (dataString && dataString !== "undefined") {
       const parsedData = JSON.parse(dataString) as PrintData;
       if (parsedData.selectedPlayer === undefined) {
         parsedData.selectedPlayer = null;
+      }
+      if (parsedData.internalTeamMemberInfo === undefined) {
+        parsedData.internalTeamMemberInfo = null;
       }
       return parsedData;
     }
   } catch (error) {
     console.error("Error loading print data from localStorage:", error);
-    // If parsing fails, or dataString was "undefined", return null
   }
   return null;
 }
+
