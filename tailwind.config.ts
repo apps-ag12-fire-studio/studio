@@ -1,3 +1,4 @@
+
 import type {Config}from 'tailwindcss';
 
 export default {
@@ -9,9 +10,16 @@ export default {
   ],
   theme: {
     extend: {
+      borderRadius: {
+        lg: 'var(--radius)', // Will be 0.75rem from globals.css
+        md: 'calc(var(--radius) - 0.125rem)', // Adjusted for new base
+        sm: 'calc(var(--radius) - 0.25rem)', // Adjusted for new base
+        'xl': 'calc(var(--radius) + 0.25rem)', // 1rem
+        '2xl': 'calc(var(--radius) + 0.5rem)', // 1.25rem
+      },
       fontFamily: {
-        body: ['PT Sans', 'sans-serif'],
-        headline: ['PT Sans', 'sans-serif'],
+        body: ['Inter', 'sans-serif'],
+        headline: ['Playfair Display', 'serif'],
         code: ['monospace'],
       },
       colors: {
@@ -66,10 +74,10 @@ export default {
           ring: 'hsl(var(--sidebar-ring))',
         },
       },
-      borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+      boxShadow: {
+        'glow-gold': '0 0 12px 2px hsl(var(--primary) / 0.4), 0 0 6px 0px hsl(var(--primary) / 0.3)',
+        'glow-gold-hover': '0 0 18px 3px hsl(var(--primary) / 0.5), 0 0 9px 0px hsl(var(--primary) / 0.4)',
+        'card-premium': '0 10px 25px -5px hsl(var(--primary) / 0.05), 0 8px 10px -6px hsl(var(--primary) / 0.05)',
       },
       keyframes: {
         'accordion-down': {
@@ -92,6 +100,11 @@ export default {
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+      },
+      letterSpacing: {
+        wide: '.025em',
+        wider: '.05em',
+        widest: '.1em',
       },
     },
   },

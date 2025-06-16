@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
 
 interface ResponsavelData {
   nome: string;
@@ -35,8 +35,8 @@ export default function PrintContractPage() {
         setPrintData(parsedData);
       } else {
         toast({
-          title: 'Erro ao carregar dados',
-          description: 'Não foram encontrados dados do contrato para impressão. Redirecionando...',
+          title: 'Erro ao Carregar Dados',
+          description: 'Dados do contrato não encontrados. Redirecionando...',
           variant: 'destructive',
         });
         router.replace('/');
@@ -45,7 +45,7 @@ export default function PrintContractPage() {
       console.error("Error loading data from localStorage:", error);
       toast({
         title: 'Erro Crítico',
-        description: 'Ocorreu um problema ao carregar os dados do contrato.',
+        description: 'Problema ao carregar os dados do contrato.',
         variant: 'destructive',
       });
       router.replace('/');
@@ -56,9 +56,10 @@ export default function PrintContractPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-2xl shadow-xl">
-          <CardContent className="p-8 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
+        <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
+          <CardContent className="p-10 text-center flex flex-col items-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg text-muted-foreground">Carregando dados do contrato...</p>
           </CardContent>
         </Card>
@@ -68,14 +69,14 @@ export default function PrintContractPage() {
 
   if (!printData || !printData.responsavel) { 
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md shadow-xl">
-          <CardHeader className="items-center">
-            <CardTitle className="text-2xl text-destructive">Erro</CardTitle>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
+        <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
+          <CardHeader className="items-center p-8">
+            <CardTitle className="text-2xl text-destructive font-headline">Erro de Carregamento</CardTitle>
           </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato para impressão (dados do responsável ausentes).</p>
-            <Button onClick={() => router.push('/')} variant="outline">
+          <CardContent className="text-center pb-8 px-8">
+            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato (comprador ausente).</p>
+            <Button onClick={() => router.push('/')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
               <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Início
             </Button>
           </CardContent>
@@ -86,112 +87,116 @@ export default function PrintContractPage() {
   
   const { extractedData, responsavel } = printData;
 
+  const vendedorNome = extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR") || nome.toUpperCase().includes("PABLO MARÇAL")) || "PABLO MARÇAL (ou empresa representante oficial)";
+  const vendedorDocumento = extractedData?.documentosDasPartes?.find((doc, index) => extractedData.nomesDasPartes?.[index]?.toUpperCase().includes("VENDEDOR")) || "[CNPJ DA EMPRESA VENDEDORA]";
+
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-start bg-background p-4 sm:p-8">
-      <div className="w-full max-w-3xl space-y-6">
-        <Card className="shadow-lg printable-area">
-          <CardHeader className="border-b pb-4">
-            <CardTitle className="text-xl font-headline text-primary text-center">📄 MODELO SIMPLES DE CONTRATO DE COMPRA DE PRODUTO DIGITAL</CardTitle>
-            <CardDescription className="text-center text-muted-foreground mt-2">
-              CONTRATO DE COMPRA E ACESSO A PRODUTO DIGITAL
+    <div className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-6 sm:p-12">
+      <div className="w-full max-w-3xl space-y-8">
+        <div className="print-hidden text-center mb-6">
+            <h1 className="text-3xl font-headline text-primary text-glow-gold">Pré-visualização do Contrato</h1>
+            <p className="text-muted-foreground mt-2">Este documento está pronto para impressão.</p>
+        </div>
+        <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
+          <CardHeader className="border-b border-border/50 pb-4 p-6">
+            <CardTitle className="text-xl sm:text-2xl font-headline text-primary text-center uppercase tracking-wider">
+              Contrato de Compra de Produto Digital
+            </CardTitle>
+            <CardDescription className="text-center text-muted-foreground mt-2 text-sm">
+              Instrumento Particular de Compra e Acesso
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6 space-y-4 text-sm contract-text-content">
+          <CardContent className="p-6 sm:p-8 space-y-6 text-sm contract-text-content text-foreground/90 leading-relaxed">
             <p>Pelo presente instrumento particular, de um lado:</p>
 
-            <div className="space-y-1 pl-4">
-              <p><strong>COMPRADOR:</strong></p>
-              <p>Nome: {responsavel.nome || '[NOME DO COMPRADOR]'}</p>
-              <p>CPF/CNPJ: {responsavel.cpf || '[CPF ou CNPJ DO COMPRADOR]'}</p>
-              <p>E-mail: {responsavel.email || '[E-MAIL DO COMPRADOR]'}</p>
-              <p>Telefone: {responsavel.telefone || '[WHATSAPP DO COMPRADOR]'}</p>
+            <div className="space-y-1 pl-4 border-l-2 border-primary/30 py-2">
+              <p className="font-headline text-primary/90 text-base">COMPRADOR:</p>
+              <p><strong>Nome:</strong> {responsavel.nome || '[NOME DO COMPRADOR]'}</p>
+              <p><strong>CPF:</strong> {responsavel.cpf || '[CPF DO COMPRADOR]'}</p>
+              <p><strong>E-mail:</strong> {responsavel.email || '[E-MAIL DO COMPRADOR]'}</p>
+              <p><strong>Telefone:</strong> {responsavel.telefone || '[TELEFONE DO COMPRADOR]'}</p>
             </div>
 
             <p>E de outro lado:</p>
 
-            <div className="space-y-1 pl-4">
-              <p><strong>VENDEDOR:</strong></p>
-              <p>Nome: PABLO MARÇAL (ou empresa representante oficial)</p>
-              <p>CNPJ: {extractedData?.documentosDasPartes && extractedData.documentosDasPartes.length > 1 ? extractedData.documentosDasPartes[1] : '[CNPJ DA EMPRESA VENDEDORA]'}</p>
-              <p>Endereço: [ENDEREÇO COMPLETO DA EMPRESA VENDEDORA]</p>
-              <p>E-mail: [E-MAIL DA EMPRESA VENDEDORA]</p>
+            <div className="space-y-1 pl-4 border-l-2 border-primary/30 py-2">
+              <p className="font-headline text-primary/90 text-base">VENDEDOR:</p>
+              <p><strong>Nome:</strong> {vendedorNome}</p>
+              <p><strong>CNPJ:</strong> {vendedorDocumento}</p>
+              <p><strong>Endereço:</strong> [ENDEREÇO COMPLETO DA EMPRESA VENDEDORA]</p>
+              <p><strong>E-mail:</strong> [E-MAIL DA EMPRESA VENDEDORA]</p>
             </div>
 
             <p>Têm entre si justo e contratado o seguinte:</p>
 
-            <hr className="my-3"/>
+            <hr className="my-4 border-border/30"/>
 
-            <h3 className="font-semibold text-base text-primary">1. OBJETO</h3>
-            <p className="pl-4">1.1. O presente contrato tem por objeto a <strong>compra do produto digital</strong> denominado: <strong>{extractedData?.objetoDoContrato || '[NOME DO PRODUTO – ex: Mentoria Código do Reino, Evento Empresas Exponenciais, etc.]'}</strong>, de autoria de Pablo Marçal, disponibilizado via acesso online.</p>
+            <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">1. OBJETO DO CONTRATO</h3>
+            <p className="pl-4">1.1. O presente contrato tem por objeto a aquisição do produto digital denominado: <strong>{extractedData?.objetoDoContrato || '[NOME DO PRODUTO DIGITAL]'}</strong>, de autoria de Pablo Marçal (ou empresa representante), disponibilizado via acesso online, conforme especificações detalhadas na oferta do produto.</p>
 
-            <hr className="my-3"/>
+            <hr className="my-4 border-border/30"/>
 
-            <h3 className="font-semibold text-base text-primary">2. VALOR E FORMA DE PAGAMENTO</h3>
-            <p className="pl-4">2.1. O valor acordado para a aquisição do produto é de <strong>{extractedData?.valorPrincipal || 'R$ [VALOR]'}</strong>.</p>
-            <p className="pl-4">2.2. O pagamento poderá ser efetuado via [Pix / Cartão de Crédito / Boleto], conforme escolha do comprador no ato da compra.</p>
-            <p className="pl-4">2.3. A liberação do acesso ao produto ocorrerá após a <strong>confirmação do pagamento</strong>.</p>
-            {extractedData?.condicoesDePagamento && (
-              <p className="pl-4 mt-1"><strong>Condições Adicionais de Pagamento (Extraído):</strong> {extractedData.condicoesDePagamento}</p>
+            <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">2. VALOR E CONDIÇÕES DE PAGAMENTO</h3>
+            <p className="pl-4">2.1. O valor total para a aquisição do produto digital é de <strong>{extractedData?.valorPrincipal || 'R$ [VALOR TOTAL]'}</strong>.</p>
+            <p className="pl-4">2.2. Forma de Pagamento: {extractedData?.condicoesDePagamento ? extractedData.condicoesDePagamento : 'Conforme selecionado pelo COMPRADOR no ato da compra (ex: Pix, Cartão de Crédito, Boleto).'}</p>
+            <p className="pl-4">2.3. A liberação do acesso ao produto ocorrerá em até 24 (vinte e quatro) horas após a confirmação do pagamento pela instituição financeira.</p>
+            
+            <hr className="my-4 border-border/30"/>
+
+            <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">3. ACESSO E ENTREGA</h3>
+            <p className="pl-4">3.1. O produto será entregue digitalmente, com as credenciais e instruções de acesso enviadas para o e-mail cadastrado pelo COMPRADOR.</p>
+            <p className="pl-4">3.2. O prazo de acesso ao conteúdo do produto é de {extractedData?.prazoContrato || '[PRAZO DE ACESSO, ex: 12 meses, vitalício enquanto disponível]'} a contar da data de liberação do acesso.</p>
+
+            <hr className="my-4 border-border/30"/>
+
+            <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">4. DIREITOS E RESPONSABILIDADES</h3>
+            <p className="pl-4">4.1. O COMPRADOR compromete-se a utilizar o conteúdo exclusivamente para fins pessoais e intransferíveis, sendo vedada a reprodução, cópia, distribuição, ou comercialização do material sem autorização expressa e por escrito do VENDEDOR.</p>
+            <p className="pl-4">4.2. O VENDEDOR garante o funcionamento da plataforma de acesso e a disponibilidade do conteúdo durante o prazo contratado, ressalvadas interrupções por manutenções programadas ou motivos de força maior.</p>
+
+            <hr className="my-4 border-border/30"/>
+
+            <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">5. POLÍTICA DE REEMBOLSO</h3>
+            <p className="pl-4">5.1. O COMPRADOR poderá solicitar o cancelamento e reembolso integral do valor pago no prazo de 07 (sete) dias corridos a contar da data da compra, conforme Art. 49 do Código de Defesa do Consumidor, desde que não tenha consumido mais de [PERCENTUAL, ex: 20%] do conteúdo.</p>
+
+            <hr className="my-4 border-border/30"/>
+
+            <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">6. DISPOSIÇÕES GERAIS</h3>
+            <p className="pl-4">6.1. As partes elegem o foro da comarca de {extractedData?.foroEleito || '[CIDADE/UF DO FORO]'} para dirimir quaisquer controvérsias oriundas do presente contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.</p>
+            {extractedData?.outrasObservacoesRelevantes && (
+                <p className="pl-4 mt-2"><strong>Observações Adicionais:</strong> {extractedData.outrasObservacoesRelevantes}</p>
             )}
             
-            <hr className="my-3"/>
+            <hr className="my-6 border-border/30"/>
 
-            <h3 className="font-semibold text-base text-primary">3. ENTREGA DO PRODUTO</h3>
-            <p className="pl-4">3.1. O produto será disponibilizado por meio digital, com acesso enviado para o e-mail ou WhatsApp do comprador em até <strong>[X horas/dias úteis]</strong> após confirmação do pagamento.</p>
-            <p className="pl-4">3.2. O acesso poderá ser feito via plataforma [Hotmart / Eduzz / app oficial do evento / link privado], conforme orientações enviadas ao comprador.</p>
-
-            <hr className="my-3"/>
-
-            <h3 className="font-semibold text-base text-primary">4. DIREITOS E RESPONSABILIDADES</h3>
-            <p className="pl-4">4.1. O comprador se compromete a <strong>utilizar o conteúdo apenas para fins pessoais e educativos</strong>, sendo vedada a reprodução, distribuição ou comercialização sem autorização expressa do autor.</p>
-            <p className="pl-4">4.2. O vendedor garante o acesso ao conteúdo durante o prazo estipulado na oferta, respeitando eventuais atualizações ou encerramentos conforme descrito no momento da compra.</p>
-
-            <hr className="my-3"/>
-
-            <h3 className="font-semibold text-base text-primary">5. POLÍTICA DE REEMBOLSO</h3>
-            <p className="pl-4">5.1. O comprador terá o <strong>direito de solicitar reembolso</strong> dentro do prazo de <strong>7 dias corridos</strong>, conforme previsto no Código de Defesa do Consumidor, desde que ainda não tenha consumido integralmente o conteúdo.</p>
-            <p className="pl-4">5.2. Após este prazo, o valor pago será considerado como definitivo e o acesso será mantido conforme estipulado.</p>
-
-            <hr className="my-3"/>
-
-            <h3 className="font-semibold text-base text-primary">6. DISPOSIÇÕES FINAIS</h3>
-            <p className="pl-4">6.1. As partes elegem o foro da comarca de {extractedData?.foroEleito || '[CIDADE/UF DO FORO]'} para dirimir eventuais conflitos decorrentes deste contrato.</p>
-            <p className="pl-4">6.2. Este contrato entra em vigor na data da efetivação da compra, tendo validade até a entrega integral do conteúdo ou conforme os termos de acesso estabelecidos. {extractedData?.prazoContrato ? `(Prazo extraído: ${extractedData.prazoContrato})` : ''}</p>
+            <p className="text-center mt-8 text-muted-foreground">{extractedData?.localEDataAssinatura || '[Local], [Data]'}</p>
             
-            <hr className="my-3"/>
-
-            <p className="text-center mt-6">{extractedData?.localEDataAssinatura || '[Local], [Data]'}</p>
-            
-            <div className="mt-10 space-y-8">
-              <div className="w-3/4 mx-auto border-b border-foreground pb-1 text-center">
-                 <p className="text-xs">{responsavel.nome || '[ASSINATURA DO COMPRADOR]'}</p>
-                 <p className="text-xs">(Assinatura do Comprador)</p>
+            <div className="mt-12 space-y-10">
+              <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
+                 <p className="text-sm min-h-[1.25rem]">{responsavel.nome || '[ESPAÇO PARA ASSINATURA DO COMPRADOR]'}</p>
+                 <p className="text-xs text-muted-foreground">(COMPRADOR)</p>
               </div>
-              <div className="w-3/4 mx-auto border-b border-foreground pb-1 text-center">
-                 <p className="text-xs">(Assinatura do Representante Legal - Equipe Pablo Marçal)</p>
+              <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
+                 <p className="text-sm min-h-[1.25rem]">[ESPAÇO PARA ASSINATURA DO REPRESENTANTE LEGAL]</p>
+                 <p className="text-xs text-muted-foreground">(VENDEDOR - Representante Legal)</p>
               </div>
             </div>
-
-            {extractedData?.outrasObservacoesRelevantes && (
-                <div className="mt-6 pt-4 border-t">
-                    <h3 className="font-semibold text-base text-primary">Outras Observações Extraídas:</h3>
-                    <p className="text-muted-foreground text-xs">{extractedData.outrasObservacoesRelevantes}</p>
-                </div>
-            )}
+            
           </CardContent>
         </Card>
         
-        <div className="mt-6 w-full max-w-3xl flex flex-col sm:flex-row gap-4 print-hidden">
-          <Button onClick={() => window.print()} className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
+        <div className="mt-8 w-full max-w-3xl flex flex-col sm:flex-row gap-4 print-hidden">
+          <Button onClick={() => window.print()} className="flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-4 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
             <Printer className="mr-2 h-5 w-5" /> Imprimir Contrato
           </Button>
-          <Button variant="outline" onClick={() => router.push('/')} className="flex-1">
-            <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Início
+          <Button variant="outline" onClick={() => router.push('/')} className="flex-1 border-primary/80 text-primary hover:bg-primary/10 text-lg py-4 rounded-lg">
+            <ArrowLeft className="mr-2 h-5 w-5" /> Voltar ao Início
           </Button>
         </div>
       </div>
+       <footer className="print-hidden absolute bottom-8 text-center text-xs text-muted-foreground left-0 right-0">
+          <p>© {new Date().getFullYear()} Financeiro Pablo Marçal - Todos os direitos reservados.</p>
+      </footer>
     </div>
   );
 }
-
-    
