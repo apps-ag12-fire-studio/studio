@@ -175,7 +175,7 @@ export default function DocumentosPage() {
       });
       toast({ 
         title: `Erro na Análise de ${docName || docKey}`, 
-        description: "Não foi possível extrair os dados. Tente novamente ou verifique a imagem.", // This toast is already user-friendly
+        description: userFriendlyErrorMessage,
         variant: "destructive" 
       });
     } finally {
@@ -496,4 +496,6 @@ export default function DocumentosPage() {
     </>
   );
 }
+    
+
     
