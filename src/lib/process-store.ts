@@ -15,8 +15,8 @@ export interface BuyerInfo {
 export interface StoredProcessState {
   currentStep: string;
   contractSourceType: 'new' | 'existing';
-  selectedPlayer: string | null; // Added for player selection
-  selectedContractTemplateName: string | null; // Added for template name
+  selectedPlayer: string | null;
+  selectedContractTemplateName: string | null;
   buyerInfo: BuyerInfo;
   internalTeamMemberInfo: BuyerInfo;
   contractPhotoPreview: string | null;
@@ -42,8 +42,8 @@ export const initialStoredProcessState: StoredProcessState = {
   attachedDocumentNames: [],
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v3'; // Incremented version
-const PRINT_DATA_KEY = 'contractPrintData_v2'; // Incremented version
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v3';
+const PRINT_DATA_KEY = 'contractPrintData_v2';
 
 
 export function saveProcessState(state: StoredProcessState) {
@@ -57,7 +57,7 @@ export function saveProcessState(state: StoredProcessState) {
 export function loadProcessState(): StoredProcessState {
   try {
     const storedState = localStorage.getItem(PROCESS_STATE_KEY);
-    if (storedState) {
+    if (storedState && storedState !== "undefined") { // Check for null, empty, and the literal string "undefined"
       const parsedState = JSON.parse(storedState) as StoredProcessState;
       // Ensure new fields have default values if loading older state
       if (!parsedState.internalTeamMemberInfo) {
@@ -66,7 +66,7 @@ export function loadProcessState(): StoredProcessState {
       if (!parsedState.buyerInfo) {
         parsedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
       }
-      if (parsedState.selectedPlayer === undefined) { // Check for undefined to ensure backward compatibility
+      if (parsedState.selectedPlayer === undefined) { 
         parsedState.selectedPlayer = null;
       }
       if (parsedState.selectedContractTemplateName === undefined) {
@@ -76,6 +76,7 @@ export function loadProcessState(): StoredProcessState {
     }
   } catch (error) {
     console.error("Error loading process state from localStorage:", error);
+    // If parsing fails, or storedState was "undefined", return initial state
   }
   return JSON.parse(JSON.stringify(initialStoredProcessState)); // Return a deep copy
 }
@@ -93,7 +94,7 @@ export function clearProcessState() {
 export interface PrintData {
   extractedData: ExtractContractDataOutput | null;
   responsavel: BuyerInfo | null;
-  selectedPlayer: string | null; // Added for print page
+  selectedPlayer: string | null;
 }
 
 export function savePrintData(data: PrintData) {
@@ -107,7 +108,7 @@ export function savePrintData(data: PrintData) {
 export function loadPrintData(): PrintData | null {
   try {
     const dataString = localStorage.getItem(PRINT_DATA_KEY);
-    if (dataString) {
+    if (dataString && dataString !== "undefined") { // Check for null, empty, and the literal string "undefined"
       const parsedData = JSON.parse(dataString) as PrintData;
       if (parsedData.selectedPlayer === undefined) {
         parsedData.selectedPlayer = null;
@@ -116,6 +117,7 @@ export function loadPrintData(): PrintData | null {
     }
   } catch (error) {
     console.error("Error loading print data from localStorage:", error);
+    // If parsing fails, or dataString was "undefined", return null
   }
   return null;
 }
