@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, clearProcessState, initialStoredProcessState, savePrintData } from "@/lib/process-store";
-import { ArrowLeft, Printer, UploadCloud, Sparkles, Loader2, FileText, UserRound, Camera, ListChecks } from "lucide-react";
+import { ArrowLeft, Printer, UploadCloud, Sparkles, Loader2, FileText, UserRound, Camera, ListChecks, Paperclip } from "lucide-react";
 
 const MIN_DOCUMENTS = 2; // Should be consistent with documents page
 
@@ -218,3 +218,5 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
+    
