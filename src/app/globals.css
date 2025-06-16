@@ -121,50 +121,54 @@ body {
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    margin: 0;
+    padding: 0;
+    background: white !important;
   }
-  .printable-area, .printable-area * {
-    visibility: visible !important;
+
+  .print-hidden {
+    display: none !important;
+    visibility: hidden !important;
   }
+
   .printable-area {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 100% !important;
-    height: auto !important;
+    width: 100% !important; 
+    min-height: 100% !important;
+    height: auto !important; 
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0.5in !important; 
     background-color: white !important;
     color: black !important;
     box-shadow: none !important;
     border: none !important;
+    font-size: 11pt; 
   }
-  .print-hidden, .print-hidden * {
-    display: none !important;
-    visibility: hidden !important;
+
+  .printable-area * {
+    visibility: visible !important;
+    color: black !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
-  /* Ensure card styling is appropriate for print */
+
   .printable-area .contract-text-content {
-    font-size: 10pt !important; /* Example: Adjust font size for print */
+    font-size: 10pt !important;
     line-height: 1.4 !important;
   }
   .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6 {
-    color: black !important;
-  }
-  .printable-area p, .printable-area li, .printable-area div, .printable-area span {
     color: black !important;
   }
   .printable-area .text-primary {
      color: black !important; 
   }
    .printable-area .text-muted-foreground {
-     color: #555 !important; /* Darker gray for print */
+     color: #444 !important; 
    }
-  /* Hide all other elements on the page */
-  body > *:not(.printable-area) {
-    display: none !important;
-    visibility: hidden !important;
-  }
-  /* Ensure the printable area takes up the full page */
+  
   html, body {
     height: auto !important;
     overflow: visible !important;
