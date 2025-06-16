@@ -1,15 +1,16 @@
 
 "use client";
 
-import { useState, ChangeEvent, FormEvent, useEffect } from "react";
+import { useState, ChangeEvent, FormEvent, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText, Printer as PrinterIcon } from "lucide-react";
+import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText, Printer as PrinterIcon, FileSearch, ListChecks } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
@@ -30,6 +31,8 @@ export default function ContratoPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const [contractSourceType, setContractSourceType] = useState<'new' | 'existing'>('new');
+
   const [contractPhoto, setContractPhoto] = useState<File | null>(null);
   const [contractPhotoPreview, setContractPhotoPreview] = useState<string | null>(null);
   
@@ -42,6 +45,8 @@ export default function ContratoPage() {
 
   const [attachedDocuments, setAttachedDocuments] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const contractPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -88,23 +93,26 @@ export default function ContratoPage() {
   };
 
   const handleExtractContractData = async () => {
-    if (!contractPhoto || !photoVerified) {
-      toast({ title: "Ação Necessária", description: "Por favor, carregue e verifique a foto do contrato primeiro.", variant: "destructive" });
-      return;
+    if (contractSourceType === 'new') {
+      if (!contractPhoto || !photoVerified) {
+        toast({ title: "Ação Necessária", description: "Por favor, carregue e verifique a foto do contrato primeiro.", variant: "destructive" });
+        return;
+      }
+      setIsExtractingData(true);
+      try {
+        const photoDataUri = await fileToDataUri(contractPhoto);
+        const result = await extractContractData({ photoDataUri });
+        setExtractedData(result);
+        toast({ title: "Análise Concluída", description: "Dados extraídos do contrato." });
+      } catch (error) {
+        console.error("AI Extraction Error:", error);
+        setExtractedData(null);
+        toast({ title: "Erro na Análise", description: "Não foi possível extrair os dados do contrato. Verifique a qualidade da imagem ou tente novamente.", variant: "destructive" });
+      } finally {
+        setIsExtractingData(false);
+      }
     }
-    setIsExtractingData(true);
-    try {
-      const photoDataUri = await fileToDataUri(contractPhoto);
-      const result = await extractContractData({ photoDataUri });
-      setExtractedData(result);
-      toast({ title: "Análise Concluída", description: "Dados extraídos do contrato." });
-    } catch (error) {
-      console.error("AI Extraction Error:", error);
-      setExtractedData(null);
-      toast({ title: "Erro na Análise", description: "Não foi possível extrair os dados do contrato. Verifique a qualidade da imagem ou tente novamente.", variant: "destructive" });
-    } finally {
-      setIsExtractingData(false);
-    }
+    // Logic for 'existing' contract type would go here in the future
   };
 
   const handleDocumentChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -128,9 +136,14 @@ export default function ContratoPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!contractPhoto || !photoVerified) {
+    if (contractSourceType === 'new' && (!contractPhoto || !photoVerified)) {
       toast({ title: "Envio Falhou", description: "Por favor, capture e verifique a foto do contrato.", variant: "destructive" });
       return;
+    }
+    if (contractSourceType === 'existing' && !extractedData) {
+        // This condition will change when existing contract selection is implemented
+        toast({ title: "Envio Falhou", description: "Por favor, selecione um contrato existente.", variant: "destructive" });
+        return;
     }
     if (attachedDocuments.length < MIN_DOCUMENTS) {
       toast({ title: "Envio Falhou", description: `Por favor, anexe pelo menos ${MIN_DOCUMENTS} documentos comprobatórios.`, variant: "destructive" });
@@ -139,7 +152,7 @@ export default function ContratoPage() {
 
     setIsSubmitting(true);
     try {
-      console.log("Submitting data:", { contractPhoto, attachedDocuments, extractedData });
+      console.log("Submitting data:", { contractSourceType, contractPhoto, attachedDocuments, extractedData });
       // Placeholder for actual submission logic
       await new Promise(resolve => setTimeout(resolve, 2000)); 
       toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso."});
@@ -183,6 +196,21 @@ export default function ContratoPage() {
     });
   };
 
+  const isSubmitDisabled = () => {
+    if (isSubmitting) return true;
+    if (attachedDocuments.length < MIN_DOCUMENTS) return true;
+
+    if (contractSourceType === 'new') {
+      return !photoVerified || isVerifyingPhoto || isExtractingData;
+    }
+    if (contractSourceType === 'existing') {
+      // For now, existing contracts can't be submitted as data isn't loaded
+      // This will change when existing contract selection is implemented
+      return !extractedData; 
+    }
+    return true; // Should not happen
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-start bg-background p-4 sm:p-8">
       <div className="w-full max-w-2xl space-y-8">
@@ -194,89 +222,156 @@ export default function ContratoPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center text-xl font-headline"><Camera className="mr-3 h-7 w-7 text-primary" />Etapa 1: Foto do Contrato</CardTitle>
-              <CardDescription>Tire uma foto nítida e completa do contrato assinado.</CardDescription>
+              <CardTitle className="flex items-center text-xl font-headline">
+                <FileSearch className="mr-3 h-7 w-7 text-primary" /> Origem do Contrato
+              </CardTitle>
+              <CardDescription>Escolha se deseja enviar um novo contrato por foto ou selecionar um da lista.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="contract-photo-input" className="mb-2 block text-sm font-medium">Carregar foto do contrato</Label>
-                <Input
-                  id="contract-photo-input"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleContractPhotoChange}
-                  className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
-                  aria-describedby="contract-photo-hint"
-                />
-                <p id="contract-photo-hint" className="mt-1 text-xs text-muted-foreground">Use a câmera do seu dispositivo ou selecione um arquivo de imagem.</p>
-              </div>
-              {contractPhotoPreview && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium mb-2">Pré-visualização:</p>
-                  <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-dashed border-primary/30 bg-muted/30 flex items-center justify-center" data-ai-hint="contract document">
-                    <Image src={contractPhotoPreview} alt="Pré-visualização do contrato" layout="fill" objectFit="contain" />
-                  </div>
+            <CardContent>
+              <RadioGroup
+                value={contractSourceType}
+                onValueChange={(value: 'new' | 'existing') => {
+                  setContractSourceType(value);
+                  setContractPhoto(null);
+                  setContractPhotoPreview(null);
+                  setPhotoVerificationResult(null);
+                  setPhotoVerified(false);
+                  setExtractedData(null);
+                  // setAttachedDocuments([]); // Optionally reset documents too
+                  if (contractPhotoInputRef.current) {
+                    contractPhotoInputRef.current.value = ""; // Reset file input
+                  }
+                }}
+                className="space-y-3"
+              >
+                <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/30 transition-colors">
+                  <RadioGroupItem value="new" id="source-new" />
+                  <Label htmlFor="source-new" className="font-medium text-base cursor-pointer flex-1">Novo Contrato (Enviar Foto)</Label>
                 </div>
-              )}
+                <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/30 transition-colors">
+                  <RadioGroupItem value="existing" id="source-existing" />
+                  <Label htmlFor="source-existing" className="font-medium text-base cursor-pointer flex-1">Contrato Existente (Selecionar da Lista)</Label>
+                </div>
+              </RadioGroup>
             </CardContent>
-            {contractPhoto && !photoVerified && (
-              <CardFooter>
-                <Button type="button" onClick={handleVerifyPhoto} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
-                  {isVerifyingPhoto && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                  Verificar Foto com IA
-                </Button>
-              </CardFooter>
-            )}
           </Card>
 
-          {isVerifyingPhoto && (
-             <Card className="shadow-md">
-                <CardContent className="p-6 flex flex-col items-center justify-center space-y-3">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <p className="text-muted-foreground font-medium">Verificando a qualidade da foto...</p>
+          {contractSourceType === 'new' && (
+            <>
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-xl font-headline"><Camera className="mr-3 h-7 w-7 text-primary" />Etapa 1: Foto do Contrato</CardTitle>
+                  <CardDescription>Tire uma foto nítida e completa do contrato assinado.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="contract-photo-input" className="mb-2 block text-sm font-medium">Carregar foto do contrato</Label>
+                    <Input
+                      id="contract-photo-input"
+                      ref={contractPhotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleContractPhotoChange}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                      aria-describedby="contract-photo-hint"
+                    />
+                    <p id="contract-photo-hint" className="mt-1 text-xs text-muted-foreground">Use a câmera do seu dispositivo ou selecione um arquivo de imagem.</p>
+                  </div>
+                  {contractPhotoPreview && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium mb-2">Pré-visualização:</p>
+                      <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-dashed border-primary/30 bg-muted/30 flex items-center justify-center" data-ai-hint="contract document">
+                        <Image src={contractPhotoPreview} alt="Pré-visualização do contrato" layout="fill" objectFit="contain" />
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
-            </Card>
-          )}
-          
-          {photoVerificationResult && (
-            <Card className={`shadow-md ${photoVerificationResult.isCompleteAndClear ? "border-green-500" : "border-red-500"}`}>
-              <CardHeader>
-                <CardTitle className="flex items-center font-headline">
-                  {photoVerificationResult.isCompleteAndClear ? <CheckCircle2 className="mr-3 h-7 w-7 text-green-500" /> : <AlertTriangle className="mr-3 h-7 w-7 text-red-500" />}
-                  Resultado da Verificação
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-base">{photoVerificationResult.reason || (photoVerificationResult.isCompleteAndClear ? "A foto parece estar nítida e completa." : "A foto precisa de ajustes.")}</p>
-                {!photoVerificationResult.isCompleteAndClear && (
-                  <Button type="button" onClick={() => document.getElementById('contract-photo-input')?.click()} variant="outline" className="w-full border-primary text-primary hover:bg-primary/5">
-                    <Camera className="mr-2 h-5 w-5" /> Tentar Novamente
-                  </Button>
+                {contractPhoto && !photoVerified && (
+                  <CardFooter>
+                    <Button type="button" onClick={handleVerifyPhoto} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
+                      {isVerifyingPhoto && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                      Verificar Foto com IA
+                    </Button>
+                  </CardFooter>
                 )}
-              </CardContent>
-            </Card>
+              </Card>
+
+              {isVerifyingPhoto && (
+                 <Card className="shadow-md">
+                    <CardContent className="p-6 flex flex-col items-center justify-center space-y-3">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                        <p className="text-muted-foreground font-medium">Verificando a qualidade da foto...</p>
+                    </CardContent>
+                </Card>
+              )}
+              
+              {photoVerificationResult && (
+                <Card className={`shadow-md ${photoVerificationResult.isCompleteAndClear ? "border-green-500" : "border-red-500"}`}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center font-headline">
+                      {photoVerificationResult.isCompleteAndClear ? <CheckCircle2 className="mr-3 h-7 w-7 text-green-500" /> : <AlertTriangle className="mr-3 h-7 w-7 text-red-500" />}
+                      Resultado da Verificação
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-base">{photoVerificationResult.reason || (photoVerificationResult.isCompleteAndClear ? "A foto parece estar nítida e completa." : "A foto precisa de ajustes.")}</p>
+                    {!photoVerificationResult.isCompleteAndClear && (
+                      <Button type="button" onClick={() => contractPhotoInputRef.current?.click()} variant="outline" className="w-full border-primary text-primary hover:bg-primary/5">
+                        <Camera className="mr-2 h-5 w-5" /> Tentar Novamente
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {photoVerified && !extractedData && !isExtractingData && (
+                <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato</CardTitle>
+                    <CardDescription>Extraia informações chave do contrato para facilitar o preenchimento e verificação.</CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <Button type="button" onClick={handleExtractContractData} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
+                       Analisar Contrato com IA
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+
+              {isExtractingData && (
+                <Card className="shadow-md">
+                  <CardContent className="p-6 flex flex-col items-center justify-center space-y-3">
+                      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                      <p className="text-muted-foreground font-medium">Analisando o contrato e extraindo dados...</p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
 
-          {photoVerified && !extractedData && !isExtractingData && (
+          {contractSourceType === 'existing' && (
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato</CardTitle>
-                <CardDescription>Extraia informações chave do contrato para facilitar o preenchimento e verificação.</CardDescription>
+                <CardTitle className="flex items-center text-xl font-headline">
+                  <ListChecks className="mr-3 h-7 w-7 text-primary" /> Selecionar Contrato Existente
+                </CardTitle>
+                <CardDescription>Escolha um contrato da lista abaixo.</CardDescription>
               </CardHeader>
-              <CardFooter>
-                <Button type="button" onClick={handleExtractContractData} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
-                   Analisar Contrato com IA
+              <CardContent>
+                <div className="p-6 border border-dashed rounded-md text-center">
+                  <p className="text-muted-foreground text-sm">
+                    Funcionalidade em desenvolvimento.
+                  </p>
+                  <p className="text-muted-foreground text-xs mt-1">
+                    Em breve, você poderá selecionar contratos previamente cadastrados aqui.
+                  </p>
+                </div>
+                 {/* Placeholder for future:
+                <Button type="button" onClick={() => setExtractedData({ objetoDoContrato: "Contrato Exemplo da Lista", valorPrincipal: "R$ 500,00"})} className="w-full mt-4">
+                  Simular Seleção de Contrato Existente
                 </Button>
-              </CardFooter>
-            </Card>
-          )}
-
-          {isExtractingData && (
-            <Card className="shadow-md">
-              <CardContent className="p-6 flex flex-col items-center justify-center space-y-3">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-muted-foreground font-medium">Analisando o contrato e extraindo dados...</p>
+                */}
               </CardContent>
             </Card>
           )}
@@ -288,7 +383,7 @@ export default function ContratoPage() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {isExtractedDataEmpty(extractedData) ? (
-                   <p className="text-muted-foreground">Nenhum dado específico pôde ser extraído automaticamente ou o contrato não contém essas informações de forma clara. Verifique a qualidade da imagem.</p>
+                   <p className="text-muted-foreground">Nenhum dado específico pôde ser extraído automaticamente ou o contrato não contém essas informações de forma clara. {contractSourceType === 'new' && "Verifique a qualidade da imagem."}</p>
                 ) : (
                   <>
                     {extractedData.nomesDasPartes && extractedData.nomesDasPartes.length > 0 && (
@@ -317,10 +412,12 @@ export default function ContratoPage() {
                     )}
                   </>
                 )}
-                 <Button type="button" onClick={handleExtractContractData} variant="outline" disabled={isExtractingData || isVerifyingPhoto} className="w-full mt-4 border-primary text-primary hover:bg-primary/5">
-                    {isExtractingData ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ScanText className="mr-2 h-5 w-5" />}
-                    Reanalisar Contrato
-                </Button>
+                {contractSourceType === 'new' && (
+                  <Button type="button" onClick={handleExtractContractData} variant="outline" disabled={isExtractingData || isVerifyingPhoto} className="w-full mt-4 border-primary text-primary hover:bg-primary/5">
+                      {isExtractingData ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ScanText className="mr-2 h-5 w-5" />}
+                      Reanalisar Contrato
+                  </Button>
+                )}
               </CardContent>
               {!isExtractedDataEmpty(extractedData) && (
                 <CardFooter className="flex-col space-y-2">
@@ -383,7 +480,7 @@ export default function ContratoPage() {
                 <CardDescription>Revise as informações e envie o contrato e os documentos.</CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button type="submit" disabled={isSubmitting || !photoVerified || attachedDocuments.length < MIN_DOCUMENTS || isVerifyingPhoto || isExtractingData} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3">
+              <Button type="submit" disabled={isSubmitDisabled()} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3">
                 {isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
                 {isSubmitting ? "Enviando..." : "Enviar Contrato e Documentos"}
               </Button>
