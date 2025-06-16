@@ -11,55 +11,56 @@ import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, savePrintData, BuyerInfo } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon } from "lucide-react";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Edit3 } from "lucide-react";
 
 const MIN_DOCUMENTS = 1; 
 
-// Helper function to attempt pre-filling buyer info
 const attemptToPreFillBuyerInfo = (
   docAnalysisResults: Record<string, ExtractBuyerDocumentDataOutput | null>,
   contractExtractedData: ExtractContractDataOutput | null
 ): BuyerInfo => {
   const newBuyerInfo = { ...initialStoredProcessState.buyerInfo };
 
-  // Prioritize data from analyzed documents
   let bestDocMatch: ExtractBuyerDocumentDataOutput | null = null;
-
   for (const result of Object.values(docAnalysisResults)) {
     if (result && !(result as any).error) {
-      if (result.nomeCompleto && result.cpf) { // Ideal: found name and CPF
-        bestDocMatch = result;
-        break;
-      }
-      if (!bestDocMatch && (result.nomeCompleto || result.cpf)) { // Good: found at least one
-        bestDocMatch = result;
+      if (result.nomeCompleto) newBuyerInfo.nome = result.nomeCompleto;
+      if (result.cpf) newBuyerInfo.cpf = result.cpf;
+      // Found both, or at least some, from document analysis
+      if (newBuyerInfo.nome && newBuyerInfo.cpf) break; // Prioritize complete match
+      if (!bestDocMatch && (newBuyerInfo.nome || newBuyerInfo.cpf)) {
+        bestDocMatch = result; // Keep track if only partial match found from docs
       }
     }
   }
+  // If full info found from docs, return
+  if (newBuyerInfo.nome && newBuyerInfo.cpf) return newBuyerInfo;
 
+  // If partial info from docs, use it
   if (bestDocMatch) {
-    if (bestDocMatch.nomeCompleto) newBuyerInfo.nome = bestDocMatch.nomeCompleto;
-    if (bestDocMatch.cpf) newBuyerInfo.cpf = bestDocMatch.cpf;
-    // Could also pre-fill other fields like dataNascimento if the form had them
-    return newBuyerInfo;
+     if (bestDocMatch.nomeCompleto && !newBuyerInfo.nome) newBuyerInfo.nome = bestDocMatch.nomeCompleto;
+     if (bestDocMatch.cpf && !newBuyerInfo.cpf) newBuyerInfo.cpf = bestDocMatch.cpf;
+     return newBuyerInfo;
   }
 
-  // Fallback to contract data if document analysis didn't yield results
+
+  // Fallback to contract data if document analysis didn't yield results for nome/cpf
   if (contractExtractedData?.nomesDasPartes) {
     for (let i = 0; i < contractExtractedData.nomesDasPartes.length; i++) {
       const parte = contractExtractedData.nomesDasPartes[i].toUpperCase();
       if (parte.includes("COMPRADOR") || parte.includes("CLIENTE")) {
-        let nome = contractExtractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b|\bCLIENTE\b/i)[0].trim();
-        nome = nome.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
-        if (nome) newBuyerInfo.nome = nome;
-
-        if (contractExtractedData.documentosDasPartes && contractExtractedData.documentosDasPartes[i]) {
+        if (!newBuyerInfo.nome) {
+          let nome = contractExtractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b|\bCLIENTE\b/i)[0].trim();
+          nome = nome.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
+          if (nome) newBuyerInfo.nome = nome;
+        }
+        if (!newBuyerInfo.cpf && contractExtractedData.documentosDasPartes && contractExtractedData.documentosDasPartes[i]) {
           const doc = contractExtractedData.documentosDasPartes[i].replace(/\D/g, '');
           if (doc.length === 11 || doc.length === 14) { 
                newBuyerInfo.cpf = contractExtractedData.documentosDasPartes[i];
           }
         }
-        break; 
+        if (newBuyerInfo.nome && newBuyerInfo.cpf) break; 
       }
     }
   }
@@ -77,19 +78,16 @@ export default function RevisaoEnvioPage() {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
 
-    // Ensure buyerDocumentAnalysisResults exists
     const analysisResults = loadedState.buyerDocumentAnalysisResults || {};
-    
     const preFilledInfo = attemptToPreFillBuyerInfo(analysisResults, loadedState.extractedData);
     
-    // Only pre-fill if currentBuyerInfo is initial OR loadedState.buyerInfo is initial (meaning it hasn't been set by user yet)
-    // This prevents overwriting user's manual input on page re-renders unless it's the very first load or state was cleared.
     if (JSON.stringify(currentBuyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo) || 
         (loadedState.buyerInfo && JSON.stringify(loadedState.buyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo))) {
       setCurrentBuyerInfo(preFilledInfo);
-    } else if (loadedState.buyerInfo) { // If there's existing buyerInfo from previous save, use that
+    } else if (loadedState.buyerInfo) { 
       setCurrentBuyerInfo(loadedState.buyerInfo); 
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
   
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
@@ -128,12 +126,14 @@ export default function RevisaoEnvioPage() {
   const handlePrepareForPrint = () => {
     if (!validateBuyerInfo()) return;
 
-    const updatedProcessState = { ...processState, buyerInfo: currentBuyerInfo };
-
-    if (isPrintDisabled(updatedProcessState)){ 
+    const stateForPrintCheck = { ...processState, buyerInfo: currentBuyerInfo };
+    if (isPrintDisabled(stateForPrintCheck)){ 
        toast({ title: "Ação Necessária", description: "Complete todas as etapas e informações obrigatórias para preparar a impressão.", variant: "destructive" });
        return;
     }
+    
+    const updatedProcessState = { ...processState, buyerInfo: currentBuyerInfo };
+
     savePrintData({ 
       extractedData: updatedProcessState.extractedData, 
       responsavel: updatedProcessState.buyerInfo,
@@ -150,11 +150,12 @@ export default function RevisaoEnvioPage() {
   };
 
   const handleBack = () => {
-    saveProcessState({ ...processState, buyerInfo: currentBuyerInfo });
+    saveProcessState({ ...processState, buyerInfo: currentBuyerInfo }); // Save current form data before going back
     router.push("/processo/documentos");
   };
 
   const isPrintDisabled = (currentState: StoredProcessState) => { 
+    // Check against the buyerInfo passed in currentState, which should be currentBuyerInfo for live check
     if (isBuyerInfoEmpty(currentState.buyerInfo)) return true; 
     if (currentState.attachedDocumentNames.length < MIN_DOCUMENTS) return true; 
     if (isInternalTeamMemberInfoEmpty(currentState.internalTeamMemberInfo)) return true;
@@ -217,7 +218,7 @@ export default function RevisaoEnvioPage() {
       <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-2xl font-headline text-primary"><ListChecks className="mr-3 h-7 w-7" />Revisar Demais Informações</CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Confira os outros dados antes de prosseguir para impressão.</CardDescription>
+          <CardDescription className="text-foreground/70 pt-1">Confira os outros dados antes de prosseguir para impressão. As informações do comprador abaixo são atualizadas em tempo real conforme você edita o formulário acima.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div className="space-y-2">
@@ -237,14 +238,14 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
-          {!isBuyerInfoEmpty(processState.buyerInfo) && (
+          {!isBuyerInfoEmpty(currentBuyerInfo) && (
             <>
               <div className="space-y-2">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />Dados do Comprador</h3>
-                <p className="text-foreground/80"><strong>Nome:</strong> {processState.buyerInfo.nome}</p>
-                <p className="text-foreground/80"><strong>CPF:</strong> {processState.buyerInfo.cpf || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>Telefone:</strong> {processState.buyerInfo.telefone || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>E-mail:</strong> {processState.buyerInfo.email || 'Não informado'}</p>
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />Dados do Comprador (para conferência)</h3>
+                <p className="text-foreground/80"><strong>Nome:</strong> {currentBuyerInfo.nome}</p>
+                <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>Telefone:</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
               </div>
               <hr className="border-border/30"/>
             </>
@@ -318,7 +319,7 @@ export default function RevisaoEnvioPage() {
         </CardHeader>
         <CardContent className="p-6 pt-0">
              <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
-                disabled={isPrintDisabled(processState)} 
+                disabled={isPrintDisabled({ ...processState, buyerInfo: currentBuyerInfo })}
              >
                 <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
             </Button>
