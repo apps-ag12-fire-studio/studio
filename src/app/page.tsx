@@ -112,8 +112,23 @@ export default function ContratoPage() {
         setIsExtractingData(false);
       }
     }
-    // Logic for 'existing' contract type would go here in the future
   };
+
+  const handleSelectExistingContract = () => {
+    const sampleContractData: ExtractContractDataOutput = {
+      nomesDasPartes: ["CLIENTE EXEMPLO, COMO COMPRADOR", "PABLO MARÇAL, COMO VENDEDOR"],
+      documentosDasPartes: ["000.000.000-00", "[CNPJ DA EMPRESA VENDEDORA]"],
+      objetoDoContrato: "PRODUTO DIGITAL EXEMPLO (ex: Mentoria XPTO)",
+      valorPrincipal: "R$ 1.000,00 (mil reais)",
+      prazoContrato: "Acesso por 12 meses",
+      localEDataAssinatura: "São Paulo, 15 de Agosto de 2024",
+      foroEleito: "Comarca de São Paulo/SP",
+      outrasObservacoesRelevantes: "Este é um contrato modelo carregado para demonstração."
+    };
+    setExtractedData(sampleContractData);
+    toast({ title: "Modelo Carregado", description: "Modelo de Contrato de Compra de Produto Digital carregado com dados de exemplo." });
+  };
+
 
   const handleDocumentChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -141,8 +156,7 @@ export default function ContratoPage() {
       return;
     }
     if (contractSourceType === 'existing' && !extractedData) {
-        // This condition will change when existing contract selection is implemented
-        toast({ title: "Envio Falhou", description: "Por favor, selecione um contrato existente.", variant: "destructive" });
+        toast({ title: "Envio Falhou", description: "Por favor, selecione um contrato existente ou carregue seus dados.", variant: "destructive" });
         return;
     }
     if (attachedDocuments.length < MIN_DOCUMENTS) {
@@ -153,7 +167,6 @@ export default function ContratoPage() {
     setIsSubmitting(true);
     try {
       console.log("Submitting data:", { contractSourceType, contractPhoto, attachedDocuments, extractedData });
-      // Placeholder for actual submission logic
       await new Promise(resolve => setTimeout(resolve, 2000)); 
       toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso."});
       router.push("/confirmation");
@@ -204,11 +217,9 @@ export default function ContratoPage() {
       return !photoVerified || isVerifyingPhoto || isExtractingData;
     }
     if (contractSourceType === 'existing') {
-      // For now, existing contracts can't be submitted as data isn't loaded
-      // This will change when existing contract selection is implemented
       return !extractedData; 
     }
-    return true; // Should not happen
+    return true; 
   };
 
   return (
@@ -237,9 +248,9 @@ export default function ContratoPage() {
                   setPhotoVerificationResult(null);
                   setPhotoVerified(false);
                   setExtractedData(null);
-                  // setAttachedDocuments([]); // Optionally reset documents too
+                  // setAttachedDocuments([]); 
                   if (contractPhotoInputRef.current) {
-                    contractPhotoInputRef.current.value = ""; // Reset file input
+                    contractPhotoInputRef.current.value = ""; 
                   }
                 }}
                 className="space-y-3"
@@ -356,22 +367,21 @@ export default function ContratoPage() {
                 <CardTitle className="flex items-center text-xl font-headline">
                   <ListChecks className="mr-3 h-7 w-7 text-primary" /> Selecionar Contrato Existente
                 </CardTitle>
-                <CardDescription>Escolha um contrato da lista abaixo.</CardDescription>
+                <CardDescription>Escolha um modelo de contrato da lista abaixo para carregar dados de exemplo.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="p-6 border border-dashed rounded-md text-center">
-                  <p className="text-muted-foreground text-sm">
-                    Funcionalidade em desenvolvimento.
+              <CardContent className="space-y-3">
+                 <Button 
+                    type="button" 
+                    onClick={handleSelectExistingContract} 
+                    variant="outline"
+                    className="w-full border-primary text-primary hover:bg-primary/5 py-3 text-base"
+                  >
+                    <FileText className="mr-2 h-5 w-5" /> 
+                    Selecionar 'Modelo de Compra de Produto Digital (Pablo Marçal)'
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Esta é uma simulação. A funcionalidade completa de listagem e seleção de contratos salvos será implementada futuramente.
                   </p>
-                  <p className="text-muted-foreground text-xs mt-1">
-                    Em breve, você poderá selecionar contratos previamente cadastrados aqui.
-                  </p>
-                </div>
-                 {/* Placeholder for future:
-                <Button type="button" onClick={() => setExtractedData({ objetoDoContrato: "Contrato Exemplo da Lista", valorPrincipal: "R$ 500,00"})} className="w-full mt-4">
-                  Simular Seleção de Contrato Existente
-                </Button>
-                */}
               </CardContent>
             </Card>
           )}
@@ -379,7 +389,7 @@ export default function ContratoPage() {
           {extractedData && (
             <Card className="shadow-md">
               <CardHeader>
-                <CardTitle className="flex items-center font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Dados Extraídos do Contrato</CardTitle>
+                <CardTitle className="flex items-center font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Dados Extraídos/Carregados do Contrato</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {isExtractedDataEmpty(extractedData) ? (
@@ -495,3 +505,4 @@ export default function ContratoPage() {
     </main>
   );
 }
+
