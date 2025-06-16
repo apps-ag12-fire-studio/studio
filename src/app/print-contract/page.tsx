@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
-import { loadPrintData, type PrintData } from '@/lib/process-store';
+import { ArrowLeft, Printer, Loader2, FilePenLine } from 'lucide-react'; // Added FilePenLine
+import { loadPrintData, type PrintData, saveProcessState, loadProcessState } from '@/lib/process-store';
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -29,6 +29,13 @@ export default function PrintContractPage() {
     }
     setIsLoading(false);
   }, [router, toast]);
+
+  const handleProceedToSignedUpload = () => {
+    const currentState = loadProcessState();
+    saveProcessState({ ...currentState, currentStep: "/processo/foto-contrato-assinado" });
+    router.push('/processo/foto-contrato-assinado');
+  };
+
 
   if (isLoading) {
     return (
@@ -78,7 +85,7 @@ export default function PrintContractPage() {
       <div className="w-full max-w-3xl space-y-8">
         <div className="print-hidden text-center mb-6">
             <h1 className="text-3xl font-headline text-primary text-glow-gold">Pré-visualização do Contrato</h1>
-            <p className="text-muted-foreground mt-2">Este documento está pronto para impressão.</p>
+            <p className="text-muted-foreground mt-2">Este documento está pronto para impressão. Após imprimir e assinar, anexe a foto do contrato assinado.</p>
         </div>
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
           <CardHeader className="border-b border-border/50 pb-4 p-6">
@@ -183,10 +190,15 @@ export default function PrintContractPage() {
         </Card>
         
         <div className="mt-8 w-full max-w-3xl flex flex-col sm:flex-row gap-4 print-hidden">
-          <Button onClick={() => window.print()} className="flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-4 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
+          <Button onClick={() => window.print()} className="flex-1 bg-gradient-to-br from-blue-600 to-blue-800 hover:from-blue-600/90 hover:to-blue-800/90 text-lg py-4 rounded-lg text-white shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
             <Printer className="mr-2 h-5 w-5" /> Imprimir Contrato
           </Button>
-          <Button variant="outline" onClick={() => router.push('/processo/revisao-envio')} className="flex-1 border-primary/80 text-primary hover:bg-primary/10 text-lg py-4 rounded-lg">
+          <Button onClick={handleProceedToSignedUpload} className="flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-4 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
+             <FilePenLine className="mr-2 h-5 w-5" /> Contrato Assinado - Anexar Foto
+          </Button>
+        </div>
+        <div className="mt-4 w-full max-w-3xl print-hidden">
+           <Button variant="outline" onClick={() => router.push('/processo/revisao-envio')} className="w-full border-primary/80 text-primary hover:bg-primary/10 text-lg py-4 rounded-lg">
             <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Revisão
           </Button>
         </div>
@@ -194,4 +206,3 @@ export default function PrintContractPage() {
     </div>
   );
 }
-

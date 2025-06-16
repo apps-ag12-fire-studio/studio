@@ -19,12 +19,14 @@ export interface StoredProcessState {
   selectedContractTemplateName: string | null;
   buyerInfo: BuyerInfo;
   internalTeamMemberInfo: BuyerInfo;
-  contractPhotoPreview: string | null;
+  contractPhotoPreview: string | null; // Photo of the original contract (if 'new')
   contractPhotoName?: string;
   photoVerificationResult: VerifyContractPhotoOutput | null;
   photoVerified: boolean;
   extractedData: ExtractContractDataOutput | null;
   attachedDocumentNames: string[];
+  signedContractPhotoPreview: string | null; // Photo of the printed and signed contract
+  signedContractPhotoName?: string;
 }
 
 export const initialStoredProcessState: StoredProcessState = {
@@ -40,9 +42,11 @@ export const initialStoredProcessState: StoredProcessState = {
   photoVerified: false,
   extractedData: null,
   attachedDocumentNames: [],
+  signedContractPhotoPreview: null,
+  signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v3';
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v4'; // Incremented version
 const PRINT_DATA_KEY = 'contractPrintData_v2';
 
 
@@ -60,6 +64,7 @@ export function loadProcessState(): StoredProcessState {
     if (storedState && storedState !== "undefined") { 
       const parsedState = JSON.parse(storedState) as StoredProcessState;
       
+      // Ensure new fields have default values if loading older state
       if (!parsedState.internalTeamMemberInfo) {
         parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
       }
@@ -72,10 +77,18 @@ export function loadProcessState(): StoredProcessState {
       if (parsedState.selectedContractTemplateName === undefined) {
         parsedState.selectedContractTemplateName = null;
       }
+      if (parsedState.signedContractPhotoPreview === undefined) {
+        parsedState.signedContractPhotoPreview = null;
+      }
+      if (parsedState.signedContractPhotoName === undefined) {
+        parsedState.signedContractPhotoName = undefined;
+      }
       return parsedState;
     }
   } catch (error) {
     console.error("Error loading process state from localStorage:", error);
+    // Fallback to initial state on error or if undefined is stored
+    localStorage.removeItem(PROCESS_STATE_KEY); // Clear corrupted/invalid state
   }
   return JSON.parse(JSON.stringify(initialStoredProcessState)); 
 }
@@ -113,13 +126,14 @@ export function loadPrintData(): PrintData | null {
         parsedData.selectedPlayer = null;
       }
       if (parsedData.internalTeamMemberInfo === undefined) {
-        parsedData.internalTeamMemberInfo = null;
+        parsedData.internalTeamMemberInfo = null; // Or provide a default empty BuyerInfo
       }
       return parsedData;
     }
   } catch (error) {
     console.error("Error loading print data from localStorage:", error);
+    // Fallback to null on error or if undefined is stored
+    localStorage.removeItem(PRINT_DATA_KEY); // Clear corrupted/invalid state
   }
   return null;
 }
-

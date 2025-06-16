@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { StoredProcessState, loadProcessState, saveProcessState, clearProcessState, initialStoredProcessState, savePrintData } from "@/lib/process-store";
-import { ArrowLeft, Printer, UploadCloud, Sparkles, Loader2, FileText, UserRound, Camera, ListChecks, Paperclip, UserCog, Users as PlayersIcon } from "lucide-react";
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, savePrintData } from "@/lib/process-store";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon } from "lucide-react";
 
 const MIN_DOCUMENTS = 2; 
 
@@ -15,8 +15,7 @@ export default function RevisaoEnvioPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  
   useEffect(() => {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
@@ -44,72 +43,10 @@ export default function RevisaoEnvioPage() {
       extractedData: processState.extractedData, 
       responsavel: processState.buyerInfo,
       selectedPlayer: processState.selectedPlayer,
-      internalTeamMemberInfo: processState.internalTeamMemberInfo // Add internal team member info
+      internalTeamMemberInfo: processState.internalTeamMemberInfo
     });
     saveProcessState({ ...processState, currentStep: "/print-contract" });
     router.push('/print-contract');
-  };
-
-  const handleSubmit = async () => {
-    if (isSubmitDisabled()) {
-      toast({ title: "Envio Interrompido", description: "Verifique se todas as informações e documentos necessários foram fornecidos.", variant: "destructive" });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      console.log("Submitting data (simulated):", { 
-        contractSourceType: processState.contractSourceType,
-        selectedPlayer: processState.selectedPlayer,
-        selectedContractTemplateName: processState.selectedContractTemplateName,
-        contractPhotoName: processState.contractPhotoName, 
-        attachedDocumentNames: processState.attachedDocumentNames, 
-        extractedData: processState.extractedData,
-        comprador: processState.buyerInfo,
-        responsavelInterno: processState.internalTeamMemberInfo,
-      });
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
-      
-      console.log("\n--- SIMULANDO ENVIO DE EMAIL ---");
-      const recipients = ['financeiro@empresa.com', 'juridico@empresa.com'];
-      if (processState.buyerInfo.email) {
-        recipients.push(processState.buyerInfo.email);
-      }
-      console.log(`Destinatários: ${recipients.join(', ')}`);
-      const subject = `Novo Contrato Submetido: ${processState.extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Comprador: ${processState.buyerInfo.nome} ${processState.selectedPlayer ? `(Player: ${processState.selectedPlayer})` : ''}`;
-      console.log(`Assunto: ${subject}`);
-      let emailBody = `Um novo contrato foi submetido com os seguintes detalhes:\n`;
-      if (processState.selectedPlayer) {
-        emailBody += `Player: ${processState.selectedPlayer}\n`;
-      }
-      if (processState.selectedContractTemplateName) {
-        emailBody += `Modelo do Contrato: ${processState.selectedContractTemplateName}\n`;
-      }
-      emailBody += `Comprador: ${processState.buyerInfo.nome} (CPF: ${processState.buyerInfo.cpf})\n`;
-      emailBody += `Objeto do Contrato: ${processState.extractedData?.objetoDoContrato || 'N/A'}\n`;
-      emailBody += `Valor Principal: ${processState.extractedData?.valorPrincipal || 'N/A'}\n`;
-      emailBody += `Condições de Pagamento: ${processState.extractedData?.condicoesDePagamento || 'N/A'}\n`;
-      emailBody += `Documentos Anexados: ${processState.attachedDocumentNames.join(', ')}\n`;
-      if (!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) {
-        emailBody += `Processo conduzido por (Time Interno): ${processState.internalTeamMemberInfo.nome} (${processState.internalTeamMemberInfo.email || 'Email não informado'})\n`;
-      }
-      console.log(`Corpo do Email (resumido):\n${emailBody}`);
-      console.log("--- FIM DA SIMULAÇÃO DE EMAIL ---\n");
-
-      toast({ 
-        title: "Processo Enviado com Sucesso!", 
-        description: "Contrato e documentos enviados (simulado). Você será redirecionado.",
-        className: "bg-primary text-primary-foreground border-primary-foreground/30"
-      });
-      clearProcessState();
-      router.push("/confirmation");
-
-    } catch (error) {
-      console.error("Submission Error:", error);
-      toast({ title: "Erro no Envio", description: "Não foi possível enviar os dados. Tente novamente.", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleBack = () => {
@@ -120,7 +57,7 @@ export default function RevisaoEnvioPage() {
   const isPrintDisabled = () => {
     if (!processState.buyerInfo.nome || !processState.buyerInfo.cpf || !processState.buyerInfo.telefone || !processState.buyerInfo.email) return true; 
     if (processState.attachedDocumentNames.length < MIN_DOCUMENTS) return true; 
-    if (isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) return true; // Responsavel interno is now mandatory
+    if (isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) return true;
 
     if (processState.contractSourceType === 'new') {
       if (!processState.photoVerified) return true; 
@@ -134,12 +71,6 @@ export default function RevisaoEnvioPage() {
     return false; 
   };
 
-  const isSubmitDisabled = () => {
-    if (isSubmitting) return true;
-    return isPrintDisabled(); 
-  };
-
-
   return (
     <>
       <header className="text-center py-8">
@@ -147,14 +78,14 @@ export default function RevisaoEnvioPage() {
           Contrato Fácil
         </div>
         <p className="mt-2 text-xl text-muted-foreground font-headline">
-          Passo 4: Revisão e Envio
+          Passo 4: Revisão e Preparar Impressão
         </p>
       </header>
 
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
-          <CardTitle className="flex items-center text-2xl font-headline text-primary">Revisar Informações</CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Confira todos os dados antes de prosseguir.</CardDescription>
+          <CardTitle className="flex items-center text-2xl font-headline text-primary"><ListChecks className="mr-3 h-7 w-7" />Revisar Informações</CardTitle>
+          <CardDescription className="text-foreground/70 pt-1">Confira todos os dados antes de prosseguir para impressão.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div className="space-y-2">
@@ -199,7 +130,7 @@ export default function RevisaoEnvioPage() {
           {processState.contractSourceType === 'new' && processState.contractPhotoName && (
             <>
               <div className="space-y-2">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><Camera className="mr-2 h-5 w-5" />Foto do Contrato</h3>
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><Camera className="mr-2 h-5 w-5" />Foto do Contrato Original</h3>
                 <p className="text-foreground/80"><strong>Arquivo:</strong> {processState.contractPhotoName}</p>
                 <p className={`text-sm ${processState.photoVerified ? 'text-green-400' : 'text-red-400'}`}>
                   {processState.photoVerified ? 'Foto Verificada com Sucesso' : 'Foto Não Verificada ou Com Falhas'}
@@ -241,26 +172,13 @@ export default function RevisaoEnvioPage() {
       <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
          <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary"><Printer className="mr-3 h-7 w-7" />Preparar para Impressão</CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Gere o contrato para impressão física.</CardDescription>
+            <CardDescription className="text-foreground/70 pt-1">Gere o contrato para impressão física, assinatura e posterior anexo da foto do documento assinado.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 pt-0">
-             <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-green-600 to-green-800 hover:from-green-600/90 hover:to-green-800/90 text-lg py-6 rounded-lg text-white shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" disabled={isPrintDisabled()}>
+             <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" disabled={isPrintDisabled()}>
                 <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
             </Button>
         </CardContent>
-      </Card>
-
-      <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
-        <CardHeader className="p-6">
-            <CardTitle className="flex items-center text-2xl font-headline text-primary"><UploadCloud className="mr-3 h-7 w-7" />Enviar Processo</CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Finalize e envie o contrato e os documentos.</CardDescription>
-        </CardHeader>
-        <CardFooter className="p-6">
-          <Button type="button" onClick={handleSubmit} disabled={isSubmitDisabled()} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted">
-            {isSubmitting ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" />}
-            {isSubmitting ? "Enviando..." : "Enviar Contrato e Documentos"}
-          </Button>
-        </CardFooter>
       </Card>
 
       <div className="flex justify-start mt-8">
@@ -275,4 +193,3 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-
