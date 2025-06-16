@@ -4,7 +4,7 @@
 import { useState, ChangeEvent, FormEvent, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText, Printer as PrinterIcon, FileSearch, ListChecks } from "lucide-react";
+import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText, Printer as PrinterIcon, FileSearch, ListChecks, Users, Banknote, Scale, LifeBuoy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -500,9 +500,29 @@ export default function ContratoPage() {
         <footer className="text-center py-8 text-xs text-muted-foreground space-y-1">
             <p>© 2025 Financeiro Pablo Marçal - Todos os direitos reservados.</p>
             <p>Uma solução SAAS com Inteligência Artificial treinada por CFO - Antônio Fogaça.</p>
+            
+            <div className="pt-6 mt-4 border-t border-border/50">
+                <h3 className="text-sm font-medium text-foreground mb-3">Precisa de Ajuda?</h3>
+                <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+                    <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm hover:bg-accent/10">
+                        <a href="#"> <Users className="mr-1.5 h-4 w-4" /> Time de Vendas </a>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm hover:bg-accent/10">
+                        <a href="#"> <Banknote className="mr-1.5 h-4 w-4" /> Financeiro </a>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm hover:bg-accent/10">
+                        <a href="#"> <Scale className="mr-1.5 h-4 w-4" /> Jurídico </a>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm hover:bg-accent/10">
+                        <a href="#"> <FileText className="mr-1.5 h-4 w-4" /> Contratual </a>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm hover:bg-accent/10">
+                        <a href="#"> <LifeBuoy className="mr-1.5 h-4 w-4" /> Suporte Geral </a>
+                    </Button>
+                </div>
+            </div>
         </footer>
       </div>
     </main>
   );
 }
-
