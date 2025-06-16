@@ -2,13 +2,13 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Home, Sparkles } from "lucide-react";
+import { CheckCircle2, Home } from "lucide-react"; // Removed Sparkles as it's not used here
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ConfirmationPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 selection:bg-primary/20">
+    <div className="flex min-h-[calc(100vh-100px)] flex-col items-center justify-center bg-background p-6 selection:bg-primary/20">
       <Card className="w-full max-w-lg shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="items-center pt-10">
           <CheckCircle2 className="h-24 w-24 text-green-400 animate-pulse" />
@@ -31,9 +31,7 @@ export default function ConfirmationPage() {
           </Button>
         </CardContent>
       </Card>
-      <footer className="absolute bottom-8 text-center text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} Financeiro Pablo Marçal - Todos os direitos reservados.</p>
-      </footer>
+      {/* Footer is now global in RootLayout */}
     </div>
   );
 }

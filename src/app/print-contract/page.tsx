@@ -6,20 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { ExtractContractDataOutput } from '@/ai/flows/extract-contract-data-flow';
 import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
-
-interface ResponsavelData {
-  nome: string;
-  cpf: string;
-  telefone: string;
-  email: string;
-}
-
-interface PrintData {
-  extractedData: ExtractContractDataOutput | null;
-  responsavel: ResponsavelData | null;
-}
+import { loadPrintData, type PrintData } from '@/lib/process-store'; // Updated import
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -28,30 +16,18 @@ export default function PrintContractPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const dataString = localStorage.getItem('contractPrintData');
-      if (dataString) {
-        const parsedData: PrintData = JSON.parse(dataString);
-        setPrintData(parsedData);
-      } else {
-        toast({
-          title: 'Erro ao Carregar Dados',
-          description: 'Dados do contrato não encontrados. Redirecionando...',
-          variant: 'destructive',
-        });
-        router.replace('/');
-      }
-    } catch (error) {
-      console.error("Error loading data from localStorage:", error);
+    const data = loadPrintData(); // Use new helper from process-store
+    if (data) {
+      setPrintData(data);
+    } else {
       toast({
-        title: 'Erro Crítico',
-        description: 'Problema ao carregar os dados do contrato.',
+        title: 'Erro ao Carregar Dados',
+        description: 'Dados do contrato não encontrados para impressão. Redirecionando...',
         variant: 'destructive',
       });
-      router.replace('/');
-    } finally {
-      setIsLoading(false);
+      router.replace('/processo/dados-iniciais'); // Redirect to start of process
     }
+    setIsLoading(false);
   }, [router, toast]);
 
   if (isLoading) {
@@ -67,7 +43,7 @@ export default function PrintContractPage() {
     );
   }
 
-  if (!printData || !printData.responsavel) { 
+  if (!printData || !printData.responsavel || !printData.extractedData) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
@@ -75,9 +51,9 @@ export default function PrintContractPage() {
             <CardTitle className="text-2xl text-destructive font-headline">Erro de Carregamento</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato (comprador ausente).</p>
-            <Button onClick={() => router.push('/')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
-              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Início
+            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato.</p>
+            <Button onClick={() => router.push('/processo/dados-iniciais')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
+              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Início do Processo
             </Button>
           </CardContent>
         </Card>
@@ -189,14 +165,11 @@ export default function PrintContractPage() {
           <Button onClick={() => window.print()} className="flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-4 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
             <Printer className="mr-2 h-5 w-5" /> Imprimir Contrato
           </Button>
-          <Button variant="outline" onClick={() => router.push('/')} className="flex-1 border-primary/80 text-primary hover:bg-primary/10 text-lg py-4 rounded-lg">
-            <ArrowLeft className="mr-2 h-5 w-5" /> Voltar ao Início
+          <Button variant="outline" onClick={() => router.push('/processo/revisao-envio')} className="flex-1 border-primary/80 text-primary hover:bg-primary/10 text-lg py-4 rounded-lg">
+            <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Revisão
           </Button>
         </div>
       </div>
-       <footer className="print-hidden absolute bottom-8 text-center text-xs text-muted-foreground left-0 right-0">
-          <p>© {new Date().getFullYear()} Financeiro Pablo Marçal - Todos os direitos reservados.</p>
-      </footer>
     </div>
   );
 }

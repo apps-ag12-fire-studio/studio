@@ -18,8 +18,8 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'Plataforma Contratual Exclusiva',
-  description: 'Gestão e análise de contratos com um toque de sofisticação e inteligência artificial.',
+  title: 'Contrato Fácil',
+  description: 'Capture a foto do contrato, analise-o e anexe os documentos necessários.',
 };
 
 export default function RootLayout({
@@ -30,8 +30,14 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} ${playfairDisplay.variable}`}>
       <body className="font-body antialiased bg-background text-foreground">
-        {children}
+        <main className="flex-grow">
+          {children}
+        </main>
         <Toaster />
+        <footer className="w-full py-6 text-center text-xs text-muted-foreground border-t border-border/30 print-hidden">
+          <p>© {new Date().getFullYear()} Financeiro Pablo Marçal - Todos os direitos reservados.</p>
+          <p className="mt-1">Uma solução SAAS com Inteligência Artificial treinada por CFO - Antônio Fogaça.</p>
+        </footer>
       </body>
     </html>
   );
