@@ -21,10 +21,7 @@ import {
   BuyerInfo
 } from "@/lib/process-store";
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle } from "lucide-react";
-
-const MIN_DOCUMENTS_PF = 2; // e.g., RG (frente+verso) or CNH (frente+verso) counts as 1 set, plus comprovante
-const MIN_DOCUMENTS_PJ = 2; // e.g., Cartao CNPJ, Doc Socio (frente+verso), plus comprovante
+import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
 
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -35,13 +32,10 @@ const fileToDataUri = (file: File): Promise<string> => {
   });
 };
 
-type DocumentSlotKey = Exclude<keyof StoredProcessState, 
-  | "currentStep" | "contractSourceType" | "selectedPlayer" | "selectedContractTemplateName" 
-  | "buyerType" | "buyerInfo" | "companyInfo" | "internalTeamMemberInfo" 
-  | "contractPhotoPreview" | "contractPhotoName" | "photoVerificationResult" | "photoVerified" 
-  | "extractedData" | "signedContractPhotoPreview" | "signedContractPhotoName"
+type DocumentSlotKey = Extract<keyof StoredProcessState, 
+  | "rgFrente" | "rgVerso" | "cnhFrente" | "cnhVerso" 
+  | "cartaoCnpjFile" | "docSocioFrente" | "docSocioVerso" | "comprovanteEndereco"
 >;
-
 
 export default function DocumentosPage() {
   const router = useRouter();
@@ -49,6 +43,7 @@ export default function DocumentosPage() {
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [analyzingDocKey, setAnalyzingDocKey] = useState<DocumentSlotKey | null>(null);
   const [localFiles, setLocalFiles] = useState<Record<DocumentSlotKey, File | null>>({});
+  const [selectedPfDocType, setSelectedPfDocType] = useState<'rg' | 'cnh' | ''>('');
 
   useEffect(() => {
     const loadedState = loadProcessState();
@@ -56,6 +51,14 @@ export default function DocumentosPage() {
       loadedState.companyInfo = { razaoSocial: '', nomeFantasia: '', cnpj: '' };
     }
     setProcessState(loadedState);
+    // Try to infer selectedPfDocType if documents are already present
+    if (loadedState.buyerType === 'pf') {
+      if (loadedState.rgFrente || loadedState.rgVerso) {
+        setSelectedPfDocType('rg');
+      } else if (loadedState.cnhFrente || loadedState.cnhVerso) {
+        setSelectedPfDocType('cnh');
+      }
+    }
   }, []);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
@@ -69,7 +72,7 @@ export default function DocumentosPage() {
           [docKey]: {
             name: file.name,
             previewUrl: previewUrl,
-            analysisResult: prevState[docKey]?.analysisResult // Preserve existing analysis if re-uploading
+            analysisResult: prevState[docKey]?.analysisResult
           } as DocumentFile
         }));
       } catch (error) {
@@ -97,7 +100,7 @@ export default function DocumentosPage() {
     setAnalyzingDocKey(docKey);
     try {
       let photoDataUri = currentDocFile?.previewUrl;
-      if (localFile && !photoDataUri) { // If preview wasn't set due to quick succession or if file changed
+      if (localFile && !photoDataUri) {
          photoDataUri = await fileToDataUri(localFile);
       }
       if (!photoDataUri) {
@@ -135,13 +138,21 @@ export default function DocumentosPage() {
   };
   
   const validateStep = useCallback(() => {
-    let requiredDocsCount = 0;
     if (processState.buyerType === 'pf') {
-      if (processState.rgFrente && processState.rgVerso) requiredDocsCount++;
-      else if (processState.cnhFrente && processState.cnhVerso) requiredDocsCount++;
-      if (processState.comprovanteEndereco) requiredDocsCount++;
-      if (requiredDocsCount < MIN_DOCUMENTS_PF) {
-        toast({ title: "Documentos Insuficientes (PF)", description: `Anexe RG (frente e verso) ou CNH (frente e verso), e um comprovante de endereço.`, variant: "destructive" });
+      if (!selectedPfDocType) {
+        toast({ title: "Tipo de Documento Necessário", description: "Selecione RG ou CNH para anexar.", variant: "destructive" });
+        return false;
+      }
+      if (selectedPfDocType === 'rg' && (!processState.rgFrente || !processState.rgVerso)) {
+        toast({ title: "Documentos Insuficientes (RG)", description: `Anexe RG (frente e verso).`, variant: "destructive" });
+        return false;
+      }
+      if (selectedPfDocType === 'cnh' && (!processState.cnhFrente || !processState.cnhVerso)) {
+        toast({ title: "Documentos Insuficientes (CNH)", description: `Anexe CNH (frente e verso).`, variant: "destructive" });
+        return false;
+      }
+      if (!processState.comprovanteEndereco) {
+        toast({ title: "Comprovante de Endereço Necessário", description: "Anexe um comprovante de endereço.", variant: "destructive" });
         return false;
       }
     } else { // PJ
@@ -153,16 +164,13 @@ export default function DocumentosPage() {
         toast({ title: "Dados do Representante Incompletos", description: "Preencha Nome e CPF do representante legal.", variant: "destructive"});
         return false;
       }
-      if (processState.cartaoCnpjFile) requiredDocsCount++;
-      if (processState.docSocioFrente && processState.docSocioVerso) requiredDocsCount++;
-      if (processState.comprovanteEndereco) requiredDocsCount++;
-      if (requiredDocsCount < MIN_DOCUMENTS_PJ) {
+      if (!processState.cartaoCnpjFile || !(processState.docSocioFrente && processState.docSocioVerso) || !processState.comprovanteEndereco) {
          toast({ title: "Documentos Insuficientes (PJ)", description: `Anexe Cartão CNPJ, Documento do Sócio (frente e verso), e Comprovante de Endereço da empresa.`, variant: "destructive" });
         return false;
       }
     }
     return true;
-  }, [processState]);
+  }, [processState, selectedPfDocType]);
 
   const handleNext = () => {
     if (!validateStep()) return;
@@ -186,8 +194,32 @@ export default function DocumentosPage() {
       ...prevState,
       buyerType: value,
       companyInfo: value === 'pj' ? (prevState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
-      // Optionally clear buyerInfo if switching from PJ rep to PF, or vice-versa, or let user manage
+      // Clear personal docs if switching away from PF, or ensure selectedPfDocType is reset
+      rgFrente: value === 'pj' ? null : prevState.rgFrente,
+      rgVerso: value === 'pj' ? null : prevState.rgVerso,
+      cnhFrente: value === 'pj' ? null : prevState.cnhFrente,
+      cnhVerso: value === 'pj' ? null : prevState.cnhVerso,
     }));
+    if (value === 'pj') {
+      setSelectedPfDocType(''); // Reset PF doc type selection
+    }
+  };
+
+  const handlePfDocTypeChange = (value: 'rg' | 'cnh') => {
+    setSelectedPfDocType(value);
+    setProcessState(prevState => {
+      const newState = {...prevState};
+      if (value === 'rg') {
+        newState.cnhFrente = null;
+        newState.cnhVerso = null;
+        setLocalFiles(prevLocals => ({...prevLocals, cnhFrente: null, cnhVerso: null}));
+      } else if (value === 'cnh') {
+        newState.rgFrente = null;
+        newState.rgVerso = null;
+        setLocalFiles(prevLocals => ({...prevLocals, rgFrente: null, rgVerso: null}));
+      }
+      return newState;
+    });
   };
   
   const handleCompanyInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
@@ -225,7 +257,7 @@ export default function DocumentosPage() {
         <Input
           id={docKey}
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           onChange={(e) => handleFileChange(e, docKey)}
           className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
         />
@@ -233,15 +265,17 @@ export default function DocumentosPage() {
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{currentDoc.name}</span>
             <div className="flex items-center space-x-2">
-              <Button 
-                type="button" variant="outline" size="sm" 
-                onClick={() => handleAnalyzeDocument(docKey)}
-                disabled={isAnalyzing || !currentDoc.previewUrl}
-                className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
-              >
-                {isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
-                {isAnalyzing ? "Analisando..." : (currentDoc.analysisResult ? "Reanalisar" : "Analisar IA")}
-              </Button>
+              {currentDoc.name && !currentDoc.name.toLowerCase().endsWith('.pdf') && (
+                <Button 
+                  type="button" variant="outline" size="sm" 
+                  onClick={() => handleAnalyzeDocument(docKey)}
+                  disabled={isAnalyzing || !currentDoc.previewUrl}
+                  className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
+                >
+                  {isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
+                  {isAnalyzing ? "Analisando..." : (currentDoc.analysisResult ? "Reanalisar" : "Analisar IA")}
+                </Button>
+              )}
               <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} className="text-destructive/70 hover:text-destructive h-7 w-7">
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -316,7 +350,7 @@ export default function DocumentosPage() {
               <Label htmlFor="cnpj">CNPJ</Label>
               <Input id="cnpj" value={processState.companyInfo?.cnpj || ''} onChange={(e) => handleCompanyInfoChange(e, 'cnpj')} className="mt-1 bg-input"/>
             </div>
-             {renderDocumentSlot('cartaoCnpjFile', 'Cartão CNPJ')}
+             {renderDocumentSlot('cartaoCnpjFile', 'Cartão CNPJ (PDF ou Imagem)')}
           </CardContent>
         </Card>
       )}
@@ -325,11 +359,11 @@ export default function DocumentosPage() {
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-xl font-headline text-primary">
             <UserCircle className="mr-3 h-6 w-6" />
-            {processState.buyerType === 'pf' ? "Dados Pessoais e Documentos do Comprador" : "Dados Pessoais e Documentos do Representante Legal/Sócio"}
+            {processState.buyerType === 'pf' ? "Documentos Pessoais do Comprador" : "Dados e Documentos do Representante Legal/Sócio"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
-          {processState.buyerType === 'pj' && ( // Only show name/cpf inputs for PJ rep here; PF data is on next page
+          {processState.buyerType === 'pj' && ( 
             <>
               <div>
                 <Label htmlFor="repNome">Nome Completo do Representante</Label>
@@ -339,18 +373,46 @@ export default function DocumentosPage() {
                 <Label htmlFor="repCPF">CPF do Representante</Label>
                 <Input id="repCPF" value={processState.buyerInfo.cpf} onChange={(e) => handleBuyerInfoChange(e, 'cpf')} className="mt-1 bg-input"/>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderDocumentSlot('docSocioFrente', 'Doc. Representante (Frente)')}
+                {renderDocumentSlot('docSocioVerso', 'Doc. Representante (Verso)')}
+              </div>
             </>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {processState.buyerType === 'pf' ? renderDocumentSlot('rgFrente', 'RG (Frente)') : renderDocumentSlot('docSocioFrente', 'Doc. Representante (Frente)')}
-            {processState.buyerType === 'pf' ? renderDocumentSlot('rgVerso', 'RG (Verso)') : renderDocumentSlot('docSocioVerso', 'Doc. Representante (Verso)')}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {processState.buyerType === 'pf' && renderDocumentSlot('cnhFrente', 'CNH (Frente)')}
-            {processState.buyerType === 'pf' && renderDocumentSlot('cnhVerso', 'CNH (Verso)')}
-          </div>
-          {renderDocumentSlot('comprovanteEndereco', processState.buyerType === 'pf' ? 'Comprovante de Endereço Pessoal' : 'Comprovante de Endereço da Empresa')}
+          {processState.buyerType === 'pf' && (
+            <>
+              <Label className="text-base font-medium text-foreground/90 block mb-2">Qual documento pessoal deseja anexar?</Label>
+              <RadioGroup
+                value={selectedPfDocType}
+                onValueChange={(val) => handlePfDocTypeChange(val as 'rg' | 'cnh')}
+                className="flex space-x-4 mb-4"
+              >
+                <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
+                  <RadioGroupItem value="rg" id="doc-rg" className="border-primary/50 text-primary focus:ring-primary"/>
+                  <Label htmlFor="doc-rg" className="font-medium text-lg cursor-pointer flex items-center"><FileBadge className="mr-2 h-5 w-5"/>RG</Label>
+                </div>
+                <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
+                  <RadioGroupItem value="cnh" id="doc-cnh" className="border-primary/50 text-primary focus:ring-primary"/>
+                  <Label htmlFor="doc-cnh" className="font-medium text-lg cursor-pointer flex items-center"><FileBadge2 className="mr-2 h-5 w-5"/>CNH</Label>
+                </div>
+              </RadioGroup>
+
+              {selectedPfDocType === 'rg' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderDocumentSlot('rgFrente', 'RG (Frente)')}
+                  {renderDocumentSlot('rgVerso', 'RG (Verso)')}
+                </div>
+              )}
+              {selectedPfDocType === 'cnh' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderDocumentSlot('cnhFrente', 'CNH (Frente)')}
+                  {renderDocumentSlot('cnhVerso', 'CNH (Verso)')}
+                </div>
+              )}
+            </>
+          )}
+          {renderDocumentSlot('comprovanteEndereco', processState.buyerType === 'pf' ? 'Comprovante de Endereço Pessoal (PDF ou Imagem)' : 'Comprovante de Endereço da Empresa (PDF ou Imagem)')}
         </CardContent>
       </Card>
 
@@ -373,3 +435,4 @@ export default function DocumentosPage() {
     </>
   );
 }
+
