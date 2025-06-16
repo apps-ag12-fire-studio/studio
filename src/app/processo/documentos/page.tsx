@@ -51,7 +51,6 @@ export default function DocumentosPage() {
       loadedState.companyInfo = { razaoSocial: '', nomeFantasia: '', cnpj: '' };
     }
     setProcessState(loadedState);
-    // Try to infer selectedPfDocType if documents are already present
     if (loadedState.buyerType === 'pf') {
       if (loadedState.rgFrente || loadedState.rgVerso) {
         setSelectedPfDocType('rg');
@@ -63,8 +62,10 @@ export default function DocumentosPage() {
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
     const file = event.target.files?.[0];
+    const inputElement = event.target; // Capture for clearing value
+
     if (file) {
-      setLocalFiles(prev => ({...prev, [docKey]: file}));
+      setLocalFiles(prev => ({ ...prev, [docKey]: file }));
       try {
         const previewUrl = await fileToDataUri(file);
         setProcessState(prevState => ({
@@ -72,11 +73,35 @@ export default function DocumentosPage() {
           [docKey]: {
             name: file.name,
             previewUrl: previewUrl,
-            analysisResult: prevState[docKey]?.analysisResult // Preserve existing analysis if any
+            analysisResult: prevState[docKey]?.analysisResult // Preserve existing analysis
           } as DocumentFile
         }));
       } catch (error) {
-        toast({ title: "Erro ao carregar imagem", description: "Não foi possível gerar a pré-visualização.", variant: "destructive" });
+        console.error(`Error processing file for ${docKey}:`, error);
+        toast({ 
+          title: "Erro ao Processar Imagem", 
+          description: `Não foi possível gerar a pré-visualização para ${file.name}. Por favor, tente novamente ou escolha outro arquivo.`, 
+          variant: "destructive" 
+        });
+        setProcessState(prevState => ({
+          ...prevState,
+          [docKey]: null 
+        }));
+        setLocalFiles(prev => ({ ...prev, [docKey]: null }));
+        if (inputElement) {
+          inputElement.value = "";
+        }
+      }
+    } else {
+      // If no file is selected (e.g., user clears selection from dialog using 'cancel')
+      // or if event.target.files is empty after an attempted clear (though less common for onChange).
+      // This ensures that if the input is truly cleared by the user action, the state reflects it.
+      if (inputElement && inputElement.files && inputElement.files.length === 0) {
+         setProcessState(prevState => ({
+          ...prevState,
+          [docKey]: null
+        }));
+        setLocalFiles(prev => ({ ...prev, [docKey]: null }));
       }
     }
   };
@@ -87,6 +112,10 @@ export default function DocumentosPage() {
       [docKey]: null
     }));
     setLocalFiles(prev => ({...prev, [docKey]: null}));
+    // Optionally clear the specific input field if you have refs to them
+    // For example: document.getElementById(docKey)?.value = "";
+    // However, this is generally managed by React's controlled/uncontrolled nature.
+    // If using uncontrolled inputs with a key prop that changes, or manually setting value to "" might be needed.
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
@@ -99,7 +128,7 @@ export default function DocumentosPage() {
     if (!photoDataUri && localFile) {
       try {
         photoDataUri = await fileToDataUri(localFile);
-        docName = localFile.name; // Ensure docName is set if we're using localFile
+        docName = localFile.name; 
       } catch (error) {
         toast({ title: "Erro ao processar arquivo local", description: "Não foi possível ler o arquivo para análise.", variant: "destructive"});
         setAnalyzingDocKey(null);
@@ -118,14 +147,12 @@ export default function DocumentosPage() {
       const result = await extractBuyerDocumentData({ photoDataUri });
       
       setProcessState(prevState => {
-        // Ensure we use the most up-to-date name and previewUrl,
-        // especially if they were just set by handleFileChange and analysis is immediate.
         const baseDoc = prevState[docKey] as DocumentFile | null;
         return {
           ...prevState,
           [docKey]: {
-            name: baseDoc?.name || docName, // Prioritize name from state, fallback to name derived during analysis prep
-            previewUrl: baseDoc?.previewUrl || photoDataUri, // Prioritize previewUrl from state
+            name: baseDoc?.name || docName, 
+            previewUrl: baseDoc?.previewUrl || photoDataUri, 
             analysisResult: result,
           } as DocumentFile, 
         };
@@ -213,10 +240,17 @@ export default function DocumentosPage() {
       ...prevState,
       buyerType: value,
       companyInfo: value === 'pj' ? (prevState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
+      // Clear PF specific documents when switching to PJ, and vice-versa if needed, or keep them if user might switch back.
+      // For now, let's clear PF docs if switching to PJ.
       rgFrente: value === 'pj' ? null : prevState.rgFrente,
       rgVerso: value === 'pj' ? null : prevState.rgVerso,
       cnhFrente: value === 'pj' ? null : prevState.cnhFrente,
       cnhVerso: value === 'pj' ? null : prevState.cnhVerso,
+      // Clear PJ specific documents if switching to PF.
+      cartaoCnpjFile: value === 'pf' ? null : prevState.cartaoCnpjFile,
+      docSocioFrente: value === 'pf' ? null : prevState.docSocioFrente,
+      docSocioVerso: value === 'pf' ? null : prevState.docSocioVerso,
+
     }));
     if (value === 'pj') {
       setSelectedPfDocType(''); 
@@ -244,7 +278,7 @@ export default function DocumentosPage() {
     setProcessState(prevState => ({
       ...prevState,
       companyInfo: {
-        ...(prevState.companyInfo as CompanyInfo),
+        ...(prevState.companyInfo as CompanyInfo), // Should be initialized if buyerType is 'pj'
         [field]: e.target.value,
       }
     }));
@@ -263,7 +297,7 @@ export default function DocumentosPage() {
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isAnalyzing = analyzingDocKey === docKey;
-    const localFileSelected = localFiles[docKey];
+    const localFileSelected = localFiles[docKey]; // Check if a file is selected locally but not yet in processState's preview
     const displayDocName = currentDoc?.name || localFileSelected?.name;
     const displayPreviewUrl = currentDoc?.previewUrl; // Only rely on previewUrl from state for display
     const isPdf = displayDocName?.toLowerCase().endsWith('.pdf');
@@ -289,15 +323,15 @@ export default function DocumentosPage() {
           onChange={(e) => handleFileChange(e, docKey)}
           className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
         />
-        {displayDocName && ( // Check if there's a name to display (from state or local file)
+        {displayDocName && ( 
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{displayDocName}</span>
             <div className="flex items-center space-x-2">
-              {!isPdf && ( // PDF analysis not supported by current AI flow
+              {!isPdf && ( 
                 <Button 
                   type="button" variant="outline" size="sm" 
                   onClick={() => handleAnalyzeDocument(docKey)}
-                  disabled={isAnalyzing || (!displayPreviewUrl && !localFileSelected)} // Disable if no preview and no local file
+                  disabled={isAnalyzing || (!displayPreviewUrl && !localFileSelected)} 
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
                   {isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
@@ -310,7 +344,7 @@ export default function DocumentosPage() {
             </div>
           </div>
         )}
-        {currentDoc?.analysisResult && ( // Only show analysis if it's in the state
+        {currentDoc?.analysisResult && ( 
           <div className="mt-2 p-2 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md">
             <p className="font-semibold text-primary/80">Dados Extraídos:</p>
             {(currentDoc.analysisResult as any).error ? <p className="text-destructive">{(currentDoc.analysisResult as any).error}</p> : <>
@@ -466,6 +500,5 @@ export default function DocumentosPage() {
     </>
   );
 }
-
 
     
