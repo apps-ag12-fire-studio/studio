@@ -35,7 +35,8 @@ export default function FotoContratoAssinadoPage() {
     const loadedState = loadProcessState();
     const printData = loadPrintData();
 
-    if (!printData || !printData.extractedData || !printData.responsavel || !printData.internalTeamMemberInfo) {
+    // Corrected condition: check for buyerInfo instead of responsavel
+    if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) {
       toast({
         title: 'Sequência Incorreta',
         description: 'Por favor, prepare o contrato para impressão antes de anexar a foto do contrato assinado.',
@@ -113,7 +114,21 @@ export default function FotoContratoAssinadoPage() {
       if (processState.selectedContractTemplateName) emailBody += `Modelo do Contrato: ${processState.selectedContractTemplateName}\n`;
       emailBody += `Comprador: ${processState.buyerInfo.nome} (CPF: ${processState.buyerInfo.cpf})\n`;
       emailBody += `Objeto do Contrato: ${processState.extractedData?.objetoDoContrato || 'N/A'}\n`;
-      emailBody += `Documentos Comprobatórios Anexados: ${processState.attachedDocumentNames.join(', ')}\n`;
+      
+      const attachedDocs: string[] = [];
+      if (processState.rgFrente?.name) attachedDocs.push(processState.rgFrente.name);
+      if (processState.rgVerso?.name) attachedDocs.push(processState.rgVerso.name);
+      if (processState.cnhFrente?.name) attachedDocs.push(processState.cnhFrente.name);
+      if (processState.cnhVerso?.name) attachedDocs.push(processState.cnhVerso.name);
+      if (processState.cartaoCnpjFile?.name) attachedDocs.push(processState.cartaoCnpjFile.name);
+      if (processState.docSocioFrente?.name) attachedDocs.push(processState.docSocioFrente.name);
+      if (processState.docSocioVerso?.name) attachedDocs.push(processState.docSocioVerso.name);
+      if (processState.comprovanteEndereco?.name) attachedDocs.push(processState.comprovanteEndereco.name);
+      
+      if(attachedDocs.length > 0) {
+        emailBody += `Documentos Comprobatórios Anexados: ${attachedDocs.join(', ')}\n`;
+      }
+
       if(processState.signedContractPhotoName) emailBody += `Foto do Contrato Assinado Anexada: ${processState.signedContractPhotoName}\n`;
       if (!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) {
         emailBody += `Processo conduzido por (Time Interno): ${processState.internalTeamMemberInfo.nome} (${processState.internalTeamMemberInfo.email || 'Email não informado'})\n`;
