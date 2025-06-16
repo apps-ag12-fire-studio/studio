@@ -125,6 +125,7 @@ export default function ContratoPage() {
       documentosDasPartes: ["000.000.000-00", "[CNPJ DA EMPRESA VENDEDORA]"],
       objetoDoContrato: "PRODUTO DIGITAL EXEMPLO (ex: Mentoria XPTO)",
       valorPrincipal: "R$ 1.000,00 (mil reais)",
+      condicoesDePagamento: "Pagamento único via Pix.",
       prazoContrato: "Acesso por 12 meses",
       localEDataAssinatura: "São Paulo, 15 de Agosto de 2024",
       foroEleito: "Comarca de São Paulo/SP",
@@ -177,10 +178,11 @@ export default function ContratoPage() {
 
     setIsSubmitting(true);
     try {
-      console.log("Submitting data:", { 
+      // Simulate data submission
+      console.log("Submitting data (simulated):", { 
         contractSourceType, 
-        contractPhoto, 
-        attachedDocuments, 
+        contractPhotoName: contractPhoto?.name, 
+        attachedDocumentNames: attachedDocuments.map(d => d.name), 
         extractedData,
         responsavel: {
           nome: responsavelNome,
@@ -189,9 +191,39 @@ export default function ContratoPage() {
           email: responsavelEmail,
         }
       });
-      await new Promise(resolve => setTimeout(resolve, 2000)); 
-      toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso."});
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      
+      // Simulate email notification
+      console.log("\n--- SIMULANDO ENVIO DE EMAIL ---");
+      console.log(`Destinatários: financeiro@empresa.com, juridico@empresa.com, ${responsavelEmail}`);
+      const subject = `Novo Contrato Submetido: ${extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Resp: ${responsavelNome}`;
+      console.log(`Assunto: ${subject}`);
+      console.log("Corpo do Email (Resumo):");
+      console.log(`  Tipo de Submissão: ${contractSourceType === 'new' ? "Novo Contrato (Foto)" : "Contrato Existente (Modelo)"}`);
+      console.log(`  Responsável pela Assinatura (Comprador):`);
+      console.log(`    Nome: ${responsavelNome}`);
+      console.log(`    CPF: ${responsavelCpf}`);
+      console.log(`    Telefone: ${responsavelTelefone}`);
+      console.log(`    Email: ${responsavelEmail}`);
+      if (extractedData) {
+        console.log("  Detalhes do Contrato (Extraídos/Carregados):");
+        console.log(`    Objeto: ${extractedData.objetoDoContrato || 'Não informado'}`);
+        console.log(`    Valor Principal: ${extractedData.valorPrincipal || 'Não informado'}`);
+        console.log(`    Condições de Pagamento: ${extractedData.condicoesDePagamento || 'Não informado'}`);
+        console.log(`    Prazo: ${extractedData.prazoContrato || 'Não informado'}`);
+        console.log(`    Local e Data Ass.: ${extractedData.localEDataAssinatura || 'Não informado'}`);
+        console.log(`    Foro: ${extractedData.foroEleito || 'Não informado'}`);
+        console.log(`    Observações Relevantes: ${extractedData.outrasObservacoesRelevantes || 'Nenhuma'}`);
+      }
+      if (contractSourceType === 'new' && contractPhoto) {
+        console.log(`  Foto do Contrato Anexada: ${contractPhoto.name}`);
+      }
+      console.log(`  Documentos Comprobatórios Anexados: ${attachedDocuments.length} (${attachedDocuments.map(d => d.name).join(', ')})`);
+      console.log("--- FIM DA SIMULAÇÃO DE EMAIL ---\n");
+
+      toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso (simulado)."});
       router.push("/confirmation");
+
     } catch (error) {
       console.error("Submission Error:", error);
       toast({ title: "Erro no Envio", description: "Não foi possível enviar os dados. Tente novamente.", variant: "destructive" });
@@ -258,6 +290,14 @@ export default function ContratoPage() {
     }
     return true; 
   };
+  
+  const isPrintDisabled = () => {
+    if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) return true;
+    if (contractSourceType === 'new' && !extractedData) return true;
+    if (contractSourceType === 'existing' && !extractedData) return true;
+    return false;
+  };
+
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-start bg-background p-4 sm:p-8">
@@ -473,6 +513,9 @@ export default function ContratoPage() {
                     {extractedData.valorPrincipal && (
                       <div><strong>Valor Principal:</strong> {extractedData.valorPrincipal}</div>
                     )}
+                    {extractedData.condicoesDePagamento && (
+                      <div><strong>Condições de Pagamento:</strong> {extractedData.condicoesDePagamento}</div>
+                    )}
                     {extractedData.prazoContrato && (
                       <div><strong>Prazo do Contrato:</strong> {extractedData.prazoContrato}</div>
                     )}
@@ -548,7 +591,7 @@ export default function ContratoPage() {
                 <CardDescription>Após preencher os dados do responsável e do contrato, prepare para impressão.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-green-600 hover:bg-green-700 text-white text-base py-3"  disabled={isSubmitDisabled() || (!extractedData && contractSourceType === 'new') || (!extractedData && contractSourceType === 'existing' && !photoVerified) }>
+                 <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-green-600 hover:bg-green-700 text-white text-base py-3" disabled={isPrintDisabled()}>
                     <PrinterIcon className="mr-2 h-5 w-5" /> Preparar Contrato para Impressão
                 </Button>
             </CardContent>

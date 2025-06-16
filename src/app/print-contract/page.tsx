@@ -66,7 +66,7 @@ export default function PrintContractPage() {
     );
   }
 
-  if (!printData || !printData.responsavel) { // Check for responsavel data specifically
+  if (!printData || !printData.responsavel) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md shadow-xl">
@@ -130,6 +130,9 @@ export default function PrintContractPage() {
             <p className="pl-4">2.1. O valor acordado para a aquisição do produto é de <strong>{extractedData?.valorPrincipal || 'R$ [VALOR]'}</strong>.</p>
             <p className="pl-4">2.2. O pagamento poderá ser efetuado via [Pix / Cartão de Crédito / Boleto], conforme escolha do comprador no ato da compra.</p>
             <p className="pl-4">2.3. A liberação do acesso ao produto ocorrerá após a <strong>confirmação do pagamento</strong>.</p>
+            {extractedData?.condicoesDePagamento && (
+              <p className="pl-4 mt-1"><strong>Condições Adicionais de Pagamento (Extraído):</strong> {extractedData.condicoesDePagamento}</p>
+            )}
             
             <hr className="my-3"/>
 
