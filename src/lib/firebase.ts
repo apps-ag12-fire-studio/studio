@@ -1,14 +1,13 @@
 
-// This is a placeholder file for your Firebase configuration.
-// You MUST replace this with your actual Firebase project configuration.
+// This is your Firebase configuration file.
+// It's set up to use environment variables for your Firebase project credentials.
 
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-// import { getStorage } from "firebase/storage"; // If you decide to use Firebase Storage later
+// import { getStorage } from "firebase/storage"; // Uncomment if you decide to use Firebase Storage
 
-// Your web app's Firebase configuration
-// IMPORTANT: Replace with your actual config values
-// These should ideally come from environment variables for security
+// Your web app's Firebase configuration using environment variables
+// IMPORTANT: Ensure these variables are set in your .env.local file
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -16,7 +15,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  // measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional, but good to include
 };
 
 // Initialize Firebase
@@ -32,8 +31,13 @@ const db = getFirestore(firebaseApp);
 
 export { firebaseApp, db /*, storage */ };
 
-// Ensure you have a .env.local file (or similar, depending on your deployment environment)
-// at the root of your project with your Firebase credentials:
+// Instructions for the user:
+// 1. Create a .env.local file in the root of your project (if it doesn't exist).
+// 2. Copy the following lines into your .env.local file.
+// 3. Replace 'your_...' placeholders with your actual Firebase project credentials.
+// 4. Make sure .env.local is listed in your .gitignore file to keep credentials secure.
+//
+// .env.local example content:
 //
 // NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
 // NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
@@ -41,8 +45,6 @@ export { firebaseApp, db /*, storage */ };
 // NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 // NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
 // NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-// NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id (optional)
+// NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id (Optional)
 //
-// Add .env.local to your .gitignore file to keep your credentials secure.
-
     
