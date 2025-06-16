@@ -234,7 +234,7 @@ export default function RevisaoEnvioPage() {
     router.push("/processo/documentos");
   };
 
-
+/*
   const displayDocumentStatus = (doc: DocumentFile | null, docName: string) => {
     if (!doc || !doc.name) return <p className="text-sm text-muted-foreground">{docName}: Não anexado</p>;
     let status = "";
@@ -243,7 +243,7 @@ export default function RevisaoEnvioPage() {
     }
     return <p className="text-sm text-foreground/80">{docName}: {doc.name} {status && <span className={`text-xs ml-1 ${ (doc.analysisResult as any).error ? 'text-red-400' : 'text-green-400'}`}>({status})</span>}</p>;
   };
-
+*/
 
   return (
     <>
@@ -396,6 +396,7 @@ export default function RevisaoEnvioPage() {
           )}
            <hr className="border-border/30"/>
           
+          {/* 
           <div className="space-y-1">
             <h3 className="flex items-center text-lg font-semibold text-primary/90"><Paperclip className="mr-2 h-5 w-5" />Documentos Anexados</h3>
             {processState.buyerType === 'pf' && (
@@ -418,6 +419,7 @@ export default function RevisaoEnvioPage() {
                  <p className="text-sm text-muted-foreground">Nenhum documento específico anexado.</p>
              )}
           </div>
+           */}
         </CardContent>
       </Card>
       
@@ -447,3 +449,4 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
