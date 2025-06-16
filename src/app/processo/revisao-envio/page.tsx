@@ -27,36 +27,33 @@ import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip,
 const attemptToPreFillInfo = (
   processState: StoredProcessState
 ): { buyerInfo: BuyerInfo, companyInfo: CompanyInfo | null } => {
-  const newBuyerInfo: BuyerInfo = { ...(processState.buyerInfo || initialStoredProcessState.buyerInfo) };
+  let newBuyerInfo: BuyerInfo = { ...(processState.buyerInfo || initialStoredProcessState.buyerInfo) };
   let newCompanyInfo: CompanyInfo | null = processState.buyerType === 'pj' ? { ...(processState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } : null;
 
-  const getAnalysisData = (docFile: DocumentFile | null): ExtractBuyerDocumentDataOutput | null => {
+  const getAnalysisDataFromDocKey = (docKey: keyof StoredProcessState): ExtractBuyerDocumentDataOutput | null => {
+    const docFile = processState[docKey] as DocumentFile | null;
     if (docFile?.analysisResult && !(docFile.analysisResult as any).error) {
       return docFile.analysisResult as ExtractBuyerDocumentDataOutput;
     }
     return null;
   };
   
-  // Try to prefill from document analysis first
   if (processState.buyerType === 'pf') {
-    const rgFrenteData = getAnalysisData(processState.rgFrente);
-    const cnhFrenteData = getAnalysisData(processState.cnhFrente);
+    const rgFrenteData = getAnalysisDataFromDocKey('rgFrente');
+    const cnhFrenteData = getAnalysisDataFromDocKey('cnhFrente');
+    
+    const docData = rgFrenteData || cnhFrenteData; // Prioritize RG, then CNH
 
-    if (rgFrenteData?.nomeCompleto) newBuyerInfo.nome = rgFrenteData.nomeCompleto;
-    else if (cnhFrenteData?.nomeCompleto) newBuyerInfo.nome = cnhFrenteData.nomeCompleto;
-
-    if (rgFrenteData?.cpf) newBuyerInfo.cpf = rgFrenteData.cpf;
-    else if (cnhFrenteData?.cpf) newBuyerInfo.cpf = cnhFrenteData.cpf;
+    if (docData?.nomeCompleto && !newBuyerInfo.nome) newBuyerInfo.nome = docData.nomeCompleto;
+    if (docData?.cpf && !newBuyerInfo.cpf) newBuyerInfo.cpf = docData.cpf;
     // Email and Telefone are not typically in RG/CNH for AI extraction by current flow
   } else if (processState.buyerType === 'pj' && newCompanyInfo) {
-    const cartaoCnpjData = getAnalysisData(processState.cartaoCnpjFile);
-    const docSocioData = getAnalysisData(processState.docSocioFrente);
+    const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile');
+    const docSocioData = getAnalysisDataFromDocKey('docSocioFrente');
 
-    // For Company
-    if (cartaoCnpjData?.nomeCompleto && !newCompanyInfo.razaoSocial) newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto; // AI might put company name here
+    if (cartaoCnpjData?.nomeCompleto && !newCompanyInfo.razaoSocial) newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto; 
     if (cartaoCnpjData?.rg && !newCompanyInfo.cnpj) newCompanyInfo.cnpj = cartaoCnpjData.rg; // AI might put CNPJ in RG field if numeric
 
-    // For Representative (already filled in previous step, but can be augmented)
     if (docSocioData?.nomeCompleto && !newBuyerInfo.nome) newBuyerInfo.nome = docSocioData.nomeCompleto;
     if (docSocioData?.cpf && !newBuyerInfo.cpf) newBuyerInfo.cpf = docSocioData.cpf;
   }
@@ -77,7 +74,6 @@ const attemptToPreFillInfo = (
           if (doc.length === 11) newBuyerInfo.cpf = contractData.documentosDasPartes[i];
         }
       }
-      // For PJ, try to find company name in contract if not found from CNPJ card
       if (processState.buyerType === 'pj' && newCompanyInfo && !newCompanyInfo.razaoSocial) {
          if (parte.includes("EMPRESA") || parte.includes("LTDA") || parte.includes("S/A")) {
              let nomeEmpresa = contractData.nomesDasPartes[i].split(/,|\bCNPJ\b/i)[0].trim();
@@ -105,12 +101,17 @@ export default function RevisaoEnvioPage() {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
 
-    // Attempt to pre-fill only if info hasn't been manually edited substantially or is still initial
-    // This complex check helps preserve user edits if they navigate back and forth
-    const isBuyerInfoInitial = JSON.stringify(loadedState.buyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo);
-    const isCompanyInfoInitialOrNull = !loadedState.companyInfo || JSON.stringify(loadedState.companyInfo) === JSON.stringify({ razaoSocial: '', nomeFantasia: '', cnpj: '' });
+    const isBuyerInfoEffectivelyInitial = 
+        !loadedState.buyerInfo.nome && 
+        !loadedState.buyerInfo.cpf &&
+        !loadedState.buyerInfo.email &&
+        !loadedState.buyerInfo.telefone;
 
-    if (isBuyerInfoInitial && (loadedState.buyerType === 'pf' || (loadedState.buyerType === 'pj' && isCompanyInfoInitialOrNull))) {
+    const isCompanyInfoEffectivelyInitial = 
+        loadedState.buyerType === 'pj' && 
+        (!loadedState.companyInfo || (!loadedState.companyInfo.razaoSocial && !loadedState.companyInfo.cnpj));
+
+    if (isBuyerInfoEffectivelyInitial || (loadedState.buyerType === 'pj' && isCompanyInfoEffectivelyInitial)) {
       const { buyerInfo: preFilledBuyerInfo, companyInfo: preFilledCompanyInfo } = attemptToPreFillInfo(loadedState);
       setCurrentBuyerInfo(preFilledBuyerInfo);
       if (loadedState.buyerType === 'pj') {
@@ -122,19 +123,18 @@ export default function RevisaoEnvioPage() {
       setCurrentBuyerInfo(loadedState.buyerInfo);
       setCurrentCompanyInfo(loadedState.companyInfo);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
   
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const updatedBuyerInfo = { ...currentBuyerInfo, [field]: e.target.value };
     setCurrentBuyerInfo(updatedBuyerInfo);
-    setProcessState(prev => ({...prev, buyerInfo: updatedBuyerInfo})); // live update processState for review
+    // No need to setProcessState here directly as it's derived for saving, currentBuyerInfo is the source of truth for the form
   };
 
   const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
     const updatedCompanyInfo = { ...(currentCompanyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }), [field]: e.target.value };
     setCurrentCompanyInfo(updatedCompanyInfo);
-     setProcessState(prev => ({...prev, companyInfo: updatedCompanyInfo})); // live update processState for review
+    // No need to setProcessState here, currentCompanyInfo is the source of truth for the form
   };
 
 
@@ -177,13 +177,16 @@ export default function RevisaoEnvioPage() {
     return true;
   }
 
-  const isPrintDisabled = useCallback((currentState: StoredProcessState, buyerData: BuyerInfo, companyData: CompanyInfo | null) => { 
+  const isPrintDisabled = useCallback(() => { 
+    const currentState = processState; // Use a snapshot for this check
     if (currentState.buyerType === 'pf') {
-        if (!isBuyerInfoComplete(buyerData)) return true;
-        if (!((currentState.rgFrente && currentState.rgVerso) || (currentState.cnhFrente && currentState.cnhVerso)) || !currentState.comprovanteEndereco) return true;
+        if (!isBuyerInfoComplete(currentBuyerInfo)) return true;
+         const hasRg = currentState.rgFrente && currentState.rgVerso;
+         const hasCnh = currentState.cnhFrente && currentState.cnhVerso;
+        if (! (hasRg || hasCnh) || !currentState.comprovanteEndereco) return true;
     } else { // PJ
-        if (!isCompanyInfoComplete(companyData)) return true;
-        if (!isBuyerInfoComplete(buyerData)) return true; // Representative
+        if (!isCompanyInfoComplete(currentCompanyInfo)) return true;
+        if (!isBuyerInfoComplete(currentBuyerInfo)) return true; // Representative
         if (!currentState.cartaoCnpjFile || !(currentState.docSocioFrente && currentState.docSocioVerso) || !currentState.comprovanteEndereco) return true;
     }
     if (isInternalTeamMemberInfoEmpty(currentState.internalTeamMemberInfo)) return true;
@@ -196,14 +199,14 @@ export default function RevisaoEnvioPage() {
       return true; 
     }
     return false; 
-  }, []);
+  }, [processState, currentBuyerInfo, currentCompanyInfo]);
 
 
   const handlePrepareForPrint = () => {
     if (!validatePage()) return;
     
     const finalProcessState = { ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo };
-    if (isPrintDisabled(finalProcessState, currentBuyerInfo, currentCompanyInfo)){ 
+    if (isPrintDisabled()){ // Call without args to use current state from closure
        toast({ title: "Ação Necessária", description: "Complete todas as etapas e informações obrigatórias para preparar a impressão.", variant: "destructive" });
        return;
     }
@@ -226,6 +229,7 @@ export default function RevisaoEnvioPage() {
   };
 
   const handleBack = () => {
+    // Save current form data before navigating back
     saveProcessState({ ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo });
     router.push("/processo/documentos");
   };
@@ -244,10 +248,13 @@ export default function RevisaoEnvioPage() {
   return (
     <>
       <header className="text-center py-8">
-        <div className="mb-4 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
+        <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
         </div>
-        <p className="mt-2 text-xl text-muted-foreground font-headline">
+        <p className="mb-4 text-sm text-foreground/80">
+          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+        </p>
+        <p className="text-xl text-muted-foreground font-headline">
           Passo 4: {processState.buyerType === 'pj' ? 'Dados da Empresa, Representante' : 'Dados do Comprador'} e Revisão Final
         </p>
       </header>
@@ -282,7 +289,7 @@ export default function RevisaoEnvioPage() {
             {processState.buyerType === 'pf' ? "Informações do Comprador" : "Informações do Representante Legal"}
           </CardTitle>
           <CardDescription className="text-foreground/70 pt-1">
-            Confirme ou preencha os dados. Para 'Novos Contratos', os campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou do contrato principal. Para 'Contratos Existentes', são baseados no modelo. Utilize os documentos anexados na etapa anterior como referência.
+            Confirme ou preencha os dados. Alguns campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou do contrato principal. Utilize os documentos anexados na etapa anterior como referência.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
@@ -334,7 +341,7 @@ export default function RevisaoEnvioPage() {
           {processState.buyerType === 'pj' && currentCompanyInfo && (
             <>
               <div className="space-y-1">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><Building className="mr-2 h-5 w-5" />Dados da Empresa (para conferência)</h3>
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><Building className="mr-2 h-5 w-5" />Dados da Empresa</h3>
                 <p className="text-foreground/80"><strong>Razão Social:</strong> {currentCompanyInfo.razaoSocial || 'Não informado'}</p>
                 <p className="text-foreground/80"><strong>Nome Fantasia:</strong> {currentCompanyInfo.nomeFantasia || 'Não informado'}</p>
                 <p className="text-foreground/80"><strong>CNPJ:</strong> {currentCompanyInfo.cnpj || 'Não informado'}</p>
@@ -344,7 +351,7 @@ export default function RevisaoEnvioPage() {
           )}
 
           <div className="space-y-1">
-            <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"} (para conferência)</h3>
+            <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"}</h3>
             <p className="text-foreground/80"><strong>Nome:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
             <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
             <p className="text-foreground/80"><strong>Telefone:</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
@@ -421,7 +428,7 @@ export default function RevisaoEnvioPage() {
         </CardHeader>
         <CardContent className="p-6 pt-0">
              <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
-                disabled={isPrintDisabled(processState, currentBuyerInfo, currentCompanyInfo)}
+                disabled={isPrintDisabled()}
              >
                 <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
             </Button>

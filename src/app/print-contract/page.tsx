@@ -115,10 +115,13 @@ export default function PrintContractPage() {
   return (
     <>
       <header className="text-center py-8 print-hidden">
-        <div className="mb-4 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
+        <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
         </div>
-        <p className="mt-2 text-xl text-muted-foreground font-headline">
+        <p className="mb-4 text-sm text-foreground/80">
+          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+        </p>
+        <p className="text-xl text-muted-foreground font-headline">
           Passo 5: Impressão do Contrato
         </p>
       </header>

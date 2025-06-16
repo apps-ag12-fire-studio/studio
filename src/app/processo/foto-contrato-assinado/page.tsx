@@ -95,14 +95,19 @@ export default function FotoContratoAssinadoPage() {
 
     setIsSubmitting(true);
     try {
+      // Simulate API call or data processing
       console.log("Submitting final data (simulated):", { 
         ...processState,
+        // If you need the actual file object for submission, you'd handle it here.
+        // For localStorage, we're just storing the name and preview.
         signedContractActualFile: signedContractPhotoFile ? signedContractPhotoFile.name : undefined 
       });
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
       
+      // --- SIMULATING EMAIL ---
+      // This is a placeholder. In a real app, you'd use a backend service to send emails.
       console.log("\n--- SIMULANDO ENVIO DE EMAIL FINAL ---");
-      const recipients = ['financeiro@empresa.com', 'juridico@empresa.com'];
+      const recipients = ['financeiro@empresa.com', 'juridico@empresa.com']; // Example recipients
       if (processState.buyerInfo.email) {
         recipients.push(processState.buyerInfo.email);
       }
@@ -116,6 +121,7 @@ export default function FotoContratoAssinadoPage() {
       emailBody += `Objeto do Contrato: ${processState.extractedData?.objetoDoContrato || 'N/A'}\n`;
       
       const attachedDocs: string[] = [];
+      // List all document slots that might have a name
       if (processState.rgFrente?.name) attachedDocs.push(processState.rgFrente.name);
       if (processState.rgVerso?.name) attachedDocs.push(processState.rgVerso.name);
       if (processState.cnhFrente?.name) attachedDocs.push(processState.cnhFrente.name);
@@ -141,7 +147,7 @@ export default function FotoContratoAssinadoPage() {
         description: "Contrato assinado e documentos enviados (simulado). Você será redirecionado.",
         className: "bg-primary text-primary-foreground border-primary-foreground/30"
       });
-      clearProcessState();
+      clearProcessState(); // Clear state after successful submission
       router.push("/confirmation");
 
     } catch (error) {
@@ -154,14 +160,15 @@ export default function FotoContratoAssinadoPage() {
 
 
   const handleBack = () => {
-    saveProcessState(processState); 
+    saveProcessState(processState); // Save current state before going back
     router.push("/print-contract"); 
   };
   
+  // Clean up blob URL on component unmount or when preview changes
   useEffect(() => {
     const previewUrl = processState.signedContractPhotoPreview;
     return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) {
+      if (previewUrl && previewUrl.startsWith('blob:')) { // Only revoke if it's a blob URL
         URL.revokeObjectURL(previewUrl);
       }
     };
@@ -179,10 +186,13 @@ export default function FotoContratoAssinadoPage() {
   return (
     <>
       <header className="text-center py-8">
-        <div className="mb-4 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
+        <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
         </div>
-        <p className="mt-2 text-xl text-muted-foreground font-headline">
+        <p className="mb-4 text-sm text-foreground/80">
+          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+        </p>
+        <p className="text-xl text-muted-foreground font-headline">
           Passo 6: Foto do Contrato Assinado
         </p>
       </header>
@@ -248,5 +258,3 @@ export default function FotoContratoAssinadoPage() {
     </>
   );
 }
-
-    

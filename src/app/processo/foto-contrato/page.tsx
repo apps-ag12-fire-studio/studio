@@ -143,6 +143,8 @@ export default function FotoContratoPage() {
         return false;
       }
     } else { // contractSourceType === 'existing'
+      // This path should not be reachable if 'existing' is selected as it skips to 'documentos'
+      // But keeping a check for robustness
       if (!extractedData) {
         toast({ title: "Etapas Incompletas (Contrato Existente)", description: "Modelo de contrato não carregado. Volte para Dados Iniciais e selecione um.", variant: "destructive" });
         return false;
@@ -184,11 +186,14 @@ export default function FotoContratoPage() {
   return (
     <>
       <header className="text-center py-8">
-        <div className="mb-4 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
+        <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
         </div>
-        <p className="mt-2 text-xl text-muted-foreground font-headline">
-          Passo 2: {processState.contractSourceType === 'new' ? "Foto do Contrato Principal" : "Contrato Existente Selecionado"}
+        <p className="mb-4 text-sm text-foreground/80">
+          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+        </p>
+        <p className="text-xl text-muted-foreground font-headline">
+          Passo 2: Foto do Contrato Principal
         </p>
       </header>
 
@@ -263,27 +268,21 @@ export default function FotoContratoPage() {
         </>
       )}
 
-      { (processState.contractSourceType === 'existing' || (shouldShowAnalysisButton || shouldShowReAnalysisButton)) && (
+      { (shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
-              {processState.contractSourceType === 'new' ? <ScanText className="mr-3 h-7 w-7" /> : <CheckCircle2 className="mr-3 h-7 w-7 text-green-400" />}
-              {processState.contractSourceType === 'new' 
-                ? (shouldShowReAnalysisButton ? "Reanalisar Contrato" : "Análise do Contrato")
-                : "Modelo de Contrato Carregado"
-              }
+              <ScanText className="mr-3 h-7 w-7" />
+              {shouldShowReAnalysisButton ? "Reanalisar Contrato" : "Análise do Contrato"}
             </CardTitle>
             <CardDescription className="text-foreground/70 pt-1">
-              {processState.contractSourceType === 'new' 
-                ? (shouldShowReAnalysisButton 
-                    ? "Dados já extraídos. Clique abaixo para reanalisar a foto do contrato com IA se necessário." 
-                    : "Foto verificada. Prossiga para extrair informações chave do contrato."
-                  )
-                : `O modelo "${processState.selectedContractTemplateName}" para o player ${processState.selectedPlayer} está carregado. Prossiga para anexar os documentos.`
+              {shouldShowReAnalysisButton 
+                ? "Dados já extraídos. Clique abaixo para reanalisar a foto do contrato com IA se necessário." 
+                : "Foto verificada. Prossiga para extrair informações chave do contrato."
               }
             </CardDescription>
           </CardHeader>
-          {processState.contractSourceType === 'new' && (shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
+          {(shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
             <CardFooter className="p-6">
               <Button 
                 type="button" 
@@ -323,8 +322,7 @@ export default function FotoContratoPage() {
           disabled={
             isVerifyingPhoto || 
             isExtractingData || 
-            (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData)) || 
-            (processState.contractSourceType === 'existing' && !processState.extractedData)
+            (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData))
           }
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
@@ -334,4 +332,3 @@ export default function FotoContratoPage() {
     </>
   );
 }
-    

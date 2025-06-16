@@ -130,7 +130,7 @@ export default function DadosIniciaisPage() {
   const handleNext = () => {
     if (!validateStep()) return;
 
-    const nextPath = "/processo/foto-contrato"; 
+    const nextPath = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/documentos";
 
     saveProcessState({ ...processState, currentStep: nextPath });
     toast({
@@ -144,10 +144,13 @@ export default function DadosIniciaisPage() {
   return (
     <>
       <header className="text-center py-8">
-        <div className="mb-4 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
+        <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
         </div>
-        <p className="mt-2 text-xl text-muted-foreground font-headline">
+        <p className="mb-4 text-sm text-foreground/80">
+          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+        </p>
+        <p className="text-xl text-muted-foreground font-headline">
           Passo 1: Dados Iniciais
         </p>
       </header>
@@ -273,5 +276,3 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
-
-    

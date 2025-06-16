@@ -170,7 +170,7 @@ export default function DocumentosPage() {
       }
     }
     return true;
-  }, [processState, selectedPfDocType]);
+  }, [processState, selectedPfDocType, toast]);
 
   const handleNext = () => {
     if (!validateStep()) return;
@@ -245,19 +245,26 @@ export default function DocumentosPage() {
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isAnalyzing = analyzingDocKey === docKey;
+    const isPdf = currentDoc?.name?.toLowerCase().endsWith('.pdf') || localFiles[docKey]?.name.toLowerCase().endsWith('.pdf');
 
     return (
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
         <Label htmlFor={docKey} className="text-base font-medium text-foreground/90">{label}</Label>
-        {currentDoc?.previewUrl && (
+        {currentDoc?.previewUrl && !isPdf && (
           <div className="relative w-full aspect-[16/10] rounded-md overflow-hidden border border-dashed border-primary/30">
             <Image src={currentDoc.previewUrl} alt={`Pré-visualização de ${label}`} layout="fill" objectFit="contain" />
           </div>
         )}
+        {currentDoc?.previewUrl && isPdf && (
+            <div className="p-4 text-center text-muted-foreground border border-dashed border-primary/30 rounded-md">
+                <FileText className="mx-auto h-12 w-12 mb-2" />
+                PDF carregado: {currentDoc.name}. Pré-visualização não disponível.
+            </div>
+        )}
         <Input
           id={docKey}
           type="file"
-          accept="image/*,application/pdf"
+          accept={docKey === 'cartaoCnpjFile' || docKey === 'comprovanteEndereco' ? "image/*,application/pdf" : "image/*"}
           onChange={(e) => handleFileChange(e, docKey)}
           className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
         />
@@ -265,7 +272,7 @@ export default function DocumentosPage() {
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{currentDoc.name}</span>
             <div className="flex items-center space-x-2">
-              {currentDoc.name && !currentDoc.name.toLowerCase().endsWith('.pdf') && (
+              {!isPdf && (
                 <Button 
                   type="button" variant="outline" size="sm" 
                   onClick={() => handleAnalyzeDocument(docKey)}
@@ -302,10 +309,13 @@ export default function DocumentosPage() {
   return (
     <>
       <header className="text-center py-8">
-        <div className="mb-4 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
+        <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
         </div>
-        <p className="mt-2 text-xl text-muted-foreground font-headline">
+        <p className="mb-4 text-sm text-foreground/80">
+          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+        </p>
+        <p className="text-xl text-muted-foreground font-headline">
           Passo 3: Documentos e Dados do Comprador
         </p>
       </header>
@@ -435,4 +445,3 @@ export default function DocumentosPage() {
     </>
   );
 }
-
