@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Printer, Loader2, FilePenLine } from 'lucide-react'; // Added FilePenLine
+import { ArrowLeft, Printer, Loader2, FilePenLine } from 'lucide-react'; 
 import { loadPrintData, type PrintData, saveProcessState, loadProcessState } from '@/lib/process-store';
 
 export default function PrintContractPage() {
@@ -33,6 +33,11 @@ export default function PrintContractPage() {
   const handleProceedToSignedUpload = () => {
     const currentState = loadProcessState();
     saveProcessState({ ...currentState, currentStep: "/processo/foto-contrato-assinado" });
+    toast({
+      title: "Impressão Concluída!",
+      description: "Prossiga para anexar a foto do contrato assinado.",
+      className: "bg-green-600 text-primary-foreground border-green-700",
+    });
     router.push('/processo/foto-contrato-assinado');
   };
 
@@ -206,3 +211,5 @@ export default function PrintContractPage() {
     </div>
   );
 }
+
+    

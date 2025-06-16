@@ -31,11 +31,10 @@ export default function DadosIniciaisPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    // Ensure new fields have default values if loading older state
     if (!loadedState.internalTeamMemberInfo) {
       loadedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
     }
-     if (!loadedState.buyerInfo) { // ensure buyerInfo always exists, even if populated later
+     if (!loadedState.buyerInfo) {
       loadedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
     }
     if (loadedState.selectedPlayer === undefined) {
@@ -65,7 +64,7 @@ export default function DadosIniciaisPage() {
       contractPhotoName: undefined,
       photoVerificationResult: null,
       photoVerified: false,
-      extractedData: value === 'existing' ? prevState.extractedData : null, // Keep if already selected
+      extractedData: value === 'existing' ? prevState.extractedData : null, 
       selectedPlayer: value === 'existing' ? prevState.selectedPlayer : null,
       selectedContractTemplateName: value === 'existing' ? prevState.selectedContractTemplateName : null,
     }));
@@ -75,7 +74,7 @@ export default function DadosIniciaisPage() {
     setProcessState(prevState => ({
       ...prevState,
       selectedPlayer: playerName,
-      extractedData: null, // Reset contract data when player changes
+      extractedData: null, 
       selectedContractTemplateName: null,
     }));
   };
@@ -101,8 +100,6 @@ export default function DadosIniciaisPage() {
       ...prevState,
       extractedData: sampleContractData,
       selectedContractTemplateName: templateName,
-      // Buyer info will be collected in the next step if this is a new contract, or if needed for existing.
-      // For existing, we assume it might be part of template or manually reviewed.
     }));
     toast({ 
       title: "Modelo Carregado com Sucesso!", 
@@ -133,36 +130,14 @@ export default function DadosIniciaisPage() {
   const handleNext = () => {
     if (!validateStep()) return;
 
-    const nextStepPath = processState.contractSourceType === 'new' 
-      ? "/processo/foto-contrato" 
-      : "/processo/documentos"; // If existing contract, skip photo step only if buyer info is handled differently or already present.
-                               // For now, we direct to documents, assuming buyer info from template is sufficient or reviewed elsewhere.
-                               // If buyer info is ALWAYS needed, this logic might need adjustment.
-                               // Based on new request, buyer info is collected in foto-contrato, so existing contracts might also need it.
-                               // Let's assume for "existing", buyer info will be confirmed/added in a later step or is implicit.
-                               // For robust flow, "existing" might need its own buyer info confirmation step or integrated into "documentos" or "revisao".
-                               // Given the prompt implies buyer info is tied to photo analysis, let's direct "existing" to "documentos" for now.
-                               // The prompt "esse campo vai aparecer somente após tirar as fotos do documento do comprador" is key.
-                               // This implies if no photo is taken (i.e. existing contract), buyer info form doesn't show up in foto-contrato.
-                               // This means for "existing", buyer info needs to be handled differently.
-                               // For now, let's assume 'existing' contracts will have buyer info populated on the print page or it's manually entered/confirmed there.
-                               // This is a simplification. A more complete flow would have buyer info handled explicitly for 'existing' too.
-                               // Given current design, "foto-contrato" is where buyer info is entered. So if contractSourceType is 'existing', we bypass foto-contrato.
-                               // This creates a problem: where is buyerInfo for 'existing' contracts entered?
-                               // Re-evaluating: The user said "esse campo vai aparecer somente após tirar as fotos". This strongly links buyer info form to the photo step.
-                               // If 'existing' contract is chosen, there's no photo.
-                               // This change means buyer info is ONLY collected for 'new' contracts in 'foto-contrato' page.
-                               // This is likely not the desired overall outcome.
-                               // Let's assume the spirit is: buyer info is crucial. If new, it's after photo. If existing, it's still needed.
-                               // Simplest for now: buyer info fields always collected in foto-contrato, so "existing" ALSO goes to "foto-contrato"
-                               // OR, buyer info for existing is pre-filled by template and confirmed on review.
-                               // Let's keep the fields on foto-contrato. If it's an existing contract, `extractedData` will be pre-filled.
-                               // The user can then confirm/enter buyer info on that page. This seems more consistent.
-
-    const nextPath = "/processo/foto-contrato"; // ALL paths go to foto-contrato for buyer info entry/confirmation
-                                            // This simplifies logic for now. If existing contract, it bypasses photo upload/AI analysis and just shows buyer info form.
+    const nextPath = "/processo/foto-contrato"; 
 
     saveProcessState({ ...processState, currentStep: nextPath });
+    toast({
+      title: "Etapa 1 Concluída!",
+      description: "Dados iniciais validados com sucesso.",
+      className: "bg-green-600 text-primary-foreground border-green-700",
+    });
     router.push(nextPath);
   };
 
@@ -298,3 +273,5 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
+
+    

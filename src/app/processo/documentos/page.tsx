@@ -19,15 +19,11 @@ export default function DocumentosPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   
-  // Local state for File objects
   const [attachedDocumentFiles, setAttachedDocumentFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
-    // Note: We don't try to rehydrate File objects from localStorage for simplicity.
-    // User would re-attach if they navigate back and forth after a full page reload.
-    // UI will show names from `loadedState.attachedDocumentNames`.
   }, []);
 
   const handleDocumentChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -67,15 +63,18 @@ export default function DocumentosPage() {
 
   const handleNext = () => {
     if (!validateStep()) return;
-    // Here, if we needed to upload files, we would use `attachedDocumentFiles`.
-    // For now, we just save their names in the process state.
     saveProcessState({ ...processState, currentStep: "/processo/revisao-envio" });
+    toast({
+      title: "Etapa 3 Concluída!",
+      description: "Documentos anexados com sucesso.",
+      className: "bg-green-600 text-primary-foreground border-green-700",
+    });
     router.push("/processo/revisao-envio");
   };
 
   const handleBack = () => {
     saveProcessState(processState);
-    const prevStep = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/dados-iniciais";
+    const prevStep = "/processo/foto-contrato"; // Always back to foto-contrato from here
     router.push(prevStep);
   };
 
@@ -153,3 +152,5 @@ export default function DocumentosPage() {
     </>
   );
 }
+
+    

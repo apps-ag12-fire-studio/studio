@@ -46,6 +46,11 @@ export default function RevisaoEnvioPage() {
       internalTeamMemberInfo: processState.internalTeamMemberInfo
     });
     saveProcessState({ ...processState, currentStep: "/print-contract" });
+    toast({
+      title: "Etapa 4 Concluída!",
+      description: "Contrato pronto para impressão.",
+      className: "bg-green-600 text-primary-foreground border-green-700",
+    });
     router.push('/print-contract');
   };
 
@@ -193,3 +198,5 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
+    

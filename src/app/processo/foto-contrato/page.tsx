@@ -41,21 +41,22 @@ export default function FotoContratoPage() {
     if (
       loadedState.contractSourceType === 'existing' &&
       loadedState.extractedData &&
-      !loadedState.buyerInfo.nome // Check if buyerInfo.nome is empty to avoid re-pre-filling if already done
+      !loadedState.buyerInfo.nome 
     ) {
       const preFilledInfo = attemptToPreFillBuyerInfo(loadedState.extractedData);
       loadedState.buyerInfo = preFilledInfo;
-      toast({ 
-        title: "Informações do Comprador Pré-preenchidas", 
-        description: "Dados do modelo de contrato foram usados para iniciar o preenchimento.",
-        className: "bg-secondary text-secondary-foreground border-secondary"  
-      });
+      if (preFilledInfo.nome || preFilledInfo.cpf) { // Only toast if something was pre-filled
+        toast({ 
+          title: "Informações do Comprador Pré-preenchidas", 
+          description: "Dados do modelo de contrato foram usados para iniciar o preenchimento do comprador.",
+          className: "bg-secondary text-secondary-foreground border-secondary"  
+        });
+      }
     }
     
     setProcessState(loadedState);
 
      if (loadedState.contractPhotoName && !contractPhotoFile && loadedState.contractPhotoPreview) {
-      // This implies a page reload or navigation back. We don't have the File object.
     }
   }, []);
 
@@ -81,7 +82,7 @@ export default function FotoContratoPage() {
         photoVerificationResult: null,
         photoVerified: false,
         extractedData: null, 
-        buyerInfo: initialStoredProcessState.buyerInfo, // Reset buyer info when new photo is selected
+        buyerInfo: initialStoredProcessState.buyerInfo, 
       }));
     }
   };
@@ -128,8 +129,8 @@ export default function FotoContratoPage() {
     if (extractedData?.nomesDasPartes) {
       for (let i = 0; i < extractedData.nomesDasPartes.length; i++) {
         const parte = extractedData.nomesDasPartes[i].toUpperCase();
-        if (parte.includes("COMPRADOR")) {
-          let nome = extractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b/i)[0].trim();
+        if (parte.includes("COMPRADOR") || parte.includes("CLIENTE")) { // Added "CLIENTE"
+          let nome = extractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b|\bCLIENTE\b/i)[0].trim();
           nome = nome.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
           newBuyerInfo.nome = nome;
 
@@ -187,7 +188,7 @@ export default function FotoContratoPage() {
     const { buyerInfo, contractSourceType, photoVerified, extractedData } = processState;
     
     if (contractSourceType === 'new') {
-      if (!processState.contractPhotoPreview || !photoVerified || !extractedData) { // Changed contractPhotoFile to contractPhotoPreview
+      if (!processState.contractPhotoPreview || !photoVerified || !extractedData) { 
         toast({ title: "Etapas Incompletas (Novo Contrato)", description: "Capture, verifique e analise a foto do contrato.", variant: "destructive" });
         return false;
       }
@@ -208,6 +209,11 @@ export default function FotoContratoPage() {
   const handleNext = () => {
     if (!validateStep()) return;
     saveProcessState({ ...processState, currentStep: "/processo/documentos" });
+    toast({
+      title: "Etapa 2 Concluída!",
+      description: "Contrato processado e dados do comprador salvos.",
+      className: "bg-green-600 text-primary-foreground border-green-700",
+    });
     router.push("/processo/documentos");
   };
 
@@ -227,7 +233,9 @@ export default function FotoContratoPage() {
 
 
   const shouldShowPhotoUploadAndVerify = processState.contractSourceType === 'new';
-  const shouldShowAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData;
+  const shouldShowAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !processState.extractedData;
+  const shouldShowReAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !!processState.extractedData;
+
   const shouldShowBuyerInfoForm = !!processState.extractedData;
 
 
@@ -313,15 +321,15 @@ export default function FotoContratoPage() {
         </>
       )}
 
-      {shouldShowAnalysisButton && (
+      {(shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary"><ScanText className="mr-3 h-7 w-7" />
-              Análise do Contrato
+              {shouldShowReAnalysisButton ? "Reanalisar Contrato" : "Análise do Contrato"}
             </CardTitle>
             <CardDescription className="text-foreground/70 pt-1">
-              {processState.extractedData 
-                ? "Dados extraídos. Verifique as 'Informações do Comprador' abaixo. Clique aqui para reanalisar se necessário." 
+              {shouldShowReAnalysisButton 
+                ? "Dados já extraídos. Clique abaixo para reanalisar a foto do contrato com IA se necessário." 
                 : "Foto verificada. Prossiga para extrair informações chave do contrato e preencher dados do comprador."
               }
             </CardDescription>
@@ -334,7 +342,7 @@ export default function FotoContratoPage() {
               className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
             >
                 {isExtractingData ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" /> }
-                {processState.extractedData ? "Reanalisar Contrato com IA" : "Analisar Contrato e Preencher Dados do Comprador"}
+                {shouldShowReAnalysisButton ? "Reanalisar Contrato com IA" : "Analisar Contrato e Preencher Dados do Comprador"}
             </Button>
           </CardFooter>
         </Card>
@@ -359,8 +367,8 @@ export default function FotoContratoPage() {
             </CardTitle>
             <CardDescription className="text-foreground/70 pt-1">
               {processState.contractSourceType === 'new'
-                ? "Para 'Novo Contrato', a IA analisou a foto do contrato e tentou pré-preencher os dados do comprador abaixo. "
-                : "Para 'Contrato Existente', os dados do comprador podem ter sido pré-preenchidos com base no modelo de contrato selecionado. "
+                ? "A IA analisou a foto do contrato e tentou pré-preencher os dados do comprador abaixo. "
+                : "Os dados do comprador foram pré-preenchidos com base no modelo de contrato selecionado. "
               }
               Confirme, corrija ou complete todas as informações.
             </CardDescription>
@@ -402,7 +410,7 @@ export default function FotoContratoPage() {
           disabled={
             isVerifyingPhoto || 
             isExtractingData || 
-            (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData)) || // Ensure preview exists
+            (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData)) || 
             (processState.contractSourceType === 'existing' && !processState.extractedData) ||
             !processState.buyerInfo.nome || 
             !processState.buyerInfo.cpf ||
@@ -417,4 +425,6 @@ export default function FotoContratoPage() {
     </>
   );
 }
+    
+
     
