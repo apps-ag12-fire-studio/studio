@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Printer, Loader2, FilePenLine } from 'lucide-react'; 
-import { loadPrintData, type PrintData, saveProcessState, loadProcessState } from '@/lib/process-store';
+import { loadPrintData, type PrintData, saveProcessState, loadProcessState, BuyerType } from '@/lib/process-store';
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -17,15 +17,15 @@ export default function PrintContractPage() {
 
   useEffect(() => {
     const data = loadPrintData();
-    if (data) {
+    if (data && data.extractedData && data.buyerInfo && data.internalTeamMemberInfo) {
       setPrintData(data);
     } else {
       toast({
         title: 'Erro ao Carregar Dados',
-        description: 'Dados do contrato não encontrados para impressão. Redirecionando...',
+        description: 'Dados do contrato ou informações essenciais não encontrados para impressão. Redirecionando...',
         variant: 'destructive',
       });
-      router.replace('/processo/revisao-envio'); // Go back to review if print data is missing
+      router.replace('/processo/revisao-envio'); 
     }
     setIsLoading(false);
   }, [router, toast]);
@@ -55,7 +55,7 @@ export default function PrintContractPage() {
     );
   }
 
-  if (!printData || !printData.responsavel || !printData.extractedData || !printData.internalTeamMemberInfo) { 
+  if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) { 
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
@@ -73,7 +73,7 @@ export default function PrintContractPage() {
     );
   }
   
-  const { extractedData, responsavel, selectedPlayer, internalTeamMemberInfo } = printData;
+  const { extractedData, buyerInfo, companyInfo, buyerType, selectedPlayer, internalTeamMemberInfo } = printData;
 
   const vendedorNome = selectedPlayer || 
                        extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR")) || 
@@ -83,6 +83,33 @@ export default function PrintContractPage() {
     const nomeParte = extractedData.nomesDasPartes?.[index]?.toUpperCase();
     return nomeParte?.includes("VENDEDOR") || (selectedPlayer && nomeParte?.includes(selectedPlayer.toUpperCase()));
   }) || "[CNPJ DA EMPRESA VENDEDORA]";
+
+
+  const renderCompradorInfo = () => {
+    if (buyerType === 'pj' && companyInfo && buyerInfo) {
+      return (
+        <>
+          <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA JURÍDICA):</p>
+          <p><strong>Razão Social:</strong> {companyInfo.razaoSocial || '[RAZÃO SOCIAL DA EMPRESA]'}</p>
+          <p><strong>CNPJ:</strong> {companyInfo.cnpj || '[CNPJ DA EMPRESA]'}</p>
+          <p><strong>Representada por:</strong> {buyerInfo.nome || '[NOME DO REPRESENTANTE]'}</p>
+          <p><strong>CPF do Representante:</strong> {buyerInfo.cpf || '[CPF DO REPRESENTANTE]'}</p>
+          <p><strong>E-mail:</strong> {buyerInfo.email || '[E-MAIL DO REPRESENTANTE]'}</p>
+          <p><strong>Telefone:</strong> {buyerInfo.telefone || '[TELEFONE DO REPRESENTANTE]'}</p>
+        </>
+      );
+    }
+    // Pessoa Física
+    return (
+      <>
+        <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA FÍSICA):</p>
+        <p><strong>Nome:</strong> {buyerInfo?.nome || '[NOME DO COMPRADOR]'}</p>
+        <p><strong>CPF:</strong> {buyerInfo?.cpf || '[CPF DO COMPRADOR]'}</p>
+        <p><strong>E-mail:</strong> {buyerInfo?.email || '[E-MAIL DO COMPRADOR]'}</p>
+        <p><strong>Telefone:</strong> {buyerInfo?.telefone || '[TELEFONE DO COMPRADOR]'}</p>
+      </>
+    );
+  };
 
 
   return (
@@ -114,11 +141,7 @@ export default function PrintContractPage() {
               <p>Pelo presente instrumento particular, de um lado:</p>
 
               <div className="space-y-1 pl-4 border-l-2 border-primary/30 py-2">
-                <p className="font-headline text-primary/90 text-base">COMPRADOR:</p>
-                <p><strong>Nome:</strong> {responsavel.nome || '[NOME DO COMPRADOR]'}</p>
-                <p><strong>CPF:</strong> {responsavel.cpf || '[CPF DO COMPRADOR]'}</p>
-                <p><strong>E-mail:</strong> {responsavel.email || '[E-MAIL DO COMPRADOR]'}</p>
-                <p><strong>Telefone:</strong> {responsavel.telefone || '[TELEFONE DO COMPRADOR]'}</p>
+                {renderCompradorInfo()}
               </div>
 
               <p>E de outro lado:</p>
@@ -126,7 +149,7 @@ export default function PrintContractPage() {
               <div className="space-y-1 pl-4 border-l-2 border-primary/30 py-2">
                 <p className="font-headline text-primary/90 text-base">VENDEDOR:</p>
                 <p><strong>Nome:</strong> {vendedorNome}</p>
-                <p><strong>CNPJ:</strong> {vendedorDocumento}</p>
+                <p><strong>CNPJ/CPF:</strong> {vendedorDocumento}</p>
                 <p><strong>Endereço:</strong> [ENDEREÇO COMPLETO DA EMPRESA VENDEDORA]</p>
                 <p><strong>E-mail:</strong> [E-MAIL DA EMPRESA VENDEDORA]</p>
               </div>
@@ -142,30 +165,25 @@ export default function PrintContractPage() {
 
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">2. VALOR E CONDIÇÕES DE PAGAMENTO</h3>
               <p className="pl-4">2.1. O valor total para a aquisição do produto digital é de <strong>{extractedData?.valorPrincipal || 'R$ [VALOR TOTAL]'}</strong>.</p>
-              <p className="pl-4">2.2. Forma de Pagamento: {extractedData?.condicoesDePagamento ? extractedData.condicoesDePagamento : 'Conforme selecionado pelo COMPRADOR no ato da compra (ex: Pix, Cartão de Crédito, Boleto).'}</p>
-              <p className="pl-4">2.3. A liberação do acesso ao produto ocorrerá em até 24 (vinte e quatro) horas após a confirmação do pagamento pela instituição financeira.</p>
+              <p className="pl-4">2.2. Forma de Pagamento: {extractedData?.condicoesDePagamento ? extractedData.condicoesDePagamento : 'Conforme selecionado pelo COMPRADOR no ato da compra.'}</p>
               
               <hr className="my-4 border-border/30"/>
 
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">3. ACESSO E ENTREGA</h3>
               <p className="pl-4">3.1. O produto será entregue digitalmente, com as credenciais e instruções de acesso enviadas para o e-mail cadastrado pelo COMPRADOR.</p>
-              <p className="pl-4">3.2. O prazo de acesso ao conteúdo do produto é de {extractedData?.prazoContrato || '[PRAZO DE ACESSO, ex: 12 meses, vitalício enquanto disponível]'} a contar da data de liberação do acesso.</p>
+              <p className="pl-4">3.2. O prazo de acesso ao conteúdo do produto é de {extractedData?.prazoContrato || '[PRAZO DE ACESSO]'} a contar da data de liberação do acesso.</p>
 
+              {/* Remaining clauses from original template */}
               <hr className="my-4 border-border/30"/>
-
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">4. DIREITOS E RESPONSABILIDADES</h3>
               <p className="pl-4">4.1. O COMPRADOR compromete-se a utilizar o conteúdo exclusivamente para fins pessoais e intransferíveis, sendo vedada a reprodução, cópia, distribuição, ou comercialização do material sem autorização expressa e por escrito do VENDEDOR.</p>
               <p className="pl-4">4.2. O VENDEDOR garante o funcionamento da plataforma de acesso e a disponibilidade do conteúdo durante o prazo contratado, ressalvadas interrupções por manutenções programadas ou motivos de força maior.</p>
-
               <hr className="my-4 border-border/30"/>
-
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">5. POLÍTICA DE REEMBOLSO</h3>
-              <p className="pl-4">5.1. O COMPRADOR poderá solicitar o cancelamento e reembolso integral do valor pago no prazo de 07 (sete) dias corridos a contar da data da compra, conforme Art. 49 do Código de Defesa do Consumidor, desde que não tenha consumido mais de [PERCENTUAL, ex: 20%] do conteúdo.</p>
-
+              <p className="pl-4">5.1. O COMPRADOR poderá solicitar o cancelamento e reembolso integral do valor pago no prazo de 07 (sete) dias corridos a contar da data da compra, conforme Art. 49 do Código de Defesa do Consumidor.</p>
               <hr className="my-4 border-border/30"/>
-
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">6. DISPOSIÇÕES GERAIS</h3>
-              <p className="pl-4">6.1. As partes elegem o foro da comarca de {extractedData?.foroEleito || '[CIDADE/UF DO FORO]'} para dirimir quaisquer controvérsias oriundas do presente contrato, com renúncia expressa a qualquer outro, por mais privilegiado que seja.</p>
+              <p className="pl-4">6.1. As partes elegem o foro da comarca de {extractedData?.foroEleito || '[CIDADE/UF DO FORO]'} para dirimir quaisquer controvérsias oriundas do presente contrato.</p>
               {extractedData?.outrasObservacoesRelevantes && (
                   <p className="pl-4 mt-2"><strong>Observações Adicionais:</strong> {extractedData.outrasObservacoesRelevantes}</p>
               )}
@@ -176,8 +194,11 @@ export default function PrintContractPage() {
               
               <div className="mt-12 space-y-10">
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
-                   <p className="text-sm min-h-[1.25rem]">{responsavel.nome || '[NOME DO COMPRADOR]'}</p>
-                   <p className="text-xs text-muted-foreground">(COMPRADOR)</p>
+                   <p className="text-sm min-h-[1.25rem]">
+                     {buyerType === 'pj' && companyInfo ? companyInfo.razaoSocial : buyerInfo?.nome || '[NOME DO COMPRADOR/EMPRESA]'}
+                     {buyerType === 'pj' && buyerInfo && <span className="block text-xs text-muted-foreground">Representado por: {buyerInfo.nome}</span>}
+                   </p>
+                   <p className="text-xs text-muted-foreground">(COMPRADOR{buyerType === 'pj' ? ' - PESSOA JURÍDICA' : ''})</p>
                 </div>
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
                    <p className="text-sm min-h-[1.25rem]">[ESPAÇO PARA ASSINATURA DO REPRESENTANTE LEGAL]</p>
@@ -221,5 +242,3 @@ export default function PrintContractPage() {
     </>
   );
 }
-
-    
