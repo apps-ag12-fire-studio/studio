@@ -72,7 +72,7 @@ export default function DocumentosPage() {
           [docKey]: {
             name: file.name,
             previewUrl: previewUrl,
-            analysisResult: prevState[docKey]?.analysisResult
+            analysisResult: prevState[docKey]?.analysisResult // Preserve existing analysis if any
           } as DocumentFile
         }));
       } catch (error) {
@@ -90,48 +90,67 @@ export default function DocumentosPage() {
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
-    const currentDocFile = processState[docKey] as DocumentFile | null;
+    const currentDocInState = processState[docKey] as DocumentFile | null;
     const localFile = localFiles[docKey];
 
-    if (!currentDocFile?.previewUrl && !localFile) {
+    let photoDataUri: string | undefined | null = currentDocInState?.previewUrl;
+    let docName = currentDocInState?.name;
+
+    if (!photoDataUri && localFile) {
+      try {
+        photoDataUri = await fileToDataUri(localFile);
+        docName = localFile.name; // Ensure docName is set if we're using localFile
+      } catch (error) {
+        toast({ title: "Erro ao processar arquivo local", description: "Não foi possível ler o arquivo para análise.", variant: "destructive"});
+        setAnalyzingDocKey(null);
+        return;
+      }
+    }
+    
+    if (!photoDataUri) {
       toast({ title: "Arquivo não encontrado", description: "Carregue um arquivo para ser analisado.", variant: "destructive"});
+      setAnalyzingDocKey(null);
       return;
     }
+
     setAnalyzingDocKey(docKey);
     try {
-      let photoDataUri = currentDocFile?.previewUrl;
-      if (localFile && !photoDataUri) {
-         photoDataUri = await fileToDataUri(localFile);
-      }
-      if (!photoDataUri) {
-        throw new Error("Não foi possível obter os dados da imagem para análise.");
-      }
-
       const result = await extractBuyerDocumentData({ photoDataUri });
       
-      setProcessState(prevState => ({
-        ...prevState,
-        [docKey]: {
-          ...(prevState[docKey] as DocumentFile),
-          analysisResult: result,
-        }
-      }));
+      setProcessState(prevState => {
+        // Ensure we use the most up-to-date name and previewUrl,
+        // especially if they were just set by handleFileChange and analysis is immediate.
+        const baseDoc = prevState[docKey] as DocumentFile | null;
+        return {
+          ...prevState,
+          [docKey]: {
+            name: baseDoc?.name || docName, // Prioritize name from state, fallback to name derived during analysis prep
+            previewUrl: baseDoc?.previewUrl || photoDataUri, // Prioritize previewUrl from state
+            analysisResult: result,
+          } as DocumentFile, 
+        };
+      });
+
       toast({ 
-        title: `Análise de ${currentDocFile?.name || docKey} Concluída!`, 
+        title: `Análise de ${docName || docKey} Concluída!`, 
         description: "Dados extraídos do documento. Verifique abaixo.",
         className: "bg-secondary text-secondary-foreground border-secondary"
       });
 
     } catch (error) {
       console.error(`AI Document Analysis Error for ${docKey}:`, error);
-      setProcessState(prevState => ({
-        ...prevState,
-        [docKey]: {
-          ...(prevState[docKey] as DocumentFile),
-          analysisResult: { error: `Falha ao analisar: ${(error as Error).message || "Erro desconhecido"}` },
-        }
-      }));
-      toast({ title: `Erro na Análise de ${currentDocFile?.name || docKey}`, description: "Não foi possível extrair os dados. Tente novamente ou verifique a imagem.", variant: "destructive" });
+      setProcessState(prevState => {
+        const baseDoc = prevState[docKey] as DocumentFile | null;
+        return {
+          ...prevState,
+          [docKey]: {
+            name: baseDoc?.name || docName,
+            previewUrl: baseDoc?.previewUrl || photoDataUri,
+            analysisResult: { error: `Falha ao analisar: ${(error as Error).message || "Erro desconhecido"}` },
+          } as DocumentFile,
+        };
+      });
+      toast({ title: `Erro na Análise de ${docName || docKey}`, description: "Não foi possível extrair os dados. Tente novamente ou verifique a imagem.", variant: "destructive" });
     } finally {
       setAnalyzingDocKey(null);
     }
@@ -143,15 +162,15 @@ export default function DocumentosPage() {
         toast({ title: "Tipo de Documento Necessário", description: "Selecione RG ou CNH para anexar.", variant: "destructive" });
         return false;
       }
-      if (selectedPfDocType === 'rg' && (!processState.rgFrente || !processState.rgVerso)) {
+      if (selectedPfDocType === 'rg' && (!processState.rgFrente?.name || !processState.rgVerso?.name)) {
         toast({ title: "Documentos Insuficientes (RG)", description: `Anexe RG (frente e verso).`, variant: "destructive" });
         return false;
       }
-      if (selectedPfDocType === 'cnh' && (!processState.cnhFrente || !processState.cnhVerso)) {
+      if (selectedPfDocType === 'cnh' && (!processState.cnhFrente?.name || !processState.cnhVerso?.name)) {
         toast({ title: "Documentos Insuficientes (CNH)", description: `Anexe CNH (frente e verso).`, variant: "destructive" });
         return false;
       }
-      if (!processState.comprovanteEndereco) {
+      if (!processState.comprovanteEndereco?.name) {
         toast({ title: "Comprovante de Endereço Necessário", description: "Anexe um comprovante de endereço.", variant: "destructive" });
         return false;
       }
@@ -164,7 +183,7 @@ export default function DocumentosPage() {
         toast({ title: "Dados do Representante Incompletos", description: "Preencha Nome e CPF do representante legal.", variant: "destructive"});
         return false;
       }
-      if (!processState.cartaoCnpjFile || !(processState.docSocioFrente && processState.docSocioVerso) || !processState.comprovanteEndereco) {
+      if (!processState.cartaoCnpjFile?.name || !(processState.docSocioFrente?.name && processState.docSocioVerso?.name) || !processState.comprovanteEndereco?.name) {
          toast({ title: "Documentos Insuficientes (PJ)", description: `Anexe Cartão CNPJ, Documento do Sócio (frente e verso), e Comprovante de Endereço da empresa.`, variant: "destructive" });
         return false;
       }
@@ -194,14 +213,13 @@ export default function DocumentosPage() {
       ...prevState,
       buyerType: value,
       companyInfo: value === 'pj' ? (prevState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
-      // Clear personal docs if switching away from PF, or ensure selectedPfDocType is reset
       rgFrente: value === 'pj' ? null : prevState.rgFrente,
       rgVerso: value === 'pj' ? null : prevState.rgVerso,
       cnhFrente: value === 'pj' ? null : prevState.cnhFrente,
       cnhVerso: value === 'pj' ? null : prevState.cnhVerso,
     }));
     if (value === 'pj') {
-      setSelectedPfDocType(''); // Reset PF doc type selection
+      setSelectedPfDocType(''); 
     }
   };
 
@@ -245,20 +263,23 @@ export default function DocumentosPage() {
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isAnalyzing = analyzingDocKey === docKey;
-    const isPdf = currentDoc?.name?.toLowerCase().endsWith('.pdf') || localFiles[docKey]?.name.toLowerCase().endsWith('.pdf');
+    const localFileSelected = localFiles[docKey];
+    const displayDocName = currentDoc?.name || localFileSelected?.name;
+    const displayPreviewUrl = currentDoc?.previewUrl; // Only rely on previewUrl from state for display
+    const isPdf = displayDocName?.toLowerCase().endsWith('.pdf');
 
     return (
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
         <Label htmlFor={docKey} className="text-base font-medium text-foreground/90">{label}</Label>
-        {currentDoc?.previewUrl && !isPdf && (
+        {displayPreviewUrl && !isPdf && (
           <div className="relative w-full aspect-[16/10] rounded-md overflow-hidden border border-dashed border-primary/30">
-            <Image src={currentDoc.previewUrl} alt={`Pré-visualização de ${label}`} layout="fill" objectFit="contain" />
+            <Image src={displayPreviewUrl} alt={`Pré-visualização de ${label}`} layout="fill" objectFit="contain" />
           </div>
         )}
-        {currentDoc?.previewUrl && isPdf && (
+        {displayPreviewUrl && isPdf && (
             <div className="p-4 text-center text-muted-foreground border border-dashed border-primary/30 rounded-md">
                 <FileText className="mx-auto h-12 w-12 mb-2" />
-                PDF carregado: {currentDoc.name}. Pré-visualização não disponível.
+                PDF carregado: {displayDocName}. Pré-visualização não disponível.
             </div>
         )}
         <Input
@@ -268,19 +289,19 @@ export default function DocumentosPage() {
           onChange={(e) => handleFileChange(e, docKey)}
           className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
         />
-        {currentDoc && (
+        {displayDocName && ( // Check if there's a name to display (from state or local file)
           <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{currentDoc.name}</span>
+            <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{displayDocName}</span>
             <div className="flex items-center space-x-2">
-              {!isPdf && (
+              {!isPdf && ( // PDF analysis not supported by current AI flow
                 <Button 
                   type="button" variant="outline" size="sm" 
                   onClick={() => handleAnalyzeDocument(docKey)}
-                  disabled={isAnalyzing || !currentDoc.previewUrl}
+                  disabled={isAnalyzing || (!displayPreviewUrl && !localFileSelected)} // Disable if no preview and no local file
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
                   {isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
-                  {isAnalyzing ? "Analisando..." : (currentDoc.analysisResult ? "Reanalisar" : "Analisar IA")}
+                  {isAnalyzing ? "Analisando..." : (currentDoc?.analysisResult ? "Reanalisar" : "Analisar IA")}
                 </Button>
               )}
               <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} className="text-destructive/70 hover:text-destructive h-7 w-7">
@@ -289,7 +310,7 @@ export default function DocumentosPage() {
             </div>
           </div>
         )}
-        {currentDoc?.analysisResult && (
+        {currentDoc?.analysisResult && ( // Only show analysis if it's in the state
           <div className="mt-2 p-2 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md">
             <p className="font-semibold text-primary/80">Dados Extraídos:</p>
             {(currentDoc.analysisResult as any).error ? <p className="text-destructive">{(currentDoc.analysisResult as any).error}</p> : <>
@@ -445,3 +466,6 @@ export default function DocumentosPage() {
     </>
   );
 }
+
+
+    
