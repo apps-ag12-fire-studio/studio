@@ -162,7 +162,7 @@ export default function PrintContractPage() {
             
             <div className="mt-12 space-y-10">
               <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
-                 <p className="text-sm min-h-[1.25rem]">{responsavel.nome || '[ESPAÇO PARA ASSINATURA DO COMPRADOR]'}</p>
+                 <p className="text-sm min-h-[1.25rem]">{responsavel.nome || '[NOME DO COMPRADOR]'}</p>
                  <p className="text-xs text-muted-foreground">(COMPRADOR)</p>
               </div>
               <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
@@ -175,7 +175,7 @@ export default function PrintContractPage() {
             <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide text-center">TESTEMUNHAS</h3>
             <div className="mt-8 space-y-10">
               <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
-                 <p className="text-sm min-h-[1.25rem]">{internalTeamMemberInfo.nome || '[ESPAÇO PARA ASSINATURA DA TESTEMUNHA]'}</p>
+                 <p className="text-sm min-h-[1.25rem]">{internalTeamMemberInfo.nome || '[ASSINATURA TESTEMUNHA - RESP. INTERNO]'}</p>
                  <p className="text-xs text-muted-foreground">(Testemunha - Responsável Interno)</p>
                  {internalTeamMemberInfo.cpf && <p className="text-xs text-muted-foreground">CPF: {internalTeamMemberInfo.cpf}</p>}
               </div>
