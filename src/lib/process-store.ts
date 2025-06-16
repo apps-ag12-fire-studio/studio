@@ -104,9 +104,9 @@ export function saveProcessState(state: StoredProcessState) {
     // Attempt to notify the user if saving fails (e.g., quota exceeded)
     toast({
       title: "Erro ao Salvar Progresso",
-      description: "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio. Tente limpar alguns dados ou arquivos grandes.",
+      description: "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio.",
       variant: "destructive",
-      duration: 10000, // Show for longer
+      duration: 10000, 
     });
   }
 }
@@ -114,7 +114,7 @@ export function saveProcessState(state: StoredProcessState) {
 export function loadProcessState(): StoredProcessState {
   try {
     const storedState = localStorage.getItem(PROCESS_STATE_KEY);
-    if (storedState && storedState !== "undefined") { 
+    if (storedState && storedState !== "undefined" && storedState !== "null") { 
       let parsedState = JSON.parse(storedState) as StoredProcessState;
       
       parsedState = { ...initialStoredProcessState, ...parsedState }; 
@@ -174,15 +174,17 @@ export function savePrintData(data: PrintData) {
 export function loadPrintData(): PrintData | null {
   try {
     const dataString = localStorage.getItem(PRINT_DATA_KEY);
-    if (dataString && dataString !== "undefined") {
+    if (dataString && dataString !== "undefined" && dataString !== "null") {
       const parsedData = JSON.parse(dataString) as PrintData;
        parsedData.buyerType = parsedData.buyerType || 'pf';
        parsedData.companyInfo = parsedData.companyInfo || null;
       return parsedData;
     }
-  } catch (error) {
+  } catch (error)
+{
     console.error("Error loading print data from localStorage:", error);
     localStorage.removeItem(PRINT_DATA_KEY); 
   }
   return null;
 }
+
