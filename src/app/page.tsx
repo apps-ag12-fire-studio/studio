@@ -1,3 +1,269 @@
-export default function Home() {
-  return <></>;
+"use client";
+
+import { useState, ChangeEvent, FormEvent, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
+
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+export default function ContratoPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [contractPhoto, setContractPhoto] = useState<File | null>(null);
+  const [contractPhotoPreview, setContractPhotoPreview] = useState<string | null>(null);
+  const [isVerifyingPhoto, setIsVerifyingPhoto] = useState(false);
+  const [photoVerificationResult, setPhotoVerificationResult] = useState<VerifyContractPhotoOutput | null>(null);
+  const [photoVerified, setPhotoVerified] = useState(false);
+
+  const [attachedDocuments, setAttachedDocuments] = useState<File[]>([]);
+  const MAX_DOCUMENTS = 4; 
+  const MIN_DOCUMENTS = 2;
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setContractPhoto(file);
+      if (contractPhotoPreview) {
+        URL.revokeObjectURL(contractPhotoPreview);
+      }
+      const preview = URL.createObjectURL(file);
+      setContractPhotoPreview(preview);
+      setPhotoVerificationResult(null); 
+      setPhotoVerified(false);
+    }
+  };
+
+  const handleVerifyPhoto = async () => {
+    if (!contractPhoto) {
+      toast({ title: "Erro", description: "Por favor, selecione uma foto do contrato.", variant: "destructive" });
+      return;
+    }
+    setIsVerifyingPhoto(true);
+    setPhotoVerificationResult(null);
+    try {
+      const photoDataUri = await fileToDataUri(contractPhoto);
+      const result = await verifyContractPhoto({ photoDataUri });
+      setPhotoVerificationResult(result);
+      if (result.isCompleteAndClear) {
+        setPhotoVerified(true);
+        toast({ title: "Verificação Concluída", description: "A foto do contrato é nítida e completa."});
+      } else {
+        setPhotoVerified(false);
+        toast({ title: "Verificação Falhou", description: result.reason || "A foto do contrato não está nítida ou completa. Por favor, tente novamente.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("AI Verification Error:", error);
+      setPhotoVerificationResult({ isCompleteAndClear: false, reason: "Ocorreu um erro durante a verificação. Tente novamente." });
+      setPhotoVerified(false);
+      toast({ title: "Erro na Verificação", description: "Não foi possível verificar a foto. Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsVerifyingPhoto(false);
+    }
+  };
+
+  const handleDocumentChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setAttachedDocuments(prevDocs => {
+        const combined = [...prevDocs, ...newFiles];
+        if (combined.length > MAX_DOCUMENTS) {
+          toast({ title: "Limite Excedido", description: `Você pode anexar no máximo ${MAX_DOCUMENTS} documentos.`, variant: "destructive"});
+          return prevDocs;
+        }
+        return combined;
+      });
+    }
+  };
+
+  const removeDocument = (indexToRemove: number) => {
+    setAttachedDocuments(prevDocs => prevDocs.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!contractPhoto || !photoVerified) {
+      toast({ title: "Envio Falhou", description: "Por favor, capture e verifique a foto do contrato.", variant: "destructive" });
+      return;
+    }
+    if (attachedDocuments.length < MIN_DOCUMENTS) {
+      toast({ title: "Envio Falhou", description: `Por favor, anexe pelo menos ${MIN_DOCUMENTS} documentos comprobatórios.`, variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      console.log("Submitting data:", { contractPhoto, attachedDocuments });
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API call
+      toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso."});
+      router.push("/confirmation");
+    } catch (error) {
+      console.error("Submission Error:", error);
+      toast({ title: "Erro no Envio", description: "Não foi possível enviar os dados. Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (contractPhotoPreview) {
+        URL.revokeObjectURL(contractPhotoPreview);
+      }
+    };
+  }, [contractPhotoPreview]);
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-start bg-background p-4 sm:p-8">
+      <div className="w-full max-w-2xl space-y-8">
+        <header className="text-center py-6">
+          <h1 className="text-4xl font-headline text-primary">Contrato Fácil</h1>
+          <p className="mt-2 text-lg text-muted-foreground">Capture a foto do contrato e anexe os documentos necessários.</p>
+        </header>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-xl font-headline"><Camera className="mr-3 h-7 w-7 text-primary" />Etapa 1: Foto do Contrato</CardTitle>
+              <CardDescription>Tire uma foto nítida e completa do contrato assinado.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="contract-photo-input" className="mb-2 block text-sm font-medium">Carregar foto do contrato</Label>
+                <Input
+                  id="contract-photo-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleContractPhotoChange}
+                  className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                  aria-describedby="contract-photo-hint"
+                />
+                <p id="contract-photo-hint" className="mt-1 text-xs text-muted-foreground">Use a câmera do seu dispositivo ou selecione um arquivo de imagem.</p>
+              </div>
+              {contractPhotoPreview && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2">Pré-visualização:</p>
+                  <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-dashed border-primary/30 bg-muted/30 flex items-center justify-center" data-ai-hint="contract document">
+                    <Image src={contractPhotoPreview} alt="Pré-visualização do contrato" layout="fill" objectFit="contain" />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            {contractPhoto && !photoVerified && (
+              <CardFooter>
+                <Button type="button" onClick={handleVerifyPhoto} disabled={isVerifyingPhoto} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
+                  {isVerifyingPhoto && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                  Verificar Foto com IA
+                </Button>
+              </CardFooter>
+            )}
+          </Card>
+
+          {isVerifyingPhoto && (
+             <Card className="shadow-md">
+                <CardContent className="p-6 flex flex-col items-center justify-center space-y-3">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <p className="text-muted-foreground font-medium">Verificando a qualidade da foto...</p>
+                </CardContent>
+            </Card>
+          )}
+          
+          {photoVerificationResult && (
+            <Card className={`shadow-md ${photoVerificationResult.isCompleteAndClear ? "border-green-500" : "border-red-500"}`}>
+              <CardHeader>
+                <CardTitle className="flex items-center font-headline">
+                  {photoVerificationResult.isCompleteAndClear ? <CheckCircle2 className="mr-3 h-7 w-7 text-green-500" /> : <AlertTriangle className="mr-3 h-7 w-7 text-red-500" />}
+                  Resultado da Verificação
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-base">{photoVerificationResult.reason || (photoVerificationResult.isCompleteAndClear ? "A foto parece estar nítida e completa." : "A foto precisa de ajustes.")}</p>
+                {!photoVerificationResult.isCompleteAndClear && (
+                  <Button type="button" onClick={() => document.getElementById('contract-photo-input')?.click()} variant="outline" className="w-full border-primary text-primary hover:bg-primary/5">
+                    <Camera className="mr-2 h-5 w-5" /> Tentar Novamente
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-xl font-headline"><Paperclip className="mr-3 h-7 w-7 text-primary" />Etapa 2: Documentos Comprobatórios</CardTitle>
+              <CardDescription>Anexe os documentos necessários (ex: RG, CNH, CPF). Mínimo de {MIN_DOCUMENTS} documentos. Máximo de {MAX_DOCUMENTS}.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="document-input" className="mb-2 block text-sm font-medium">Adicionar documentos</Label>
+                <Input
+                  id="document-input"
+                  type="file"
+                  multiple
+                  onChange={handleDocumentChange}
+                  className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                  aria-describedby="document-hint"
+                  disabled={attachedDocuments.length >= MAX_DOCUMENTS}
+                />
+                <p id="document-hint" className="mt-1 text-xs text-muted-foreground">
+                  {attachedDocuments.length >= MAX_DOCUMENTS 
+                    ? `Limite de ${MAX_DOCUMENTS} documentos atingido.`
+                    : `Você pode anexar até ${MAX_DOCUMENTS} documentos. (${attachedDocuments.length}/${MAX_DOCUMENTS} anexados)`}
+                </p>
+              </div>
+              {attachedDocuments.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-sm font-medium">Documentos Anexados:</h4>
+                  <ul className="list-none space-y-2">
+                    {attachedDocuments.map((doc, index) => (
+                      <li key={index} className="flex items-center justify-between p-3 border rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
+                        <div className="flex items-center space-x-3 overflow-hidden">
+                          <FileText className="h-6 w-6 text-primary shrink-0" />
+                          <span className="truncate text-sm font-medium">{doc.name}</span>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(index)} aria-label={`Remover ${doc.name}`}>
+                          <Trash2 className="h-5 w-5 text-destructive hover:text-destructive/80" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg">
+            <CardHeader>
+                <CardTitle className="flex items-center text-xl font-headline"><UploadCloud className="mr-3 h-7 w-7 text-primary" />Etapa 3: Enviar Tudo</CardTitle>
+                <CardDescription>Revise as informações e envie o contrato e os documentos.</CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button type="submit" disabled={isSubmitting || !photoVerified || attachedDocuments.length < MIN_DOCUMENTS} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base py-3">
+                {isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                {isSubmitting ? "Enviando..." : "Enviar Contrato e Documentos"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </form>
+      </div>
+    </main>
+  );
 }
