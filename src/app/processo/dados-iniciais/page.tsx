@@ -24,6 +24,75 @@ const players = [
   "Rogério Penna"
 ];
 
+interface ContractTemplate {
+  id: string;
+  displayName: string;
+  data: (selectedPlayer: string | null) => ExtractContractDataOutput;
+}
+
+const contractTemplates: ContractTemplate[] = [
+  {
+    id: 'compra-produto-digital',
+    displayName: 'Modelo de Compra de Produto Digital',
+    data: (selectedPlayer: string | null) => ({
+      nomesDasPartes: ["CLIENTE EXEMPLO, COMO COMPRADOR", `${selectedPlayer || 'NOME DO PLAYER'}, COMO VENDEDOR`],
+      documentosDasPartes: ["000.000.000-00", "[CNPJ DA EMPRESA VENDEDORA]"],
+      objetoDoContrato: `PRODUTO DIGITAL (Player: ${selectedPlayer || 'NOME DO PLAYER'})`,
+      valorPrincipal: "R$ 1.000,00 (mil reais)",
+      condicoesDePagamento: "Pagamento único via Pix.",
+      prazoContrato: "Acesso por 12 meses",
+      localEDataAssinatura: "São Paulo, Data Atual",
+      foroEleito: "Comarca de São Paulo/SP",
+      outrasObservacoesRelevantes: `Contrato modelo para ${selectedPlayer || 'NOME DO PLAYER'} carregado para demonstração.`
+    })
+  },
+  {
+    id: 'prestacao-servicos',
+    displayName: 'Contrato de Prestação de Serviços',
+    data: (selectedPlayer: string | null) => ({
+      nomesDasPartes: ["[NOME DO CONTRATANTE], como CONTRATANTE", `${selectedPlayer || '[NOME DO CONTRATADO]'}, como CONTRATADO`],
+      documentosDasPartes: ["[CPF/CNPJ DO CONTRATANTE]", "[CPF/CNPJ DO CONTRATADO]"],
+      objetoDoContrato: `Prestação de Serviços de [DESCREVER O SERVIÇO] (Contratado: ${selectedPlayer || '[NOME DO CONTRATADO]'})`,
+      valorPrincipal: "R$ [VALOR]",
+      condicoesDePagamento: "[FORMA DE PAGAMENTO]",
+      prazoContrato: "[XX] dias/semanas/meses, iniciando-se em [DATA INICIAL]",
+      localEDataAssinatura: "[Local], [Data]",
+      foroEleito: "[CIDADE/UF]",
+      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: O presente contrato tem por objeto a prestação dos seguintes serviços: [DESCREVER O SERVIÇO]. Cláusula 4 – Obrigações das Partes: O Contratado deverá entregar os serviços descritos com qualidade e pontualidade. O Contratante deverá efetuar os pagamentos nos prazos combinados. Cláusula 5 – Rescisão: Este contrato poderá ser rescindido por qualquer das partes mediante aviso prévio de [X] dias."
+    })
+  },
+  {
+    id: 'parceria-comercial',
+    displayName: 'Contrato de Parceria Comercial',
+    data: (selectedPlayer: string | null) => ({
+      nomesDasPartes: [`${selectedPlayer || '[NOME EMPRESA 1]'}, como PARCEIRA 1`, "[NOME EMPRESA 2], como PARCEIRA 2"],
+      documentosDasPartes: ["[CNPJ EMPRESA 1]", "[CNPJ EMPRESA 2]"],
+      objetoDoContrato: `Parceria Comercial entre ${selectedPlayer || '[NOME EMPRESA 1]'} e [NOME EMPRESA 2] para [DESCREVER A FINALIDADE: EX: DIVULGAÇÃO CONJUNTA, VENDA DE PRODUTOS, PRESTAÇÃO DE SERVIÇOS EM CONJUNTO ETC.]`,
+      valorPrincipal: "Lucros/Resultados divididos conforme: [DESCREVER PORCENTAGEM OU MODELO DE DISTRIBUIÇÃO]",
+      condicoesDePagamento: `Responsabilidades: ${selectedPlayer || '[EMPRESA 1]'}: [RESPONSABILIDADES DA EMPRESA 1]; [EMPRESA 2]: [RESPONSABILIDADES DA EMPRESA 2].`,
+      prazoContrato: "[XX] meses, com início em [DATA]",
+      localEDataAssinatura: "[Local], [Data]",
+      foroEleito: "[CIDADE/UF]",
+      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: As partes se comprometem a colaborar comercialmente para [DESCREVER A FINALIDADE]. Cláusula 5 – Rescisão: Poderá ser rescindido por qualquer das partes com aviso prévio de [X] dias."
+    })
+  },
+  {
+    id: 'confidencialidade-nda',
+    displayName: 'Contrato de Confidencialidade (NDA)',
+    data: (selectedPlayer: string | null) => ({
+      nomesDasPartes: [`${selectedPlayer || '[NOME PARTE REVELADORA]'}, como PARTE REVELADORA`, "[NOME PARTE RECEPTORA], como PARTE RECEPTORA"],
+      documentosDasPartes: ["[CPF/CNPJ PARTE REVELADORA]", "[CPF/CNPJ PARTE RECEPTORA]"],
+      objetoDoContrato: `Acordo de Confidencialidade (NDA) entre ${selectedPlayer || '[NOME PARTE REVELADORA]'} e [NOME PARTE RECEPTORA] para [FINALIDADE DO ACORDO]`,
+      valorPrincipal: "Não aplicável",
+      condicoesDePagamento: "Cláusula 3 – Obrigações da Parte Receptora: Não divulgar as informações recebidas; Utilizá-las apenas para os fins permitidos; Proteger o conteúdo com o mesmo cuidado que protegeria suas próprias informações.",
+      prazoContrato: "Cláusula 4 – Vigência: Este acordo entra em vigor na data de assinatura e permanecerá válido por [X ANOS] após o término da relação entre as partes.",
+      localEDataAssinatura: "[Local], [Data]",
+      foroEleito: "[CIDADE/UF]",
+      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: Este acordo visa proteger as informações confidenciais trocadas entre as partes no contexto de [FINALIDADE DO ACORDO]. Cláusula 2 – Definição de Informação Confidencial: Considera-se confidencial toda e qualquer informação escrita, oral, visual ou eletrônica, revelada por uma das partes à outra."
+    })
+  }
+];
+
 export default function DadosIniciaisPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -75,35 +144,31 @@ export default function DadosIniciaisPage() {
       ...prevState,
       selectedPlayer: playerName,
       extractedData: null, 
-      selectedContractTemplateName: null,
+      selectedContractTemplateName: null, // Reset template when player changes
     }));
   };
 
-  const handleSelectExistingContract = () => {
+  const handleSelectContractTemplate = (templateId: string) => {
     if (!processState.selectedPlayer) {
       toast({ title: "Player Não Selecionado", description: "Por favor, selecione um Player primeiro.", variant: "destructive" });
       return;
     }
-    const templateName = "Modelo de Compra de Produto Digital";
-    const sampleContractData: ExtractContractDataOutput = {
-      nomesDasPartes: ["CLIENTE EXEMPLO, COMO COMPRADOR", `${processState.selectedPlayer}, COMO VENDEDOR`],
-      documentosDasPartes: ["000.000.000-00", "[CNPJ DA EMPRESA VENDEDORA]"],
-      objetoDoContrato: `PRODUTO DIGITAL (Player: ${processState.selectedPlayer})`,
-      valorPrincipal: "R$ 1.000,00 (mil reais)",
-      condicoesDePagamento: "Pagamento único via Pix.",
-      prazoContrato: "Acesso por 12 meses",
-      localEDataAssinatura: "São Paulo, Data Atual",
-      foroEleito: "Comarca de São Paulo/SP",
-      outrasObservacoesRelevantes: `Contrato modelo para ${processState.selectedPlayer} carregado para demonstração.`
-    };
+    const template = contractTemplates.find(t => t.id === templateId);
+    if (!template) {
+      toast({ title: "Modelo Não Encontrado", description: "Ocorreu um erro ao carregar o modelo de contrato.", variant: "destructive" });
+      return;
+    }
+
+    const contractData = template.data(processState.selectedPlayer);
+    
     setProcessState(prevState => ({
       ...prevState,
-      extractedData: sampleContractData,
-      selectedContractTemplateName: templateName,
+      extractedData: contractData,
+      selectedContractTemplateName: template.displayName,
     }));
     toast({ 
       title: "Modelo Carregado com Sucesso!", 
-      description: `O ${templateName} para ${processState.selectedPlayer} foi carregado.`, 
+      description: `O modelo "${template.displayName}" para ${processState.selectedPlayer} foi carregado.`, 
       className: "bg-secondary text-secondary-foreground border-secondary" 
     });
   };
@@ -213,14 +278,14 @@ export default function DadosIniciaisPage() {
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
-              <PlayersIcon className="mr-3 h-7 w-7" /> Selecionar Player
+              <PlayersIcon className="mr-3 h-7 w-7" /> Selecionar Player (Expert)
             </CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Escolha o produtor do conteúdo.</CardDescription>
+            <CardDescription className="text-foreground/70 pt-1">Escolha o produtor do conteúdo ou parte principal do contrato.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 pt-0">
             <Select value={processState.selectedPlayer || ""} onValueChange={handlePlayerSelect}>
               <SelectTrigger className="w-full bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-3 placeholder:text-muted-foreground/70">
-                <SelectValue placeholder="Selecione um Player..." />
+                <SelectValue placeholder="Selecione um Player/Expert..." />
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">
                 {players.map(player => (
@@ -242,25 +307,25 @@ export default function DadosIniciaisPage() {
             </CardTitle>
             <CardDescription className="text-foreground/70 pt-1">Escolha um modelo pré-definido para o Player: <strong>{processState.selectedPlayer}</strong></CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 p-6 pt-0">
-              <Button 
-                type="button" 
-                onClick={handleSelectExistingContract} 
-                variant="outline"
-                className="w-full border-primary/80 text-primary hover:bg-primary/10 text-base py-4 rounded-lg flex justify-between items-center group"
-              >
-                <div className="flex items-center">
-                  <FileTextIcon className="mr-3 h-5 w-5" /> 
-                  Modelo de Compra de Produto Digital
-                </div>
-                <ChevronRight className="h-5 w-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all"/>
-              </Button>
+          <CardContent className="space-y-3 p-6 pt-0">
+              {contractTemplates.map(template => (
+                <Button 
+                  key={template.id}
+                  type="button" 
+                  onClick={() => handleSelectContractTemplate(template.id)} 
+                  variant={processState.selectedContractTemplateName === template.displayName ? "secondary" : "outline"}
+                  className="w-full border-primary/80 text-primary hover:bg-primary/10 text-base py-4 rounded-lg flex justify-between items-center group data-[variant=secondary]:bg-primary/20"
+                >
+                  <div className="flex items-center">
+                    <FileTextIcon className="mr-3 h-5 w-5" /> 
+                    {template.displayName}
+                  </div>
+                  <ChevronRight className="h-5 w-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all"/>
+                </Button>
+              ))}
               {processState.extractedData && processState.selectedContractTemplateName && (
-                <p className="text-sm text-green-400 text-center">Modelo de contrato para {processState.selectedPlayer} carregado com sucesso.</p>
+                <p className="text-sm text-green-400 text-center pt-2">Modelo "{processState.selectedContractTemplateName}" para {processState.selectedPlayer} carregado.</p>
               )}
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                Simulação: Para cada player, o mesmo modelo de contrato será carregado. Funcionalidade completa de listagem de contratos específicos por player será implementada futuramente.
-              </p>
           </CardContent>
         </Card>
       )}
@@ -276,3 +341,5 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
+
+    
