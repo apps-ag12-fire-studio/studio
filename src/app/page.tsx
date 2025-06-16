@@ -4,7 +4,7 @@
 import { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText } from "lucide-react";
+import { Camera, UploadCloud, FileText, Trash2, Loader2, AlertTriangle, CheckCircle2, Paperclip, ScanText, Printer as PrinterIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,7 +54,7 @@ export default function ContratoPage() {
       setContractPhotoPreview(preview);
       setPhotoVerificationResult(null);
       setPhotoVerified(false);
-      setExtractedData(null); // Reset extracted data if photo changes
+      setExtractedData(null);
     }
   };
 
@@ -140,6 +140,7 @@ export default function ContratoPage() {
     setIsSubmitting(true);
     try {
       console.log("Submitting data:", { contractPhoto, attachedDocuments, extractedData });
+      // Placeholder for actual submission logic
       await new Promise(resolve => setTimeout(resolve, 2000)); 
       toast({ title: "Sucesso!", description: "Contrato e documentos enviados com sucesso."});
       router.push("/confirmation");
@@ -150,6 +151,21 @@ export default function ContratoPage() {
       setIsSubmitting(false);
     }
   };
+
+  const handlePrepareForPrint = () => {
+    if (extractedData) {
+      try {
+        localStorage.setItem('extractedContractData', JSON.stringify(extractedData));
+        router.push('/print-contract');
+      } catch (error) {
+        console.error("Error saving to localStorage:", error);
+        toast({ title: "Erro", description: "Não foi possível preparar os dados para impressão.", variant: "destructive" });
+      }
+    } else {
+      toast({ title: "Erro", description: "Nenhum dado extraído para preparar para impressão.", variant: "destructive" });
+    }
+  };
+
 
   useEffect(() => {
     return () => {
@@ -306,6 +322,13 @@ export default function ContratoPage() {
                     Reanalisar Contrato
                 </Button>
               </CardContent>
+              {!isExtractedDataEmpty(extractedData) && (
+                <CardFooter className="flex-col space-y-2">
+                    <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-green-600 hover:bg-green-700 text-white text-base py-3">
+                        <PrinterIcon className="mr-2 h-5 w-5" /> Preparar Contrato para Impressão
+                    </Button>
+                </CardFooter>
+              )}
             </Card>
           )}
 
