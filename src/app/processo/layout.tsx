@@ -2,13 +2,22 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Users, Banknote, Scale, FileText, LifeBuoy } from "lucide-react";
+import { Users, Banknote, Scale, FileText, LifeBuoy, Laptop } from "lucide-react"; // Added Laptop
 
 export default function ProcessoLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const suporteItems = [
+    {label: "Time de Vendas", icon: Users},
+    {label: "Financeiro", icon: Banknote},
+    {label: "Jurídico", icon: Scale},
+    {label: "Contratual", icon: FileText},
+    {label: "Setor de Tecnologia", icon: Laptop}, // Added Setor de Tecnologia
+    {label: "Suporte Geral", icon: LifeBuoy}
+  ];
+
   return (
     <div className="flex min-h-[calc(100vh-100px)] flex-col items-center justify-start bg-background p-6 sm:p-12 selection:bg-primary/20">
       <div className="w-full max-w-3xl space-y-10">
@@ -17,13 +26,7 @@ export default function ProcessoLayout({
             <div className="mb-8">
                 <h3 className="text-lg font-headline text-primary mb-4 uppercase tracking-wider">Precisa de Ajuda?</h3>
                 <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-                    {[
-                        {label: "Time de Vendas", icon: Users},
-                        {label: "Financeiro", icon: Banknote},
-                        {label: "Jurídico", icon: Scale},
-                        {label: "Contratual", icon: FileText},
-                        {label: "Suporte Geral", icon: LifeBuoy}
-                    ].map(item => (
+                    {suporteItems.map(item => (
                         <Button key={item.label} variant="outline" size="lg" asChild className="text-foreground/80 hover:text-primary hover:border-primary/70 bg-card/70 border-border/50 hover:bg-card text-sm rounded-lg py-3 px-5 transition-all hover:shadow-md">
                             <a href="#"> <item.icon className="mr-2 h-5 w-5" /> {item.label} </a>
                         </Button>

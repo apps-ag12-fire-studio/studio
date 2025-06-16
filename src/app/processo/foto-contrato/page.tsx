@@ -28,7 +28,6 @@ export default function FotoContratoPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   
-  // State for the actual File object, not stored in localStorage directly
   const [contractPhotoFile, setContractPhotoFile] = useState<File | null>(null);
 
   const [isVerifyingPhoto, setIsVerifyingPhoto] = useState(false);
@@ -39,20 +38,16 @@ export default function FotoContratoPage() {
   useEffect(() => {
     const loadedState = loadProcessState();
     if (loadedState.contractSourceType !== 'new') {
-      // Redirect if not applicable
       router.replace("/processo/dados-iniciais");
       return;
     }
     setProcessState(loadedState);
-    // If there's a preview, it means a photo was previously selected in this session
-    // However, the File object needs to be re-selected by the user if page reloads.
-    // Input file elements don't retain File objects from localStorage.
   }, [router]);
 
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setContractPhotoFile(file); // Store the File object in component state
+      setContractPhotoFile(file); 
       const preview = URL.createObjectURL(file);
       setProcessState(prevState => ({
         ...prevState,
@@ -81,9 +76,13 @@ export default function FotoContratoPage() {
         photoVerified: result.isCompleteAndClear,
       }));
       if (result.isCompleteAndClear) {
-        toast({ title: "Foto Verificada", description: "A imagem do contrato é nítida e completa.", className: "bg-secondary text-secondary-foreground border-secondary" });
+        toast({ 
+          title: "Verificação da Foto Concluída!", 
+          description: "A imagem do contrato é nítida e completa.", 
+          className: "bg-secondary text-secondary-foreground border-secondary" 
+        });
       } else {
-        toast({ title: "Falha na Verificação", description: result.reason || "A imagem do contrato não está ideal. Por favor, tente novamente.", variant: "destructive" });
+        toast({ title: "Falha na Verificação da Foto", description: result.reason || "A imagem do contrato não está ideal. Por favor, tente novamente.", variant: "destructive" });
       }
     } catch (error) {
       console.error("AI Verification Error:", error);
@@ -111,11 +110,15 @@ export default function FotoContratoPage() {
         ...prevState,
         extractedData: result,
       }));
-      toast({ title: "Análise Concluída", description: "Dados extraídos do contrato com sucesso.", className: "bg-secondary text-secondary-foreground border-secondary" });
+      toast({ 
+        title: "Análise do Contrato Concluída!", 
+        description: "Dados extraídos do contrato com sucesso pela IA.", 
+        className: "bg-secondary text-secondary-foreground border-secondary" 
+      });
     } catch (error) {
       console.error("AI Extraction Error:", error);
       setProcessState(prevState => ({ ...prevState, extractedData: null }));
-      toast({ title: "Erro na Análise", description: "Não foi possível extrair os dados. Verifique a imagem ou tente novamente.", variant: "destructive" });
+      toast({ title: "Erro na Análise do Contrato", description: "Não foi possível extrair os dados. Verifique a imagem ou tente novamente.", variant: "destructive" });
     } finally {
       setIsExtractingData(false);
     }
@@ -136,12 +139,10 @@ export default function FotoContratoPage() {
   };
 
   const handleBack = () => {
-    // Save current state before going back
     saveProcessState(processState);
     router.push("/processo/dados-iniciais");
   };
 
-  // Clean up object URL
   useEffect(() => {
     const previewUrl = processState.contractPhotoPreview;
     return () => {

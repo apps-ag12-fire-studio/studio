@@ -111,7 +111,11 @@ export default function DadosIniciaisPage() {
       extractedData: sampleContractData,
       selectedContractTemplateName: templateName,
     }));
-    toast({ title: "Modelo Carregado", description: `${templateName} para ${processState.selectedPlayer} carregado.`, className: "bg-secondary text-secondary-foreground border-secondary" });
+    toast({ 
+      title: "Modelo Carregado com Sucesso!", 
+      description: `O ${templateName} para ${processState.selectedPlayer} foi carregado.`, 
+      className: "bg-secondary text-secondary-foreground border-secondary" 
+    });
   };
   
   const validateStep = () => {
@@ -284,7 +288,7 @@ export default function DadosIniciaisPage() {
                 </div>
                 <ChevronRight className="h-5 w-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all"/>
               </Button>
-              {processState.extractedData && (
+              {processState.extractedData && processState.selectedContractTemplateName && (
                 <p className="text-sm text-green-400 text-center">Modelo de contrato para {processState.selectedPlayer} carregado com sucesso.</p>
               )}
               <p className="text-xs text-muted-foreground text-center pt-2">

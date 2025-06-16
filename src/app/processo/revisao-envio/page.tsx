@@ -19,13 +19,8 @@ export default function RevisaoEnvioPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    // Basic validation on load - can be expanded
-    if (!loadedState.buyerInfo.nome) {
-        // Optionally redirect if core data is missing, e.g., router.replace('/processo/dados-iniciais');
-        // For now, allow loading and let user see what's missing.
-    }
     setProcessState(loadedState);
-  }, [router, toast]);
+  }, []);
   
   const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolean => {
     if (!data) return true;
@@ -48,7 +43,7 @@ export default function RevisaoEnvioPage() {
     savePrintData({ 
       extractedData: processState.extractedData, 
       responsavel: processState.buyerInfo,
-      selectedPlayer: processState.selectedPlayer // Pass selectedPlayer
+      selectedPlayer: processState.selectedPlayer
     });
     saveProcessState({ ...processState, currentStep: "/print-contract" });
     router.push('/print-contract');
@@ -100,7 +95,11 @@ export default function RevisaoEnvioPage() {
       console.log(`Corpo do Email (resumido):\n${emailBody}`);
       console.log("--- FIM DA SIMULAÇÃO DE EMAIL ---\n");
 
-      toast({ title: "Operação Concluída!", description: "Contrato e documentos enviados com sucesso (simulado).", className: "bg-primary text-primary-foreground border-primary-foreground/30"});
+      toast({ 
+        title: "Processo Enviado com Sucesso!", 
+        description: "Contrato e documentos enviados (simulado). Você será redirecionado.",
+        className: "bg-primary text-primary-foreground border-primary-foreground/30"
+      });
       clearProcessState();
       router.push("/confirmation");
 
