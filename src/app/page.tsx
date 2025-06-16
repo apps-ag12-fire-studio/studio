@@ -163,8 +163,8 @@ export default function ContratoPage() {
       return;
     }
 
-    if (contractSourceType === 'new' && (!contractPhoto || !photoVerified)) {
-      toast({ title: "Envio Falhou", description: "Por favor, capture e verifique a foto do contrato.", variant: "destructive" });
+    if (contractSourceType === 'new' && (!contractPhoto || !photoVerified || !extractedData)) {
+      toast({ title: "Envio Falhou", description: "Por favor, capture, verifique e analise a foto do contrato.", variant: "destructive" });
       return;
     }
     if (contractSourceType === 'existing' && !extractedData) {
@@ -184,7 +184,7 @@ export default function ContratoPage() {
         contractPhotoName: contractPhoto?.name, 
         attachedDocumentNames: attachedDocuments.map(d => d.name), 
         extractedData,
-        comprador: { // Changed from 'responsavel' for clarity in logs
+        comprador: {
           nome: responsavelNome,
           cpf: responsavelCpf,
           telefone: responsavelTelefone,
@@ -195,7 +195,7 @@ export default function ContratoPage() {
       
       // Simulate email notification
       console.log("\n--- SIMULANDO ENVIO DE EMAIL ---");
-      console.log(`Destinatários: financeiro@empresa.com, juridico@empresa.com, ${responsavelEmail}`); // Email do comprador
+      console.log(`Destinatários: financeiro@empresa.com, juridico@empresa.com, ${responsavelEmail}`);
       const subject = `Novo Contrato Submetido: ${extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Comprador: ${responsavelNome}`;
       console.log(`Assunto: ${subject}`);
       console.log("Corpo do Email (Resumo):");
@@ -233,19 +233,15 @@ export default function ContratoPage() {
   };
 
   const handlePrepareForPrint = () => {
-    if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) {
-      toast({ title: "Ação Necessária", description: "Preencha os 'Informações do Comprador' para preparar a impressão.", variant: "destructive" });
-      return;
-    }
-    if ( (contractSourceType === 'new' && !extractedData) && (contractSourceType === 'existing' && !extractedData) ) {
-       toast({ title: "Erro", description: "Nenhum dado de contrato (extraído ou selecionado) para preparar para impressão.", variant: "destructive" });
+    if (isPrintDisabled()){
+       toast({ title: "Ação Necessária", description: "Preencha todas as etapas anteriores obrigatórias para preparar a impressão.", variant: "destructive" });
        return;
     }
 
     try {
       const printData = {
         extractedData: extractedData,
-        responsavel: { // This 'responsavel' object name is used by print page, will keep for now to avoid breaking it, but it refers to buyer.
+        responsavel: { 
           nome: responsavelNome,
           cpf: responsavelCpf,
           telefone: responsavelTelefone,
@@ -283,7 +279,7 @@ export default function ContratoPage() {
     if (attachedDocuments.length < MIN_DOCUMENTS) return true;
 
     if (contractSourceType === 'new') {
-      return !photoVerified || isVerifyingPhoto || isExtractingData;
+      return !photoVerified || !extractedData || isVerifyingPhoto || isExtractingData;
     }
     if (contractSourceType === 'existing') {
       return !extractedData; 
@@ -292,10 +288,21 @@ export default function ContratoPage() {
   };
   
   const isPrintDisabled = () => {
-    if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) return true;
-    if (contractSourceType === 'new' && !extractedData) return true;
-    if (contractSourceType === 'existing' && !extractedData) return true;
-    return false;
+    // Common checks for both contract types
+    if (!responsavelNome || !responsavelCpf || !responsavelTelefone || !responsavelEmail) return true; // Buyer info
+    if (attachedDocuments.length < MIN_DOCUMENTS) return true; // Etapa 2: Documents
+
+    // Type-specific checks
+    if (contractSourceType === 'new') {
+      if (!photoVerified) return true; // Etapa 1: Photo verified
+      if (!extractedData) return true; // Etapa 1.5: Data extracted
+    } else if (contractSourceType === 'existing') {
+      if (!extractedData) return true; // Contract model selected and data loaded
+    } else {
+      return true; 
+    }
+    
+    return false; // All conditions met
   };
 
 
@@ -443,8 +450,8 @@ export default function ContratoPage() {
               {photoVerified && !extractedData && !isExtractingData && (
                 <Card className="shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato (Opcional)</CardTitle>
-                    <CardDescription>Se desejar, extraia informações chave do contrato para facilitar o preenchimento e verificação.</CardDescription>
+                    <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato</CardTitle>
+                    <CardDescription>Extraia informações chave do contrato para facilitar o preenchimento e verificação.</CardDescription>
                   </CardHeader>
                   <CardFooter>
                     <Button type="button" onClick={handleExtractContractData} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
@@ -453,6 +460,20 @@ export default function ContratoPage() {
                   </CardFooter>
                 </Card>
               )}
+               {photoVerified && extractedData && !isExtractingData && (
+                 <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-xl font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Etapa 1.5: Análise do Contrato</CardTitle>
+                    <CardDescription>Os dados abaixo foram extraídos do contrato. Você pode reanalisar se necessário.</CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <Button type="button" onClick={handleExtractContractData} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-base py-3">
+                       Reanalisar Contrato com IA
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+
 
               {isExtractingData && (
                 <Card className="shadow-md">
@@ -493,8 +514,8 @@ export default function ContratoPage() {
           {extractedData && (
             <Card className="shadow-md">
               <CardHeader>
-                <CardTitle className="flex items-center font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Dados Extraídos/Carregados do Contrato (Referência)</CardTitle>
-                <CardDescription>Estes são dados extraídos pela IA (se novo contrato) ou carregados de um modelo (se existente). O contrato para impressão usará os dados do "Responsável pela Assinatura" para o Comprador.</CardDescription>
+                <CardTitle className="flex items-center font-headline"><ScanText className="mr-3 h-7 w-7 text-primary" />Dados Extraídos/Carregados do Contrato</CardTitle>
+                <CardDescription>Estes são dados extraídos pela IA (se novo contrato) ou carregados de um modelo (se existente). O contrato para impressão usará os dados do "Comprador" informados acima.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {isExtractedDataEmpty(extractedData) ? (
@@ -530,14 +551,7 @@ export default function ContratoPage() {
                     )}
                   </>
                 )}
-                {contractSourceType === 'new' && photoVerified && (
-                  <Button type="button" onClick={handleExtractContractData} variant="outline" disabled={isExtractingData || isVerifyingPhoto} className="w-full mt-4 border-primary text-primary hover:bg-primary/5">
-                      {isExtractingData ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ScanText className="mr-2 h-5 w-5" />}
-                      Reanalisar Contrato
-                  </Button>
-                )}
               </CardContent>
-             
             </Card>
           )}
           
@@ -588,7 +602,7 @@ export default function ContratoPage() {
           <Card className="shadow-lg">
              <CardHeader>
                 <CardTitle className="flex items-center text-xl font-headline"><PrinterIcon className="mr-3 h-7 w-7 text-primary" />Etapa 3: Preparar para Impressão</CardTitle>
-                <CardDescription>Após preencher os dados do responsável e do contrato, prepare para impressão.</CardDescription>
+                <CardDescription>Após preencher os dados do comprador, do contrato (Etapa 1 ou Seleção) e anexar documentos (Etapa 2), prepare para impressão.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-green-600 hover:bg-green-700 text-white text-base py-3" disabled={isPrintDisabled()}>
@@ -639,7 +653,5 @@ export default function ContratoPage() {
     </main>
   );
 }
-
-    
 
     
