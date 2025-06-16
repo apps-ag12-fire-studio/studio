@@ -24,33 +24,42 @@ export default function DocumentosPage() {
   useEffect(() => {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
+    // Initialize attachedDocumentFiles if names are present but files are not (e.g., on page reload/navigation)
+    // This part is tricky as File objects cannot be directly stored in localStorage.
+    // For this simulation, we primarily rely on `attachedDocumentNames`.
+    // A real app might need to re-fetch or re-select files if full File objects are needed across sessions.
   }, []);
 
   const handleDocumentChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
       const newFiles = Array.from(files);
-      const combinedFiles = [...attachedDocumentFiles, ...newFiles];
+      const combinedFiles = [...attachedDocumentFiles, ...newFiles]; // This local state might not be needed if only names are stored
       
-      if (combinedFiles.length > MAX_DOCUMENTS) {
+      if (processState.attachedDocumentNames.length + newFiles.length > MAX_DOCUMENTS) {
         toast({ title: "Limite Excedido", description: `Máximo de ${MAX_DOCUMENTS} documentos permitidos.`, variant: "destructive"});
         return;
       }
-      setAttachedDocumentFiles(combinedFiles);
+      // For simulation, we're mainly managing names in processState
+      const newFileNames = newFiles.map(f => f.name);
       setProcessState(prevState => ({
         ...prevState,
-        attachedDocumentNames: combinedFiles.map(f => f.name),
+        attachedDocumentNames: [...prevState.attachedDocumentNames, ...newFileNames],
       }));
+      // If you need to work with File objects later (e.g., for upload), you might store them temporarily in component state
+      // setAttachedDocumentFiles(combinedFiles); // Or update based on names in processState
     }
   };
 
   const removeDocument = (indexToRemove: number) => {
-    const updatedFiles = attachedDocumentFiles.filter((_, index) => index !== indexToRemove);
-    setAttachedDocumentFiles(updatedFiles);
+    const updatedNames = processState.attachedDocumentNames.filter((_, index) => index !== indexToRemove);
     setProcessState(prevState => ({
       ...prevState,
-      attachedDocumentNames: updatedFiles.map(f => f.name),
+      attachedDocumentNames: updatedNames,
     }));
+    // Also update local File array if you are managing it:
+    // const updatedFiles = attachedDocumentFiles.filter((_, index) => index !== indexToRemove);
+    // setAttachedDocumentFiles(updatedFiles);
   };
   
   const validateStep = () => {
@@ -66,7 +75,7 @@ export default function DocumentosPage() {
     saveProcessState({ ...processState, currentStep: "/processo/revisao-envio" });
     toast({
       title: "Etapa 3 Concluída!",
-      description: "Documentos anexados com sucesso.",
+      description: "Documentos anexados com sucesso. Prossiga para informações do comprador e revisão.",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push("/processo/revisao-envio");
@@ -74,7 +83,7 @@ export default function DocumentosPage() {
 
   const handleBack = () => {
     saveProcessState(processState);
-    const prevStep = "/processo/foto-contrato"; // Always back to foto-contrato from here
+    const prevStep = "/processo/foto-contrato"; 
     router.push(prevStep);
   };
 
@@ -85,14 +94,14 @@ export default function DocumentosPage() {
           Contrato Fácil
         </div>
         <p className="mt-2 text-xl text-muted-foreground font-headline">
-          Passo 3: Documentos Comprobatórios
+          Passo 3: Documentos Comprobatórios do Comprador
         </p>
       </header>
 
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-2xl font-headline text-primary"><Paperclip className="mr-3 h-7 w-7" />Documentos Comprobatórios</CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Anexe os documentos (RG, CNH, CPF, etc.). Mínimo de {MIN_DOCUMENTS}, máximo de {MAX_DOCUMENTS}.</CardDescription>
+          <CardDescription className="text-foreground/70 pt-1">Anexe os documentos do comprador (RG, CNH, CPF, etc.). Mínimo de {MIN_DOCUMENTS}, máximo de {MAX_DOCUMENTS}.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div>

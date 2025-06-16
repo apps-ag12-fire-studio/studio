@@ -9,10 +9,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from "@/lib/process-store";
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState } from "@/lib/process-store";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
-import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText, UserRound } from "lucide-react";
+import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText } from "lucide-react";
 
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -37,38 +37,13 @@ export default function FotoContratoPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    
-    if (
-      loadedState.contractSourceType === 'existing' &&
-      loadedState.extractedData &&
-      !loadedState.buyerInfo.nome 
-    ) {
-      const preFilledInfo = attemptToPreFillBuyerInfo(loadedState.extractedData);
-      loadedState.buyerInfo = preFilledInfo;
-      if (preFilledInfo.nome || preFilledInfo.cpf) { // Only toast if something was pre-filled
-        toast({ 
-          title: "Informações do Comprador Pré-preenchidas", 
-          description: "Dados do modelo de contrato foram usados para iniciar o preenchimento do comprador.",
-          className: "bg-secondary text-secondary-foreground border-secondary"  
-        });
-      }
-    }
-    
     setProcessState(loadedState);
 
      if (loadedState.contractPhotoName && !contractPhotoFile && loadedState.contractPhotoPreview) {
-    }
+       // Logic to potentially re-instantiate File object if needed, or rely on preview
+     }
   }, []);
 
-  const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
-    setProcessState(prevState => ({
-      ...prevState,
-      buyerInfo: {
-        ...prevState.buyerInfo,
-        [field]: e.target.value,
-      }
-    }));
-  };
 
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -82,7 +57,7 @@ export default function FotoContratoPage() {
         photoVerificationResult: null,
         photoVerified: false,
         extractedData: null, 
-        buyerInfo: initialStoredProcessState.buyerInfo, 
+        // BuyerInfo is now handled in revisao-envio page
       }));
     }
   };
@@ -124,29 +99,6 @@ export default function FotoContratoPage() {
     }
   };
 
-  const attemptToPreFillBuyerInfo = (extractedData: ExtractContractDataOutput | null): BuyerInfo => {
-    const newBuyerInfo = { ...initialStoredProcessState.buyerInfo }; 
-    if (extractedData?.nomesDasPartes) {
-      for (let i = 0; i < extractedData.nomesDasPartes.length; i++) {
-        const parte = extractedData.nomesDasPartes[i].toUpperCase();
-        if (parte.includes("COMPRADOR") || parte.includes("CLIENTE")) { // Added "CLIENTE"
-          let nome = extractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b|\bCLIENTE\b/i)[0].trim();
-          nome = nome.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
-          newBuyerInfo.nome = nome;
-
-          if (extractedData.documentosDasPartes && extractedData.documentosDasPartes[i]) {
-            const doc = extractedData.documentosDasPartes[i].replace(/\D/g, '');
-            if (doc.length === 11 || doc.length === 14) { 
-                 newBuyerInfo.cpf = extractedData.documentosDasPartes[i];
-            }
-          }
-          break; 
-        }
-      }
-    }
-    return newBuyerInfo;
-  };
-
   const handleExtractContractData = async () => {
     if (processState.contractSourceType === 'new' && (!contractPhotoFile || !processState.photoVerified)) {
       toast({ title: "Ação Requerida", description: "Carregue e verifique a foto do contrato antes da análise.", variant: "destructive" });
@@ -162,22 +114,20 @@ export default function FotoContratoPage() {
       if (processState.contractSourceType === 'new' && contractPhotoFile) {
          const photoDataUri = await fileToDataUri(contractPhotoFile);
          const result = await extractContractData({ photoDataUri });
-         const preFilledBuyerInfo = attemptToPreFillBuyerInfo(result);
-
          setProcessState(prevState => ({
            ...prevState,
            extractedData: result,
-           buyerInfo: preFilledBuyerInfo, 
+           // BuyerInfo pre-fill will happen in revisao-envio page
          }));
          toast({ 
            title: "Análise do Contrato Concluída!", 
-           description: "Dados extraídos do contrato com sucesso. Verifique as informações do comprador.", 
+           description: "Dados extraídos do contrato com sucesso. Prossiga para anexar os documentos do comprador.", 
            className: "bg-secondary text-secondary-foreground border-secondary" 
          });
       }
     } catch (error) {
       console.error("AI Extraction Error:", error);
-      setProcessState(prevState => ({ ...prevState, extractedData: null, buyerInfo: initialStoredProcessState.buyerInfo })); 
+      setProcessState(prevState => ({ ...prevState, extractedData: null })); 
       toast({ title: "Erro na Análise do Contrato", description: "Não foi possível extrair os dados. Verifique a imagem ou tente novamente.", variant: "destructive" });
     } finally {
       setIsExtractingData(false);
@@ -185,23 +135,18 @@ export default function FotoContratoPage() {
   };
   
   const validateStep = () => {
-    const { buyerInfo, contractSourceType, photoVerified, extractedData } = processState;
+    const { contractSourceType, photoVerified, extractedData } = processState;
     
     if (contractSourceType === 'new') {
       if (!processState.contractPhotoPreview || !photoVerified || !extractedData) { 
         toast({ title: "Etapas Incompletas (Novo Contrato)", description: "Capture, verifique e analise a foto do contrato.", variant: "destructive" });
         return false;
       }
-    } else { 
+    } else { // contractSourceType === 'existing'
       if (!extractedData) {
-        toast({ title: "Etapas Incompletas (Contrato Existente)", description: "Modelo de contrato não carregado. Volte e selecione um.", variant: "destructive" });
+        toast({ title: "Etapas Incompletas (Contrato Existente)", description: "Modelo de contrato não carregado. Volte para Dados Iniciais e selecione um.", variant: "destructive" });
         return false;
       }
-    }
-
-    if (!buyerInfo.nome || !buyerInfo.cpf || !buyerInfo.telefone || !buyerInfo.email) {
-      toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Comprador'.", variant: "destructive" });
-      return false;
     }
     return true;
   };
@@ -211,7 +156,7 @@ export default function FotoContratoPage() {
     saveProcessState({ ...processState, currentStep: "/processo/documentos" });
     toast({
       title: "Etapa 2 Concluída!",
-      description: "Contrato processado e dados do comprador salvos.",
+      description: "Contrato processado com sucesso.",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push("/processo/documentos");
@@ -236,9 +181,6 @@ export default function FotoContratoPage() {
   const shouldShowAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !processState.extractedData;
   const shouldShowReAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !!processState.extractedData;
 
-  const shouldShowBuyerInfoForm = !!processState.extractedData;
-
-
   return (
     <>
       <header className="text-center py-8">
@@ -246,7 +188,7 @@ export default function FotoContratoPage() {
           Contrato Fácil
         </div>
         <p className="mt-2 text-xl text-muted-foreground font-headline">
-          Passo 2: {processState.contractSourceType === 'new' ? "Foto do Contrato e Dados do Comprador" : "Dados do Comprador (Contrato Existente)"}
+          Passo 2: {processState.contractSourceType === 'new' ? "Foto do Contrato Principal" : "Contrato Existente Selecionado"}
         </p>
       </header>
 
@@ -254,8 +196,8 @@ export default function FotoContratoPage() {
         <>
           <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
             <CardHeader className="p-6">
-              <CardTitle className="flex items-center text-2xl font-headline text-primary"><Camera className="mr-3 h-7 w-7" />Foto do Contrato</CardTitle>
-              <CardDescription className="text-foreground/70 pt-1">Envie uma imagem nítida e completa do contrato assinado.</CardDescription>
+              <CardTitle className="flex items-center text-2xl font-headline text-primary"><Camera className="mr-3 h-7 w-7" />Foto do Contrato Principal</CardTitle>
+              <CardDescription className="text-foreground/70 pt-1">Envie uma imagem nítida e completa do contrato que será analisado.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 p-6 pt-0">
               <div>
@@ -321,30 +263,39 @@ export default function FotoContratoPage() {
         </>
       )}
 
-      {(shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
+      { (processState.contractSourceType === 'existing' || (shouldShowAnalysisButton || shouldShowReAnalysisButton)) && (
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
-            <CardTitle className="flex items-center text-2xl font-headline text-primary"><ScanText className="mr-3 h-7 w-7" />
-              {shouldShowReAnalysisButton ? "Reanalisar Contrato" : "Análise do Contrato"}
+            <CardTitle className="flex items-center text-2xl font-headline text-primary">
+              {processState.contractSourceType === 'new' ? <ScanText className="mr-3 h-7 w-7" /> : <CheckCircle2 className="mr-3 h-7 w-7 text-green-400" />}
+              {processState.contractSourceType === 'new' 
+                ? (shouldShowReAnalysisButton ? "Reanalisar Contrato" : "Análise do Contrato")
+                : "Modelo de Contrato Carregado"
+              }
             </CardTitle>
             <CardDescription className="text-foreground/70 pt-1">
-              {shouldShowReAnalysisButton 
-                ? "Dados já extraídos. Clique abaixo para reanalisar a foto do contrato com IA se necessário." 
-                : "Foto verificada. Prossiga para extrair informações chave do contrato e preencher dados do comprador."
+              {processState.contractSourceType === 'new' 
+                ? (shouldShowReAnalysisButton 
+                    ? "Dados já extraídos. Clique abaixo para reanalisar a foto do contrato com IA se necessário." 
+                    : "Foto verificada. Prossiga para extrair informações chave do contrato."
+                  )
+                : `O modelo "${processState.selectedContractTemplateName}" para o player ${processState.selectedPlayer} está carregado. Prossiga para anexar os documentos.`
               }
             </CardDescription>
           </CardHeader>
-          <CardFooter className="p-6">
-            <Button 
-              type="button" 
-              onClick={handleExtractContractData} 
-              disabled={isVerifyingPhoto || isExtractingData} 
-              className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
-            >
-                {isExtractingData ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" /> }
-                {shouldShowReAnalysisButton ? "Reanalisar Contrato com IA" : "Analisar Contrato e Preencher Dados do Comprador"}
-            </Button>
-          </CardFooter>
+          {processState.contractSourceType === 'new' && (shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
+            <CardFooter className="p-6">
+              <Button 
+                type="button" 
+                onClick={handleExtractContractData} 
+                disabled={isVerifyingPhoto || isExtractingData} 
+                className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
+              >
+                  {isExtractingData ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" /> }
+                  {shouldShowReAnalysisButton ? "Reanalisar Contrato com IA" : "Analisar Contrato com IA"}
+              </Button>
+            </CardFooter>
+          )}
         </Card>
       )}
 
@@ -358,44 +309,6 @@ export default function FotoContratoPage() {
           </CardContent>
         </Card>
       )}
-
-      {shouldShowBuyerInfoForm && (
-         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="p-6">
-            <CardTitle className="flex items-center text-2xl font-headline text-primary">
-              <UserRound className="mr-3 h-7 w-7" /> Informações do Comprador
-            </CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">
-              {processState.contractSourceType === 'new'
-                ? "A IA analisou a foto do contrato e tentou pré-preencher os dados do comprador abaixo. "
-                : "Os dados do comprador foram pré-preenchidos com base no modelo de contrato selecionado. "
-              }
-              Confirme, corrija ou complete todas as informações.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 p-6 pt-0">
-            <div>
-              <Label htmlFor="comprador-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
-              <Input id="comprador-nome" value={processState.buyerInfo.nome} onChange={(e) => handleBuyerInputChange(e, 'nome')} placeholder="Nome completo do comprador" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="comprador-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
-                <Input id="comprador-cpf" value={processState.buyerInfo.cpf} onChange={(e) => handleBuyerInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-              </div>
-              <div>
-                <Label htmlFor="comprador-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone (WhatsApp)</Label>
-                <Input id="comprador-telefone" type="tel" value={processState.buyerInfo.telefone} onChange={(e) => handleBuyerInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="comprador-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
-              <Input id="comprador-email" type="email" value={processState.buyerInfo.email} onChange={(e) => handleBuyerInputChange(e, 'email')} placeholder="seu.email@dominio.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
 
       <div className="flex justify-between mt-8">
         <Button 
@@ -411,11 +324,7 @@ export default function FotoContratoPage() {
             isVerifyingPhoto || 
             isExtractingData || 
             (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData)) || 
-            (processState.contractSourceType === 'existing' && !processState.extractedData) ||
-            !processState.buyerInfo.nome || 
-            !processState.buyerInfo.cpf ||
-            !processState.buyerInfo.telefone ||
-            !processState.buyerInfo.email
+            (processState.contractSourceType === 'existing' && !processState.extractedData)
           }
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
@@ -425,6 +334,4 @@ export default function FotoContratoPage() {
     </>
   );
 }
-    
-
     

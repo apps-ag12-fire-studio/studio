@@ -41,14 +41,12 @@ export default function FotoContratoAssinadoPage() {
         description: 'Por favor, prepare o contrato para impressão antes de anexar a foto do contrato assinado.',
         variant: 'destructive',
       });
-      router.replace('/processo/revisao-envio'); // Redirect if print data is missing
+      router.replace('/processo/revisao-envio'); 
       return;
     }
 
     setProcessState(loadedState);
     setIsLoading(false);
-    // If navigating back and photo was already uploaded, re-set the file for potential re-upload (though not strictly necessary for just display)
-    // For simplicity, we rely on processState.signedContractPhotoPreview for display.
   }, [router, toast]);
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -56,7 +54,7 @@ export default function FotoContratoAssinadoPage() {
     if (file) {
       setSignedContractPhotoFile(file); 
       try {
-        const preview = await fileToDataUri(file); // Using fileToDataUri to ensure it's stored in state if needed.
+        const preview = await fileToDataUri(file); 
         setProcessState(prevState => ({
           ...prevState,
           signedContractPhotoPreview: preview,
@@ -67,7 +65,7 @@ export default function FotoContratoAssinadoPage() {
         toast({ title: "Erro ao Carregar Imagem", description: "Não foi possível gerar a pré-visualização.", variant: "destructive"});
         setProcessState(prevState => ({
           ...prevState,
-          signedContractPhotoPreview: null, // Clear preview on error
+          signedContractPhotoPreview: null, 
           signedContractPhotoName: undefined,
         }));
       }
@@ -79,7 +77,6 @@ export default function FotoContratoAssinadoPage() {
       toast({ title: "Foto Obrigatória", description: "Por favor, anexe a foto do contrato assinado.", variant: "destructive" });
       return false;
     }
-    // Add any other critical checks from previous steps if necessary, though they should be covered by the flow.
     if (!processState.buyerInfo.nome || isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) {
         toast({ title: "Dados Incompletos", description: "Informações do comprador ou responsável interno estão faltando. Volte e preencha.", variant: "destructive"});
         return false;
@@ -97,10 +94,8 @@ export default function FotoContratoAssinadoPage() {
 
     setIsSubmitting(true);
     try {
-      // Simulate API call or backend processing
       console.log("Submitting final data (simulated):", { 
         ...processState,
-        // signedContractPhotoFile is not directly serializable, send its name or data URI if needed by backend
         signedContractActualFile: signedContractPhotoFile ? signedContractPhotoFile.name : undefined 
       });
       await new Promise(resolve => setTimeout(resolve, 1500)); 
@@ -144,12 +139,10 @@ export default function FotoContratoAssinadoPage() {
 
 
   const handleBack = () => {
-    // Save current changes before going back if any state change is not automatically saved by setProcessState
     saveProcessState(processState); 
-    router.push("/print-contract"); // Or to revisao-envio, depending on desired flow
+    router.push("/print-contract"); 
   };
   
-  // Clean up object URL when component unmounts or preview changes
   useEffect(() => {
     const previewUrl = processState.signedContractPhotoPreview;
     return () => {
@@ -175,7 +168,7 @@ export default function FotoContratoAssinadoPage() {
           Contrato Fácil
         </div>
         <p className="mt-2 text-xl text-muted-foreground font-headline">
-          Passo 5: Foto do Contrato Assinado
+          Passo 6: Foto do Contrato Assinado
         </p>
       </header>
 
@@ -192,7 +185,7 @@ export default function FotoContratoAssinadoPage() {
               ref={photoInputRef}
               type="file"
               accept="image/*"
-              capture="environment" // Suggests using camera on mobile
+              capture="environment" 
               onChange={handlePhotoChange}
               className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-2.5"
               aria-describedby="signed-contract-photo-hint"

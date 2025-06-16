@@ -5,22 +5,75 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, savePrintData } from "@/lib/process-store";
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, savePrintData, BuyerInfo } from "@/lib/process-store";
+import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon } from "lucide-react";
 
 const MIN_DOCUMENTS = 2; 
+
+// Helper function to attempt pre-filling buyer info from extracted contract data
+const attemptToPreFillBuyerInfo = (extractedData: ExtractContractDataOutput | null): BuyerInfo => {
+  const newBuyerInfo = { ...initialStoredProcessState.buyerInfo }; 
+  if (extractedData?.nomesDasPartes) {
+    for (let i = 0; i < extractedData.nomesDasPartes.length; i++) {
+      const parte = extractedData.nomesDasPartes[i].toUpperCase();
+      if (parte.includes("COMPRADOR") || parte.includes("CLIENTE")) {
+        let nome = extractedData.nomesDasPartes[i].split(/,|\bCOMPRADOR\b|\bCLIENTE\b/i)[0].trim();
+        nome = nome.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
+        newBuyerInfo.nome = nome;
+
+        if (extractedData.documentosDasPartes && extractedData.documentosDasPartes[i]) {
+          const doc = extractedData.documentosDasPartes[i].replace(/\D/g, '');
+          if (doc.length === 11 || doc.length === 14) { 
+               newBuyerInfo.cpf = extractedData.documentosDasPartes[i];
+          }
+        }
+        break; 
+      }
+    }
+  }
+  return newBuyerInfo;
+};
+
 
 export default function RevisaoEnvioPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
+  const [currentBuyerInfo, setCurrentBuyerInfo] = useState<BuyerInfo>(initialStoredProcessState.buyerInfo);
   
   useEffect(() => {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
-  }, []);
+
+    // Attempt to pre-fill buyer info form based on data extracted from contract/model
+    if (loadedState.extractedData) {
+      const preFilledInfo = attemptToPreFillBuyerInfo(loadedState.extractedData);
+      // Only update if the current buyer info in state is still initial (empty)
+      // This prevents overwriting user's manual edits if they navigate back and forth
+      if (JSON.stringify(currentBuyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo) || 
+          JSON.stringify(loadedState.buyerInfo) === JSON.stringify(initialStoredProcessState.buyerInfo)) {
+        setCurrentBuyerInfo(preFilledInfo);
+        // Optionally save this pre-fill to global state immediately or wait for "Prepare for Print"
+        // setProcessState(prevState => ({ ...prevState, buyerInfo: preFilledInfo }));
+      } else {
+        setCurrentBuyerInfo(loadedState.buyerInfo); // Load existing edits
+      }
+    } else {
+        setCurrentBuyerInfo(loadedState.buyerInfo); // Load existing if no extractedData
+    }
+  }, []); // Removed currentBuyerInfo from dependency array to avoid loop on its own update
   
+  const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
+    setCurrentBuyerInfo(prevInfo => ({
+      ...prevInfo,
+      [field]: e.target.value,
+    }));
+  };
+
   const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolean => {
     if (!data) return true;
     return !Object.values(data).some(value => {
@@ -34,42 +87,55 @@ export default function RevisaoEnvioPage() {
     return !data.nome && !data.cpf && !data.email && !data.telefone;
   }
 
+  const validateBuyerInfo = () => {
+    if (!currentBuyerInfo.nome || !currentBuyerInfo.cpf || !currentBuyerInfo.telefone || !currentBuyerInfo.email) {
+      toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Comprador'.", variant: "destructive" });
+      return false;
+    }
+    return true;
+  }
+
   const handlePrepareForPrint = () => {
-    if (isPrintDisabled()){
-       toast({ title: "Ação Necessária", description: "Complete todas as etapas obrigatórias para preparar a impressão.", variant: "destructive" });
+    if (!validateBuyerInfo()) return;
+
+    const updatedProcessState = { ...processState, buyerInfo: currentBuyerInfo };
+
+    if (isPrintDisabled(updatedProcessState)){ // Pass updated state for accurate check
+       toast({ title: "Ação Necessária", description: "Complete todas as etapas e informações obrigatórias para preparar a impressão.", variant: "destructive" });
        return;
     }
     savePrintData({ 
-      extractedData: processState.extractedData, 
-      responsavel: processState.buyerInfo,
-      selectedPlayer: processState.selectedPlayer,
-      internalTeamMemberInfo: processState.internalTeamMemberInfo
+      extractedData: updatedProcessState.extractedData, 
+      responsavel: updatedProcessState.buyerInfo,
+      selectedPlayer: updatedProcessState.selectedPlayer,
+      internalTeamMemberInfo: updatedProcessState.internalTeamMemberInfo
     });
-    saveProcessState({ ...processState, currentStep: "/print-contract" });
+    saveProcessState({ ...updatedProcessState, currentStep: "/print-contract" });
     toast({
       title: "Etapa 4 Concluída!",
-      description: "Contrato pronto para impressão.",
+      description: "Informações do comprador salvas. Contrato pronto para impressão.",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push('/print-contract');
   };
 
   const handleBack = () => {
-    saveProcessState(processState);
+    // Save current buyer info edits before going back
+    saveProcessState({ ...processState, buyerInfo: currentBuyerInfo });
     router.push("/processo/documentos");
   };
 
-  const isPrintDisabled = () => {
-    if (!processState.buyerInfo.nome || !processState.buyerInfo.cpf || !processState.buyerInfo.telefone || !processState.buyerInfo.email) return true; 
-    if (processState.attachedDocumentNames.length < MIN_DOCUMENTS) return true; 
-    if (isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) return true;
+  const isPrintDisabled = (currentState: StoredProcessState) => { // Takes state as argument
+    if (!currentState.buyerInfo.nome || !currentState.buyerInfo.cpf || !currentState.buyerInfo.telefone || !currentState.buyerInfo.email) return true; 
+    if (currentState.attachedDocumentNames.length < MIN_DOCUMENTS) return true; 
+    if (isInternalTeamMemberInfoEmpty(currentState.internalTeamMemberInfo)) return true;
 
-    if (processState.contractSourceType === 'new') {
-      if (!processState.photoVerified) return true; 
-      if (!processState.extractedData || isExtractedDataEmpty(processState.extractedData)) return true; 
-    } else if (processState.contractSourceType === 'existing') {
-      if (!processState.selectedPlayer) return true;
-      if (!processState.extractedData || isExtractedDataEmpty(processState.extractedData)) return true; 
+    if (currentState.contractSourceType === 'new') {
+      if (!currentState.photoVerified) return true; 
+      if (!currentState.extractedData || isExtractedDataEmpty(currentState.extractedData)) return true; 
+    } else if (currentState.contractSourceType === 'existing') {
+      if (!currentState.selectedPlayer) return true;
+      if (!currentState.extractedData || isExtractedDataEmpty(currentState.extractedData)) return true; 
     } else {
       return true; 
     }
@@ -83,14 +149,46 @@ export default function RevisaoEnvioPage() {
           Contrato Fácil
         </div>
         <p className="mt-2 text-xl text-muted-foreground font-headline">
-          Passo 4: Revisão e Preparar Impressão
+          Passo 4: Informações do Comprador e Revisão Final
         </p>
       </header>
 
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
-          <CardTitle className="flex items-center text-2xl font-headline text-primary"><ListChecks className="mr-3 h-7 w-7" />Revisar Informações</CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Confira todos os dados antes de prosseguir para impressão.</CardDescription>
+          <CardTitle className="flex items-center text-2xl font-headline text-primary">
+            <UserRound className="mr-3 h-7 w-7" /> Informações do Comprador
+          </CardTitle>
+          <CardDescription className="text-foreground/70 pt-1">
+            Confirme ou preencha os dados do comprador. Para 'Novos Contratos', os campos podem ter sido pré-preenchidos pela análise da IA do contrato principal. Para 'Contratos Existentes', são baseados no modelo. Utilize os documentos anexados na etapa anterior como referência.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 p-6 pt-0">
+          <div>
+            <Label htmlFor="comprador-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
+            <Input id="comprador-nome" value={currentBuyerInfo.nome} onChange={(e) => handleBuyerInputChange(e, 'nome')} placeholder="Nome completo do comprador" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="comprador-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
+              <Input id="comprador-cpf" value={currentBuyerInfo.cpf} onChange={(e) => handleBuyerInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            </div>
+            <div>
+              <Label htmlFor="comprador-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone (WhatsApp)</Label>
+              <Input id="comprador-telefone" type="tel" value={currentBuyerInfo.telefone} onChange={(e) => handleBuyerInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="comprador-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
+            <Input id="comprador-email" type="email" value={currentBuyerInfo.email} onChange={(e) => handleBuyerInputChange(e, 'email')} placeholder="seu.email@dominio.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+          </div>
+        </CardContent>
+      </Card>
+
+
+      <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
+        <CardHeader className="p-6">
+          <CardTitle className="flex items-center text-2xl font-headline text-primary"><ListChecks className="mr-3 h-7 w-7" />Revisar Demais Informações</CardTitle>
+          <CardDescription className="text-foreground/70 pt-1">Confira os outros dados antes de prosseguir para impressão.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div className="space-y-2">
@@ -110,15 +208,6 @@ export default function RevisaoEnvioPage() {
             </>
           )}
           
-          <div className="space-y-2">
-            <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />Informações do Comprador</h3>
-            <p className="text-foreground/80"><strong>Nome:</strong> {processState.buyerInfo.nome || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>CPF:</strong> {processState.buyerInfo.cpf || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>Telefone:</strong> {processState.buyerInfo.telefone || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>E-mail:</strong> {processState.buyerInfo.email || 'Não informado'}</p>
-          </div>
-          <hr className="border-border/30"/>
-
           {!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo) && (
             <>
               <div className="space-y-2">
@@ -180,7 +269,9 @@ export default function RevisaoEnvioPage() {
             <CardDescription className="text-foreground/70 pt-1">Gere o contrato para impressão física, assinatura e posterior anexo da foto do documento assinado.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 pt-0">
-             <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" disabled={isPrintDisabled()}>
+             <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
+                disabled={isPrintDisabled(processState)} // Pass current global state for initial check
+             >
                 <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
             </Button>
         </CardContent>
