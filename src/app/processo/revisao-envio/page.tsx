@@ -65,7 +65,7 @@ export default function RevisaoEnvioPage() {
     } else {
         setCurrentBuyerInfo(loadedState.buyerInfo); // Load existing if no extractedData
     }
-  }, []); // Removed currentBuyerInfo from dependency array to avoid loop on its own update
+  }, []); 
   
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     setCurrentBuyerInfo(prevInfo => ({
@@ -100,7 +100,7 @@ export default function RevisaoEnvioPage() {
 
     const updatedProcessState = { ...processState, buyerInfo: currentBuyerInfo };
 
-    if (isPrintDisabled(updatedProcessState)){ // Pass updated state for accurate check
+    if (isPrintDisabled(updatedProcessState)){ 
        toast({ title: "Ação Necessária", description: "Complete todas as etapas e informações obrigatórias para preparar a impressão.", variant: "destructive" });
        return;
     }
@@ -125,7 +125,7 @@ export default function RevisaoEnvioPage() {
     router.push("/processo/documentos");
   };
 
-  const isPrintDisabled = (currentState: StoredProcessState) => { // Takes state as argument
+  const isPrintDisabled = (currentState: StoredProcessState) => { 
     if (!currentState.buyerInfo.nome || !currentState.buyerInfo.cpf || !currentState.buyerInfo.telefone || !currentState.buyerInfo.email) return true; 
     if (currentState.attachedDocumentNames.length < MIN_DOCUMENTS) return true; 
     if (isInternalTeamMemberInfoEmpty(currentState.internalTeamMemberInfo)) return true;
@@ -270,7 +270,7 @@ export default function RevisaoEnvioPage() {
         </CardHeader>
         <CardContent className="p-6 pt-0">
              <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
-                disabled={isPrintDisabled(processState)} // Pass current global state for initial check
+                disabled={isPrintDisabled(processState)} 
              >
                 <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
             </Button>
