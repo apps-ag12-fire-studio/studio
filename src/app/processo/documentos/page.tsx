@@ -62,7 +62,7 @@ export default function DocumentosPage() {
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
     const file = event.target.files?.[0];
-    const inputElement = event.target; // Capture for clearing value
+    const inputElement = event.target; 
 
     if (file) {
       setLocalFiles(prev => ({ ...prev, [docKey]: file }));
@@ -73,7 +73,7 @@ export default function DocumentosPage() {
           [docKey]: {
             name: file.name,
             previewUrl: previewUrl,
-            analysisResult: prevState[docKey]?.analysisResult // Preserve existing analysis
+            analysisResult: prevState[docKey]?.analysisResult 
           } as DocumentFile
         }));
       } catch (error) {
@@ -93,9 +93,6 @@ export default function DocumentosPage() {
         }
       }
     } else {
-      // If no file is selected (e.g., user clears selection from dialog using 'cancel')
-      // or if event.target.files is empty after an attempted clear (though less common for onChange).
-      // This ensures that if the input is truly cleared by the user action, the state reflects it.
       if (inputElement && inputElement.files && inputElement.files.length === 0) {
          setProcessState(prevState => ({
           ...prevState,
@@ -112,10 +109,6 @@ export default function DocumentosPage() {
       [docKey]: null
     }));
     setLocalFiles(prev => ({...prev, [docKey]: null}));
-    // Optionally clear the specific input field if you have refs to them
-    // For example: document.getElementById(docKey)?.value = "";
-    // However, this is generally managed by React's controlled/uncontrolled nature.
-    // If using uncontrolled inputs with a key prop that changes, or manually setting value to "" might be needed.
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
@@ -165,7 +158,10 @@ export default function DocumentosPage() {
       });
 
     } catch (error) {
-      console.error(`AI Document Analysis Error for ${docKey}:`, error);
+      console.error(`AI Document Analysis Error for ${docKey} (${docName}):`, error);
+      
+      const userFriendlyErrorMessage = "A IA não conseguiu processar o documento. Verifique a qualidade da imagem ou tente novamente.";
+
       setProcessState(prevState => {
         const baseDoc = prevState[docKey] as DocumentFile | null;
         return {
@@ -173,11 +169,15 @@ export default function DocumentosPage() {
           [docKey]: {
             name: baseDoc?.name || docName,
             previewUrl: baseDoc?.previewUrl || photoDataUri,
-            analysisResult: { error: `Falha ao analisar: ${(error as Error).message || "Erro desconhecido"}` },
+            analysisResult: { error: userFriendlyErrorMessage },
           } as DocumentFile,
         };
       });
-      toast({ title: `Erro na Análise de ${docName || docKey}`, description: "Não foi possível extrair os dados. Tente novamente ou verifique a imagem.", variant: "destructive" });
+      toast({ 
+        title: `Erro na Análise de ${docName || docKey}`, 
+        description: "Não foi possível extrair os dados. Tente novamente ou verifique a imagem.", // This toast is already user-friendly
+        variant: "destructive" 
+      });
     } finally {
       setAnalyzingDocKey(null);
     }
@@ -240,17 +240,13 @@ export default function DocumentosPage() {
       ...prevState,
       buyerType: value,
       companyInfo: value === 'pj' ? (prevState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
-      // Clear PF specific documents when switching to PJ, and vice-versa if needed, or keep them if user might switch back.
-      // For now, let's clear PF docs if switching to PJ.
       rgFrente: value === 'pj' ? null : prevState.rgFrente,
       rgVerso: value === 'pj' ? null : prevState.rgVerso,
       cnhFrente: value === 'pj' ? null : prevState.cnhFrente,
       cnhVerso: value === 'pj' ? null : prevState.cnhVerso,
-      // Clear PJ specific documents if switching to PF.
       cartaoCnpjFile: value === 'pf' ? null : prevState.cartaoCnpjFile,
       docSocioFrente: value === 'pf' ? null : prevState.docSocioFrente,
       docSocioVerso: value === 'pf' ? null : prevState.docSocioVerso,
-
     }));
     if (value === 'pj') {
       setSelectedPfDocType(''); 
@@ -278,7 +274,7 @@ export default function DocumentosPage() {
     setProcessState(prevState => ({
       ...prevState,
       companyInfo: {
-        ...(prevState.companyInfo as CompanyInfo), // Should be initialized if buyerType is 'pj'
+        ...(prevState.companyInfo as CompanyInfo), 
         [field]: e.target.value,
       }
     }));
@@ -297,9 +293,9 @@ export default function DocumentosPage() {
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isAnalyzing = analyzingDocKey === docKey;
-    const localFileSelected = localFiles[docKey]; // Check if a file is selected locally but not yet in processState's preview
+    const localFileSelected = localFiles[docKey]; 
     const displayDocName = currentDoc?.name || localFileSelected?.name;
-    const displayPreviewUrl = currentDoc?.previewUrl; // Only rely on previewUrl from state for display
+    const displayPreviewUrl = currentDoc?.previewUrl; 
     const isPdf = displayDocName?.toLowerCase().endsWith('.pdf');
 
     return (
@@ -500,5 +496,4 @@ export default function DocumentosPage() {
     </>
   );
 }
-
     
