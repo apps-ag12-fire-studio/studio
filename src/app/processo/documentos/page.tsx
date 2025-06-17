@@ -51,6 +51,7 @@ export default function DocumentosPage() {
   const [analyzingDocKey, setAnalyzingDocKey] = useState<DocumentSlotKey | null>(null);
   const [localFiles, setLocalFiles] = useState<Partial<Record<DocumentSlotKey, File | null>>>({});
   const [selectedPfDocType, setSelectedPfDocType] = useState<PfDocumentType | ''>('');
+  const [isNavigatingNext, setIsNavigatingNext] = useState(false);
 
   useEffect(() => {
     const loadedState = loadProcessState();
@@ -233,10 +234,11 @@ export default function DocumentosPage() {
 
   const handleNext = () => {
     if (!validateStep()) return;
+    setIsNavigatingNext(true);
     saveProcessState({ ...processState, currentStep: "/processo/revisao-envio" });
     toast({
       title: "Etapa 3 Concluída!",
-      description: "Documentos e informações do comprador/empresa salvos.",
+      description: "Documentos e informações salvos. Carregando próxima etapa...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push("/processo/revisao-envio");
@@ -519,10 +521,19 @@ export default function DocumentosPage() {
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={analyzingDocKey !== null}
+          disabled={isNavigatingNext || analyzingDocKey !== null}
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          Próximo <ArrowRight className="ml-2 h-5 w-5" />
+          {isNavigatingNext ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Aguarde...
+            </>
+          ) : (
+            <>
+              Próximo <ArrowRight className="ml-2 h-5 w-5" />
+            </>
+          )}
         </Button>
       </div>
     </>

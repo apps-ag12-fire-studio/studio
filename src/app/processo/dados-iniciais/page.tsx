@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from "@/lib/process-store";
-import { ArrowRight, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon } from "lucide-react";
+import { ArrowRight, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon, Loader2 } from "lucide-react";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 
 const players = [
@@ -97,6 +97,7 @@ export default function DadosIniciaisPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const loadedState = loadProcessState();
@@ -194,13 +195,14 @@ export default function DadosIniciaisPage() {
 
   const handleNext = () => {
     if (!validateStep()) return;
+    setIsLoading(true);
 
     const nextPath = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/documentos";
 
     saveProcessState({ ...processState, currentStep: nextPath });
     toast({
       title: "Etapa 1 Concluída!",
-      description: "Dados iniciais validados com sucesso.",
+      description: "Dados iniciais validados. Carregando próxima etapa...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push(nextPath);
@@ -225,7 +227,7 @@ export default function DadosIniciaisPage() {
           <CardTitle className="flex items-center text-2xl font-headline text-primary">
             <FileSearch className="mr-3 h-7 w-7" /> Origem do Contrato
           </CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Escolha como fornecer os dados do contrato.</CardDescription>
+          <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Escolha como fornecer os dados do contrato.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 pt-0">
           <RadioGroup
@@ -250,7 +252,7 @@ export default function DadosIniciaisPage() {
           <CardTitle className="flex items-center text-2xl font-headline text-primary">
             <UserCog className="mr-3 h-7 w-7" /> Informações do Responsável Interno
           </CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Dados do membro da equipe que está conduzindo este processo.</CardDescription>
+          <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Dados do membro da equipe que está conduzindo este processo.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div>
@@ -314,7 +316,7 @@ export default function DadosIniciaisPage() {
                   type="button" 
                   onClick={() => handleSelectContractTemplate(template.id)} 
                   variant={processState.selectedContractTemplateName === template.displayName ? "secondary" : "outline"}
-                  className="w-full border-primary/80 text-primary hover:bg-primary/10 text-sm sm:text-base py-3 sm:py-4 px-2 sm:px-4 rounded-lg flex justify-between items-center group data-[variant=secondary]:bg-primary/20"
+                  className="w-full border-primary/80 text-primary hover:bg-primary/10 text-xs sm:text-sm py-3 sm:py-4 px-2 sm:px-4 rounded-lg flex justify-between items-center group data-[variant=secondary]:bg-primary/20"
                 >
                   <div className="flex items-center flex-1 min-w-0 mr-2">
                     <FileTextIcon className="mr-2 sm:mr-3 h-5 w-5 flex-shrink-0" />
@@ -334,12 +336,24 @@ export default function DadosIniciaisPage() {
 
       <div className="flex justify-end mt-8">
         <Button 
-          onClick={handleNext} 
+          onClick={handleNext}
+          disabled={isLoading} 
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          Próximo <ArrowRight className="ml-2 h-5 w-5" />
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Aguarde...
+            </>
+          ) : (
+            <>
+              Próximo <ArrowRight className="ml-2 h-5 w-5" />
+            </>
+          )}
         </Button>
       </div>
     </>
   );
 }
+
+    

@@ -32,6 +32,7 @@ export default function FotoContratoPage() {
 
   const [isVerifyingPhoto, setIsVerifyingPhoto] = useState(false);
   const [isExtractingData, setIsExtractingData] = useState(false);
+  const [isNavigatingNext, setIsNavigatingNext] = useState(false);
   
   const contractPhotoInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,7 +58,6 @@ export default function FotoContratoPage() {
         photoVerificationResult: null,
         photoVerified: false,
         extractedData: null, 
-        // BuyerInfo is now handled in revisao-envio page
       }));
     }
   };
@@ -117,7 +117,6 @@ export default function FotoContratoPage() {
          setProcessState(prevState => ({
            ...prevState,
            extractedData: result,
-           // BuyerInfo pre-fill will happen in revisao-envio page
          }));
          toast({ 
            title: "Análise do Contrato Concluída!", 
@@ -142,9 +141,7 @@ export default function FotoContratoPage() {
         toast({ title: "Etapas Incompletas (Novo Contrato)", description: "Capture, verifique e analise a foto do contrato.", variant: "destructive" });
         return false;
       }
-    } else { // contractSourceType === 'existing'
-      // This path should not be reachable if 'existing' is selected as it skips to 'documentos'
-      // But keeping a check for robustness
+    } else { 
       if (!extractedData) {
         toast({ title: "Etapas Incompletas (Contrato Existente)", description: "Modelo de contrato não carregado. Volte para Dados Iniciais e selecione um.", variant: "destructive" });
         return false;
@@ -155,10 +152,11 @@ export default function FotoContratoPage() {
 
   const handleNext = () => {
     if (!validateStep()) return;
+    setIsNavigatingNext(true);
     saveProcessState({ ...processState, currentStep: "/processo/documentos" });
     toast({
       title: "Etapa 2 Concluída!",
-      description: "Contrato processado com sucesso.",
+      description: "Contrato processado. Carregando próxima etapa...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push("/processo/documentos");
@@ -320,15 +318,27 @@ export default function FotoContratoPage() {
         <Button 
           onClick={handleNext} 
           disabled={
+            isNavigatingNext ||
             isVerifyingPhoto || 
             isExtractingData || 
             (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData))
           }
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          Próximo <ArrowRight className="ml-2 h-5 w-5" />
+          {isNavigatingNext ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Aguarde...
+            </>
+          ) : (
+            <>
+              Próximo <ArrowRight className="ml-2 h-5 w-5" />
+            </>
+          )}
         </Button>
       </div>
     </>
   );
 }
+
+    

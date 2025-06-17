@@ -22,7 +22,7 @@ import {
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Building } from "lucide-react";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Building, Loader2 } from "lucide-react";
 
 
 const attemptToPreFillInfo = (
@@ -48,11 +48,9 @@ const attemptToPreFillInfo = (
     if (docData?.nomeCompleto && !newBuyerInfo.nome) newBuyerInfo.nome = docData.nomeCompleto;
     if (docData?.cpf && !newBuyerInfo.cpf) newBuyerInfo.cpf = docData.cpf;
   } else if (processState.buyerType === 'pj' && newCompanyInfo) {
-    const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile'); // This might contain company name/CNPJ if structure is generic
+    const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile'); 
     const docSocioData = getAnalysisDataFromDocKey('docSocioFrente');
 
-    // Assuming extractBuyerDocumentDataFlow might return company name as 'nomeCompleto' and CNPJ as 'rg' or 'cpf' from a Cartao CNPJ image.
-    // This is a heuristic and depends on how the AI interprets Cartao CNPJ.
     if (cartaoCnpjData?.nomeCompleto && !newCompanyInfo.razaoSocial) newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto; 
     if (cartaoCnpjData?.rg && !newCompanyInfo.cnpj && cartaoCnpjData.rg.replace(/\D/g,'').length === 14) newCompanyInfo.cnpj = cartaoCnpjData.rg;
     else if (cartaoCnpjData?.cpf && !newCompanyInfo.cnpj && cartaoCnpjData.cpf.replace(/\D/g,'').length === 14) newCompanyInfo.cnpj = cartaoCnpjData.cpf;
@@ -108,55 +106,51 @@ const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMem
 const getMissingFieldsList = (state: StoredProcessState): string[] => {
   const missingFields: string[] = [];
 
-  // Etapa 1: Dados Iniciais
   if (isInternalTeamMemberInfoEmpty(state.internalTeamMemberInfo)) {
-    missingFields.push("Informações do Responsável Interno (Nome, CPF, Telefone, E-mail) não preenchidas (Etapa 1).");
+    missingFields.push("Informações do Responsável Interno (Nome, CPF, Telefone, E-mail) - Etapa 1.");
   }
   if (state.contractSourceType === 'existing') {
-    if (!state.selectedPlayer) missingFields.push("Player (Expert) não selecionado (Etapa 1).");
+    if (!state.selectedPlayer) missingFields.push("Player (Expert) não selecionado - Etapa 1.");
     if (!state.extractedData || isExtractedDataEmpty(state.extractedData)) {
-      missingFields.push("Modelo de contrato não carregado para o Player (Etapa 1).");
+      missingFields.push("Modelo de contrato não carregado para o Player - Etapa 1.");
     }
   }
 
-  // Etapa 2: Foto do Contrato (se novo)
   if (state.contractSourceType === 'new') {
-    if (!state.contractPhotoPreview) missingFields.push("Foto do contrato original não carregada (Etapa 2).");
-    else if (!state.photoVerified) missingFields.push("Foto do contrato original não verificada pela IA (Etapa 2).");
+    if (!state.contractPhotoPreview) missingFields.push("Foto do contrato original não carregada - Etapa 2.");
+    else if (!state.photoVerified) missingFields.push("Foto do contrato original não verificada pela IA - Etapa 2.");
     
     if (state.photoVerified && (!state.extractedData || isExtractedDataEmpty(state.extractedData))) {
-      missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação (Etapa 2).");
+      missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação - Etapa 2.");
     }
   }
   
-  // Etapa 3: Documentos e Dados do Comprador
   if (state.buyerType === 'pf') {
     const hasRgAntigo = state.rgAntigoFrente?.previewUrl && state.rgAntigoVerso?.previewUrl;
     const hasCnhAntiga = state.cnhAntigaFrente?.previewUrl && state.cnhAntigaVerso?.previewUrl;
     if (!(hasRgAntigo || hasCnhAntiga)) {
-      missingFields.push("Documento pessoal (RG Antigo ou CNH Antiga - frente e verso) não anexado (Etapa 3).");
+      missingFields.push("Documento pessoal (RG Antigo ou CNH Antiga - frente e verso) não anexado - Etapa 3.");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço pessoal não anexado (Etapa 3).");
+      missingFields.push("Comprovante de endereço pessoal não anexado - Etapa 3.");
     }
-  } else { // PJ
-    if (!state.companyInfo?.razaoSocial) missingFields.push("Razão Social da empresa não informada (Etapa 3 ou preencha aqui na Etapa 4).");
-    if (!state.companyInfo?.cnpj) missingFields.push("CNPJ da empresa não informado (Etapa 3 ou preencha aqui na Etapa 4).");
+  } else { 
+    if (!state.companyInfo?.razaoSocial) missingFields.push("Razão Social da empresa não informada - Etapa 3 ou preencha na Etapa 4.");
+    if (!state.companyInfo?.cnpj) missingFields.push("CNPJ da empresa não informado - Etapa 3 ou preencha na Etapa 4.");
     
-    if (!state.cartaoCnpjFile?.previewUrl) missingFields.push("Cartão CNPJ não anexado (Etapa 3).");
+    if (!state.cartaoCnpjFile?.previewUrl) missingFields.push("Cartão CNPJ não anexado - Etapa 3.");
     if (!(state.docSocioFrente?.previewUrl && state.docSocioVerso?.previewUrl)) {
-      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado (Etapa 3).");
+      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado - Etapa 3.");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço da empresa não anexado (Etapa 3).");
+      missingFields.push("Comprovante de endereço da empresa não anexado - Etapa 3.");
     }
   }
 
-  // Etapa 4: Revisão e Envio (Campos preenchíveis aqui)
-  if (!state.buyerInfo.nome) missingFields.push("Nome do comprador/representante não informado (Etapa 3 ou preencha aqui na Etapa 4).");
-  if (!state.buyerInfo.cpf) missingFields.push("CPF do comprador/representante não informado (Etapa 3 ou preencha aqui na Etapa 4).");
-  if (!state.buyerInfo.telefone) missingFields.push("Telefone do comprador/representante não informado (preencha aqui na Etapa 4).");
-  if (!state.buyerInfo.email) missingFields.push("E-mail do comprador/representante não informado (preencha aqui na Etapa 4).");
+  if (!state.buyerInfo.nome) missingFields.push("Nome do comprador/representante não informado - Etapa 3 ou preencha na Etapa 4.");
+  if (!state.buyerInfo.cpf) missingFields.push("CPF do comprador/representante não informado - Etapa 3 ou preencha na Etapa 4.");
+  if (!state.buyerInfo.telefone) missingFields.push("Telefone do comprador/representante não informado - Preencha na Etapa 4.");
+  if (!state.buyerInfo.email) missingFields.push("E-mail do comprador/representante não informado - Preencha na Etapa 4.");
 
   return missingFields;
 };
@@ -168,6 +162,7 @@ export default function RevisaoEnvioPage() {
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [currentBuyerInfo, setCurrentBuyerInfo] = useState<BuyerInfo>(initialStoredProcessState.buyerInfo);
   const [currentCompanyInfo, setCurrentCompanyInfo] = useState<CompanyInfo | null>(initialStoredProcessState.companyInfo);
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
   
   useEffect(() => {
     const loadedState = loadProcessState();
@@ -185,14 +180,12 @@ export default function RevisaoEnvioPage() {
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const updatedBuyerInfo = { ...currentBuyerInfo, [field]: e.target.value };
     setCurrentBuyerInfo(updatedBuyerInfo);
-     // Salvar o estado atualizado imediatamente para persistir a digitação
     saveProcessState({ ...processState, buyerInfo: updatedBuyerInfo, companyInfo: currentCompanyInfo });
   };
 
   const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
     const updatedCompanyInfo = { ...(currentCompanyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }), [field]: e.target.value };
     setCurrentCompanyInfo(updatedCompanyInfo);
-    // Salvar o estado atualizado imediatamente
     saveProcessState({ ...processState, buyerInfo: currentBuyerInfo, companyInfo: updatedCompanyInfo });
   };
 
@@ -207,6 +200,7 @@ export default function RevisaoEnvioPage() {
 
 
   const handlePrepareForPrint = () => {
+    setIsPreparingPrint(true);
     const finalProcessState: StoredProcessState = { 
       ...processState, 
       buyerInfo: currentBuyerInfo, 
@@ -229,8 +223,9 @@ export default function RevisaoEnvioPage() {
           </div>
         ),
         variant: "destructive",
-        duration: 20000, // Increased duration
+        duration: 20000,
       });
+      setIsPreparingPrint(false);
       return;
     }
     
@@ -251,13 +246,14 @@ export default function RevisaoEnvioPage() {
       comprovanteEnderecoUrl: finalProcessState.comprovanteEndereco?.previewUrl,
     };
     savePrintData(printPayload);
-    saveProcessState({ ...finalProcessState, currentStep: "/print-contract" }); // Save final state before navigating
+    saveProcessState({ ...finalProcessState, currentStep: "/print-contract" }); 
     toast({
       title: "Etapa 4 Concluída!",
-      description: "Informações salvas. Contrato pronto para impressão.",
+      description: "Informações salvas. Preparando contrato para impressão...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push('/print-contract');
+    //setIsPreparingPrint(false); // Not strictly necessary as component will unmount
   };
 
   const handleBack = () => {
@@ -427,10 +423,22 @@ export default function RevisaoEnvioPage() {
             <CardDescription className="text-foreground/70 pt-1">Gere o contrato para impressão física, assinatura e posterior anexo da foto do documento assinado.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 pt-0">
-             <Button type="button" onClick={handlePrepareForPrint} className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
-                disabled={isPrintDisabled()}
+             <Button 
+                type="button" 
+                onClick={handlePrepareForPrint} 
+                className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
+                disabled={isPreparingPrint || isPrintDisabled()}
              >
-                <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
+                {isPreparingPrint ? (
+                  <>
+                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                    Preparando...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
+                  </>
+                )}
             </Button>
         </CardContent>
       </Card>
@@ -448,3 +456,4 @@ export default function RevisaoEnvioPage() {
   );
 }
 
+    
