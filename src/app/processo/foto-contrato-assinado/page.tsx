@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress"; // Import Progress
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, clearProcessState, loadPrintData, DocumentFile } from "@/lib/process-store";
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud } from "lucide-react";
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
 import { firebaseApp, storage as firebaseStorage } from '@/lib/firebase'; 
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage"; // Updated import
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage";
 
 const db = getFirestore(firebaseApp); 
 
@@ -75,7 +75,7 @@ export default function FotoContratoAssinadoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingSignedContract(true);
-      setSignedContractUploadProgress(0);
+      setSignedContractUploadProgress(0); // Initial progress to 0
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.signedContractPhotoStoragePath) {
@@ -93,23 +93,28 @@ export default function FotoContratoAssinadoPage() {
       
       uploadTask.on('state_changed',
         (snapshot: UploadTaskSnapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setSignedContractUploadProgress(progress);
+          const progressValue = snapshot.totalBytes > 0
+            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+            : (snapshot.state === 'success' ? 100 : 0);
+          setSignedContractUploadProgress(Math.round(progressValue));
         },
         (error) => {
           console.error("Error uploading signed contract photo to Firebase Storage:", error);
-          toast({ title: "Erro no Upload", description: `Não foi possível enviar a foto do contrato assinado. (${error.code})`, variant: "destructive"});
+          toast({ 
+            title: "Erro no Upload", 
+            description: `Não foi possível enviar a foto do contrato assinado. (Erro: ${error.code} - ${error.message})`, 
+            variant: "destructive"
+          });
           setIsUploadingSignedContract(false);
           setSignedContractUploadProgress(null);
           if (photoInputRef.current) {
               photoInputRef.current.value = "";
           }
-          // Optionally revert state
           const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: undefined, signedContractPhotoStoragePath: null};
           setProcessState(newState);
           saveProcessState(newState);
         },
-        async () => { // On Upload Complete
+        async () => { 
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref); 
             const newState = {
@@ -121,12 +126,12 @@ export default function FotoContratoAssinadoPage() {
             setProcessState(newState);
             saveProcessState(newState);
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
-          } catch (error) {
+          } catch (error: any) {
             console.error("Error getting download URL for signed contract photo:", error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}.`, variant: "destructive"});
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
           } finally {
             setIsUploadingSignedContract(false);
-            setSignedContractUploadProgress(null);
+            setSignedContractUploadProgress(null); 
           }
         }
       );
@@ -232,9 +237,9 @@ export default function FotoContratoAssinadoPage() {
       clearProcessState(); 
       router.push("/confirmation");
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Final Submission Error (Firestore or other):", error);
-      toast({ title: "Erro no Envio Final", description: `Não foi possível enviar os dados para o Firestore. Verifique o console para detalhes. ${(error as Error).message}`, variant: "destructive" });
+      toast({ title: "Erro no Envio Final", description: `Não foi possível enviar os dados para o Firestore. Verifique o console para detalhes. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -242,7 +247,7 @@ export default function FotoContratoAssinadoPage() {
 
 
   const handleBack = () => {
-    setIsSubmitting(true); // Use a different state like isNavigatingBack if needed
+    setIsSubmitting(true); 
     saveProcessState(processState); 
     router.push("/print-contract"); 
   };
@@ -295,13 +300,15 @@ export default function FotoContratoAssinadoPage() {
             </div>
             <p id="signed-contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.signedContractPhotoName && `Atual: ${processState.signedContractPhotoName}`}</p>
           </div>
-          {isUploadingSignedContract && signedContractUploadProgress !== null && (
+          {isUploadingSignedContract && (
              <div className="mt-4 space-y-2">
                 <div className="flex items-center space-x-2 text-primary">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>{`Enviando ${Math.round(signedContractUploadProgress)}%...`}</span>
+                    <span>{signedContractUploadProgress === null ? 'Preparando envio...' : `Enviando ${signedContractUploadProgress}%...`}</span>
                 </div>
-                <Progress value={signedContractUploadProgress} className="w-full h-2 bg-primary/20" />
+                {signedContractUploadProgress !== null && (
+                  <Progress value={signedContractUploadProgress} className="w-full h-2 bg-primary/20" />
+                )}
             </div>
           )}
           {processState.signedContractPhotoPreview && !isUploadingSignedContract && (
@@ -337,15 +344,13 @@ export default function FotoContratoAssinadoPage() {
         <Button 
           onClick={handleBack} 
           variant="outline"
-          disabled={globalDisableCondition || isSubmitting} // Prevent back navigation during submission
+          disabled={globalDisableCondition || isSubmitting} 
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
-          { isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
-          { isSubmitting ? "Processando..." : "Voltar para Impressão" }
+          { isSubmitting && globalDisableCondition ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
+          { isSubmitting && globalDisableCondition ? "Processando..." : "Voltar para Impressão" }
         </Button>
       </div>
     </>
   );
 }
-
-    

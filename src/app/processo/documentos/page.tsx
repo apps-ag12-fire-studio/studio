@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Progress } from "@/components/ui/progress"; // Import Progress
+import { Progress } from "@/components/ui/progress"; 
 import { useToast } from "@/hooks/use-toast";
 import { 
   StoredProcessState, 
@@ -25,7 +25,7 @@ import {
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
 import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
 import { storage } from "@/lib/firebase";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage"; // Updated import
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage";
 
 const generateUniqueFileName = (file: File, docType: string, prefix: string = 'buyer_documents') => {
   const timestamp = new Date().getTime();
@@ -74,7 +74,7 @@ export default function DocumentosPage() {
 
     if (file) {
       setUploadingDocKey(docKey); 
-      setUploadProgress(prev => ({ ...prev, [docKey]: 0 }));
+      setUploadProgress(prev => ({ ...prev, [docKey]: 0 })); // Initial progress to 0 for immediate feedback
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       const currentDoc = processState[docKey] as DocumentFile | null;
@@ -93,14 +93,16 @@ export default function DocumentosPage() {
 
       uploadTask.on('state_changed',
         (snapshot: UploadTaskSnapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(prev => ({ ...prev, [docKey]: progress }));
+          const progressValue = snapshot.totalBytes > 0
+            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+            : (snapshot.state === 'success' ? 100 : 0);
+          setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(progressValue) }));
         },
         (error) => {
           console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
           toast({ 
             title: "Erro no Upload", 
-            description: `Não foi possível enviar ${file.name}. Tente novamente. (${error.code})`, 
+            description: `Não foi possível enviar ${file.name}. Tente novamente. (Erro: ${error.code} - ${error.message})`, 
             variant: "destructive" 
           });
           setUploadingDocKey(null);
@@ -110,7 +112,7 @@ export default function DocumentosPage() {
           saveProcessState(newState);
           if (inputElement) inputElement.value = "";
         },
-        async () => { // On Upload Complete
+        async () => { 
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             const newState = {
@@ -125,11 +127,12 @@ export default function DocumentosPage() {
             setProcessState(newState);
             saveProcessState(newState);
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
-          } catch (error) {
+          } catch (error: any) {
             console.error(`Error getting download URL for ${docKey}:`, error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}.`, variant: "destructive"});
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
           } finally {
             setUploadingDocKey(null);
+            // Keep progress at 100% or null it out. Let's null it so preview appears.
             setUploadProgress(prev => ({ ...prev, [docKey]: null }));
           }
         }
@@ -149,9 +152,9 @@ export default function DocumentosPage() {
         const fileToDeleteRef = storageRef(storage, currentDoc.storagePath);
         await deleteObject(fileToDeleteRef);
         toast({ title: "Arquivo Removido", description: `${currentDoc.name} removido do servidor.`, className: "bg-orange-500 text-white border-orange-600" });
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error deleting file ${currentDoc.storagePath} from Firebase Storage:`, error);
-        toast({ title: "Erro ao Remover Arquivo", description: `Não foi possível remover ${currentDoc.name} do servidor. Ele será removido apenas da listagem local.`, variant: "destructive"});
+        toast({ title: "Erro ao Remover Arquivo", description: `Não foi possível remover ${currentDoc.name} do servidor. (Erro: ${error.message}) Ele será removido apenas da listagem local.`, variant: "destructive"});
       }
     }
 
@@ -202,7 +205,10 @@ export default function DocumentosPage() {
       let userFriendlyErrorMessage = "A IA não conseguiu processar o documento. Verifique a qualidade da imagem ou tente novamente.";
       if (error?.message?.includes("An error occurred in the Server Components render") || error?.message?.includes("flow execution failed")) {
          userFriendlyErrorMessage = "Falha ao analisar: A IA não conseguiu processar este documento. Tente uma imagem mais nítida, verifique os logs do Genkit ou se o documento é suportado.";
+      } else if (error.message) {
+        userFriendlyErrorMessage = `Erro na análise: ${error.message}`;
       }
+
 
       const newState = {
         ...processState,
@@ -349,7 +355,7 @@ export default function DocumentosPage() {
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isCurrentlyUploading = uploadingDocKey === docKey;
-    const currentUploadProgress = uploadProgress[docKey];
+    const currentUploadPercent = uploadProgress[docKey]; // This is now a number | null
     const isCurrentlyAnalyzing = analyzingDocKey === docKey;
     const displayDocName = currentDoc?.name;
     const displayPreviewUrl = currentDoc?.previewUrl; 
@@ -361,9 +367,9 @@ export default function DocumentosPage() {
         {isCurrentlyUploading && (
           <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" /> 
-            <span>{currentUploadProgress !== null && currentUploadProgress > 0 ? `Enviando ${Math.round(currentUploadProgress)}%...` : 'Iniciando envio...'}</span>
-            {currentUploadProgress !== null && currentUploadProgress >= 0 && ( // Show progress bar even at 0%
-              <Progress value={currentUploadProgress} className="w-full h-2 mt-1 bg-primary/20" />
+            <span>{currentUploadPercent === null ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
+            {currentUploadPercent !== null && (
+              <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
             )}
           </div>
         )}
@@ -591,5 +597,3 @@ export default function DocumentosPage() {
     </>
   );
 }
-
-    

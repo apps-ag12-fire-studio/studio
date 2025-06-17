@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress"; // Import Progress
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState } from "@/lib/process-store";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText } from "lucide-react";
 import { storage } from "@/lib/firebase"; 
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage"; // Updated import
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage";
 
 const generateUniqueFileName = (file: File, prefix: string = 'unknown') => {
   const timestamp = new Date().getTime();
@@ -45,7 +45,7 @@ export default function FotoContratoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingContractPhoto(true);
-      setContractPhotoUploadProgress(0);
+      setContractPhotoUploadProgress(0); // Initial progress to 0
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.contractPhotoStoragePath) {
@@ -63,23 +63,28 @@ export default function FotoContratoPage() {
 
       uploadTask.on('state_changed',
         (snapshot: UploadTaskSnapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setContractPhotoUploadProgress(progress);
+          const progressValue = snapshot.totalBytes > 0
+            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+            : (snapshot.state === 'success' ? 100 : 0);
+          setContractPhotoUploadProgress(Math.round(progressValue));
         },
         (error) => {
           console.error("Error uploading contract photo to Firebase Storage:", error);
-          toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. Tente novamente. (${error.code})`, variant: "destructive"});
+          toast({ 
+            title: "Erro no Upload", 
+            description: `Não foi possível enviar ${file.name}. Tente novamente. (Erro: ${error.code} - ${error.message})`, 
+            variant: "destructive"
+          });
           setIsUploadingContractPhoto(false);
           setContractPhotoUploadProgress(null);
           if (contractPhotoInputRef.current) {
             contractPhotoInputRef.current.value = "";
           }
-          // Optionally revert state
           const newState = {...processState, contractPhotoPreview: null, contractPhotoName: undefined, contractPhotoStoragePath: null, photoVerified: false, photoVerificationResult: null, extractedData: null};
           setProcessState(newState);
           saveProcessState(newState);
         },
-        async () => { // On Upload Complete
+        async () => { 
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             const newState = {
@@ -94,12 +99,12 @@ export default function FotoContratoPage() {
             setProcessState(newState);
             saveProcessState(newState);
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
-          } catch (error) {
+          } catch (error: any) {
             console.error("Error getting download URL for contract photo:", error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}.`, variant: "destructive"});
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
           } finally {
             setIsUploadingContractPhoto(false);
-            setContractPhotoUploadProgress(null);
+            setContractPhotoUploadProgress(null); 
           }
         }
       );
@@ -132,16 +137,16 @@ export default function FotoContratoPage() {
       } else {
         toast({ title: "Falha na Verificação da Foto", description: result.reason || "A imagem do contrato não está ideal. Por favor, tente novamente.", variant: "destructive" });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Verification Error:", error);
       const newState = {
         ...processState,
-        photoVerificationResult: { isCompleteAndClear: false, reason: "Erro ao verificar com IA. Tente novamente." },
+        photoVerificationResult: { isCompleteAndClear: false, reason: `Erro ao verificar com IA: ${error.message}` },
         photoVerified: false,
       };
       setProcessState(newState);
       saveProcessState(newState);
-      toast({ title: "Erro na Verificação com IA", description: "Não foi possível concluir a verificação da foto. Verifique a imagem ou tente novamente.", variant: "destructive" });
+      toast({ title: "Erro na Verificação com IA", description: `Não foi possível concluir a verificação da foto. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsVerifyingPhoto(false);
     }
@@ -173,12 +178,12 @@ export default function FotoContratoPage() {
            className: "bg-secondary text-secondary-foreground border-secondary" 
          });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Extraction Error:", error);
       const newState = { ...processState, extractedData: null };
       setProcessState(newState); 
       saveProcessState(newState);
-      toast({ title: "Erro na Análise do Contrato", description: "Não foi possível extrair os dados com IA. Verifique a imagem ou tente novamente.", variant: "destructive" });
+      toast({ title: "Erro na Análise do Contrato", description: `Não foi possível extrair os dados com IA. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsExtractingData(false);
     }
@@ -222,6 +227,7 @@ export default function FotoContratoPage() {
   const shouldShowPhotoUploadAndVerify = processState.contractSourceType === 'new';
   const shouldShowAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !processState.extractedData && !isUploadingContractPhoto;
   const shouldShowReAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !!processState.extractedData && !isUploadingContractPhoto;
+  const globalDisableCondition = isNavigatingNext || isUploadingContractPhoto || isVerifyingPhoto || isExtractingData;
 
   return (
     <>
@@ -257,18 +263,20 @@ export default function FotoContratoPage() {
                     onChange={handleContractPhotoChange}
                     className="flex-grow file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-2.5"
                     aria-describedby="contract-photo-hint"
-                    disabled={isUploadingContractPhoto || isVerifyingPhoto || isExtractingData}
+                    disabled={globalDisableCondition}
                   />
                 </div>
                 <p id="contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.contractPhotoName && `Atual: ${processState.contractPhotoName}`}</p>
               </div>
-              {isUploadingContractPhoto && contractPhotoUploadProgress !== null && (
+              {isUploadingContractPhoto && (
                 <div className="mt-4 space-y-2">
                     <div className="flex items-center space-x-2 text-primary">
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>{`Enviando ${Math.round(contractPhotoUploadProgress)}%...`}</span>
+                        <span>{contractPhotoUploadProgress === null ? 'Preparando envio...' : `Enviando ${contractPhotoUploadProgress}%...`}</span>
                     </div>
-                    <Progress value={contractPhotoUploadProgress} className="w-full h-2 bg-primary/20" />
+                    {contractPhotoUploadProgress !== null && (
+                      <Progress value={contractPhotoUploadProgress} className="w-full h-2 bg-primary/20" />
+                    )}
                 </div>
               )}
               {processState.contractPhotoPreview && !isUploadingContractPhoto && (
@@ -280,10 +288,10 @@ export default function FotoContratoPage() {
                 </div>
               )}
             </CardContent>
-            {processState.contractPhotoPreview && !processState.photoVerified && !isUploadingContractPhoto && (
+            {processState.contractPhotoPreview && !processState.photoVerified && !isUploadingContractPhoto && !isVerifyingPhoto && (
               <CardFooter className="p-6">
-                <Button type="button" onClick={handleVerifyPhoto} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
-                  {isVerifyingPhoto ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" />}
+                <Button type="button" onClick={handleVerifyPhoto} disabled={globalDisableCondition} className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
+                  <Sparkles className="mr-2 h-6 w-6" />
                   Verificar Foto com IA
                 </Button>
               </CardFooter>
@@ -299,7 +307,7 @@ export default function FotoContratoPage() {
             </Card>
           )}
           
-          {processState.photoVerificationResult && !isUploadingContractPhoto && (
+          {processState.photoVerificationResult && !isUploadingContractPhoto && !isVerifyingPhoto && (
             <Card className={`shadow-card-premium rounded-2xl border-2 ${processState.photoVerificationResult.isCompleteAndClear ? "border-green-500/70" : "border-red-500/70"} bg-card/80 backdrop-blur-sm`}>
               <CardHeader className="p-6">
                 <CardTitle className="flex items-center font-headline text-xl">
@@ -310,7 +318,7 @@ export default function FotoContratoPage() {
               <CardContent className="space-y-4 p-6 pt-0">
                 <p className="text-base text-foreground/90">{processState.photoVerificationResult.reason || (processState.photoVerificationResult.isCompleteAndClear ? "A foto parece nítida e completa." : "A foto precisa de ajustes.")}</p>
                 {!processState.photoVerificationResult.isCompleteAndClear && (
-                  <Button type="button" onClick={() => contractPhotoInputRef.current?.click()} variant="outline" className="w-full border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
+                  <Button type="button" onClick={() => contractPhotoInputRef.current?.click()} variant="outline" className="w-full border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg" disabled={globalDisableCondition}>
                     <Camera className="mr-2 h-5 w-5" /> Tentar Nova Foto
                   </Button>
                 )}
@@ -320,7 +328,7 @@ export default function FotoContratoPage() {
         </>
       )}
 
-      { (shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
+      { (shouldShowAnalysisButton || shouldShowReAnalysisButton) && !isVerifyingPhoto && (
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
@@ -334,19 +342,17 @@ export default function FotoContratoPage() {
               }
             </CardDescription>
           </CardHeader>
-          {(shouldShowAnalysisButton || shouldShowReAnalysisButton) && (
-            <CardFooter className="p-6">
-              <Button 
-                type="button" 
-                onClick={handleExtractContractData} 
-                disabled={isVerifyingPhoto || isExtractingData || isUploadingContractPhoto} 
-                className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
-              >
-                  {isExtractingData ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" /> }
-                  {shouldShowReAnalysisButton ? "Reanalisar Contrato com IA" : "Analisar Contrato com IA"}
-              </Button>
-            </CardFooter>
-          )}
+          <CardFooter className="p-6">
+            <Button 
+              type="button" 
+              onClick={handleExtractContractData} 
+              disabled={globalDisableCondition} 
+              className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
+            >
+                {isExtractingData ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" /> }
+                {shouldShowReAnalysisButton ? "Reanalisar Contrato com IA" : "Analisar Contrato com IA"}
+            </Button>
+          </CardFooter>
         </Card>
       )}
 
@@ -365,24 +371,21 @@ export default function FotoContratoPage() {
         <Button 
           onClick={handleBack} 
           variant="outline"
-          disabled={isNavigatingNext || isUploadingContractPhoto || isVerifyingPhoto || isExtractingData}
+          disabled={globalDisableCondition}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
-          { isNavigatingNext ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
-          { isNavigatingNext ? "Voltando..." : "Voltar" }
+          { isNavigatingNext && !isUploadingContractPhoto ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
+          { isNavigatingNext && !isUploadingContractPhoto ? "Voltando..." : "Voltar" }
         </Button>
         <Button 
           onClick={handleNext} 
           disabled={
-            isNavigatingNext ||
-            isUploadingContractPhoto ||
-            isVerifyingPhoto || 
-            isExtractingData || 
+            globalDisableCondition ||
             (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData))
           }
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          {isNavigatingNext ? (
+          {isNavigatingNext && !globalDisableCondition ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Aguarde...
@@ -397,5 +400,3 @@ export default function FotoContratoPage() {
     </>
   );
 }
-
-    
