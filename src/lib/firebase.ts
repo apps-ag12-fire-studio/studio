@@ -34,7 +34,8 @@ export { firebaseApp, db, storage }; // Export storage
 // Instructions for the user:
 // 1. Create a .env.local file in the root of your project (if it doesn't exist).
 // 2. Copy the following lines into your .env.local file.
-// 3. Replace 'your_...' placeholders with your actual Firebase project credentials.
+// 3. Replace 'your_...' placeholders with your actual Firebase project credentials
+//    (find them in your Firebase project settings under "General" or your web app config).
 // 4. Make sure .env.local is listed in your .gitignore file to keep credentials secure.
 //
 // .env.local example content:
