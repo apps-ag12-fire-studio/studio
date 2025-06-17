@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, ChangeEvent, useCallback, useRef } from "react";
@@ -74,8 +73,8 @@ export default function DocumentosPage() {
 
     if (file) {
       setUploadingDocKey(docKey); 
-      setUploadProgress(prev => ({ ...prev, [docKey]: 0 }));
-      toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+      setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Start with null for "Preparando envio..."
+      toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc?.storagePath) {
@@ -95,10 +94,10 @@ export default function DocumentosPage() {
         (snapshot: UploadTaskSnapshot) => {
           const progressValue = snapshot.totalBytes > 0
             ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            : (snapshot.state === 'success' ? 100 : 0); // Handle case where totalBytes is 0 initially
+            : (snapshot.state === 'success' ? 100 : 0); 
           setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(progressValue) }));
         },
-        (error: FirebaseStorageError) => { // Explicitly type error
+        (error: FirebaseStorageError) => { 
           console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
           toast({ 
             title: "Erro no Upload", 
@@ -133,7 +132,7 @@ export default function DocumentosPage() {
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
           } finally {
             setUploadingDocKey(null);
-            setUploadProgress(prev => ({ ...prev, [docKey]: null }));
+             // Progress will be 100 or null (if error before success)
           }
         }
       );
@@ -159,7 +158,7 @@ export default function DocumentosPage() {
     }
 
     const newState = { ...processState, [docKey]: null };
-    if(uploadingDocKey === docKey) { // Also clear uploading state if it's the one being removed
+    if(uploadingDocKey === docKey) { 
         setUploadingDocKey(null);
         setUploadProgress(prev => ({...prev, [docKey]: null}));
     }
@@ -256,7 +255,7 @@ export default function DocumentosPage() {
         toast({ title: "Comprovante de Endereço Necessário", description: "Anexe um comprovante de endereço.", variant: "destructive" });
         return false;
       }
-    } else { // PJ
+    } else { 
       if (!processState.companyInfo?.razaoSocial || !processState.companyInfo?.cnpj) {
         toast({ title: "Dados da Empresa Incompletos", description: "Preencha Razão Social e CNPJ da empresa.", variant: "destructive"});
         return false;
@@ -370,8 +369,8 @@ export default function DocumentosPage() {
         {isCurrentlyUploadingThisSlot && (
           <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" /> 
-            <span>{currentUploadPercent === null || currentUploadPercent === undefined ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
-            {currentUploadPercent !== null && currentUploadPercent !== undefined && (
+            <span>{currentUploadPercent === null ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
+            {currentUploadPercent !== null && (
               <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
             )}
           </div>
@@ -600,5 +599,3 @@ export default function DocumentosPage() {
     </>
   );
 }
-
-    

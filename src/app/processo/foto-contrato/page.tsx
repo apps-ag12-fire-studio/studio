@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, ChangeEvent, useRef } from "react";
@@ -45,8 +44,8 @@ export default function FotoContratoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingContractPhoto(true);
-      setContractPhotoUploadProgress(0); 
-      toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+      setContractPhotoUploadProgress(null); // Start with null for "Preparando envio..."
+      toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.contractPhotoStoragePath) {
         try {
@@ -105,7 +104,7 @@ export default function FotoContratoPage() {
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
           } finally {
             setIsUploadingContractPhoto(false);
-            setContractPhotoUploadProgress(null); 
+            // Progress will be 100 or null
           }
         }
       );
@@ -273,9 +272,9 @@ export default function FotoContratoPage() {
                 <div className="mt-4 space-y-2">
                     <div className="flex items-center space-x-2 text-primary">
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>{contractPhotoUploadProgress === null || contractPhotoUploadProgress === undefined ? 'Preparando envio...' : `Enviando ${contractPhotoUploadProgress}%...`}</span>
+                        <span>{contractPhotoUploadProgress === null ? 'Preparando envio...' : `Enviando ${contractPhotoUploadProgress}%...`}</span>
                     </div>
-                    {contractPhotoUploadProgress !== null && contractPhotoUploadProgress !== undefined && (
+                    {contractPhotoUploadProgress !== null && (
                       <Progress value={contractPhotoUploadProgress} className="w-full h-2 bg-primary/20" />
                     )}
                 </div>
@@ -401,5 +400,3 @@ export default function FotoContratoPage() {
     </>
   );
 }
-
-    
