@@ -25,7 +25,7 @@ import {
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
 import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
 import { storage } from "@/lib/firebase";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
 const generateUniqueFileName = (file: File, docType: string, prefix: string = 'buyer_documents') => {
   const timestamp = new Date().getTime();
@@ -74,7 +74,7 @@ export default function DocumentosPage() {
 
     if (file) {
       setUploadingDocKey(docKey); 
-      setUploadProgress(prev => ({ ...prev, [docKey]: 0 })); // Initial progress to 0 for immediate feedback
+      setUploadProgress(prev => ({ ...prev, [docKey]: 0 }));
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       const currentDoc = processState[docKey] as DocumentFile | null;
@@ -95,15 +95,16 @@ export default function DocumentosPage() {
         (snapshot: UploadTaskSnapshot) => {
           const progressValue = snapshot.totalBytes > 0
             ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            : (snapshot.state === 'success' ? 100 : 0);
+            : (snapshot.state === 'success' ? 100 : 0); // Handle case where totalBytes is 0 initially
           setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(progressValue) }));
         },
-        (error) => {
+        (error: FirebaseStorageError) => { // Explicitly type error
           console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
           toast({ 
             title: "Erro no Upload", 
             description: `Não foi possível enviar ${file.name}. Tente novamente. (Erro: ${error.code} - ${error.message})`, 
-            variant: "destructive" 
+            variant: "destructive",
+            duration: 7000 
           });
           setUploadingDocKey(null);
           setUploadProgress(prev => ({ ...prev, [docKey]: null }));
@@ -132,7 +133,6 @@ export default function DocumentosPage() {
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
           } finally {
             setUploadingDocKey(null);
-            // Keep progress at 100% or null it out. Let's null it so preview appears.
             setUploadProgress(prev => ({ ...prev, [docKey]: null }));
           }
         }
@@ -158,7 +158,11 @@ export default function DocumentosPage() {
       }
     }
 
-    const newState = { ...processState, [docKey]: null, [uploadingDocKey === docKey ? 'uploadingDocKey' : '']: null, uploadProgress: {...uploadProgress, [docKey]: null} };
+    const newState = { ...processState, [docKey]: null };
+    if(uploadingDocKey === docKey) { // Also clear uploading state if it's the one being removed
+        setUploadingDocKey(null);
+        setUploadProgress(prev => ({...prev, [docKey]: null}));
+    }
     setProcessState(newState);
     saveProcessState(newState);
     
@@ -208,7 +212,6 @@ export default function DocumentosPage() {
       } else if (error.message) {
         userFriendlyErrorMessage = `Erro na análise: ${error.message}`;
       }
-
 
       const newState = {
         ...processState,
@@ -354,8 +357,8 @@ export default function DocumentosPage() {
 
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
-    const isCurrentlyUploading = uploadingDocKey === docKey;
-    const currentUploadPercent = uploadProgress[docKey]; // This is now a number | null
+    const isCurrentlyUploadingThisSlot = uploadingDocKey === docKey;
+    const currentUploadPercent = uploadProgress[docKey]; 
     const isCurrentlyAnalyzing = analyzingDocKey === docKey;
     const displayDocName = currentDoc?.name;
     const displayPreviewUrl = currentDoc?.previewUrl; 
@@ -364,27 +367,27 @@ export default function DocumentosPage() {
     return (
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
         <Label htmlFor={docKey} className="text-base font-medium text-foreground/90">{label}</Label>
-        {isCurrentlyUploading && (
+        {isCurrentlyUploadingThisSlot && (
           <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" /> 
-            <span>{currentUploadPercent === null ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
-            {currentUploadPercent !== null && (
+            <span>{currentUploadPercent === null || currentUploadPercent === undefined ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
+            {currentUploadPercent !== null && currentUploadPercent !== undefined && (
               <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
             )}
           </div>
         )}
-        {displayPreviewUrl && !isPdf && !isCurrentlyUploading && (
+        {displayPreviewUrl && !isPdf && !isCurrentlyUploadingThisSlot && (
           <div className="relative w-full aspect-[16/10] rounded-md overflow-hidden border border-dashed border-primary/30">
             <Image src={displayPreviewUrl} alt={`Pré-visualização de ${label}`} layout="fill" objectFit="contain" />
           </div>
         )}
-        {displayPreviewUrl && isPdf && !isCurrentlyUploading && (
+        {displayPreviewUrl && isPdf && !isCurrentlyUploadingThisSlot && (
             <div className="p-4 text-center text-muted-foreground border border-dashed border-primary/30 rounded-md">
                 <FileText className="mx-auto h-12 w-12 mb-2" />
                 PDF carregado: {displayDocName}. Pré-visualização não disponível.
             </div>
         )}
-        {!isCurrentlyUploading && (
+        {!isCurrentlyUploadingThisSlot && (
           <Input
             id={docKey}
             ref={el => fileInputRefs.current[docKey] = el}
@@ -392,10 +395,10 @@ export default function DocumentosPage() {
             accept={docKey === 'cartaoCnpjFile' || docKey === 'comprovanteEndereco' ? "image/*,application/pdf" : "image/*"}
             onChange={(e) => handleFileChange(e, docKey)}
             className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
-            disabled={isCurrentlyAnalyzing || isCurrentlyUploading}
+            disabled={isCurrentlyAnalyzing || uploadingDocKey !== null} 
           />
         )}
-        {displayDocName && !isCurrentlyUploading && ( 
+        {displayDocName && !isCurrentlyUploadingThisSlot && ( 
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{displayDocName}</span>
             <div className="flex items-center space-x-2">
@@ -403,20 +406,20 @@ export default function DocumentosPage() {
                 <Button 
                   type="button" variant="outline" size="sm" 
                   onClick={() => handleAnalyzeDocument(docKey)}
-                  disabled={isCurrentlyAnalyzing || isCurrentlyUploading || (!displayPreviewUrl)} 
+                  disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || (!displayPreviewUrl)} 
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
                   {isCurrentlyAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
                   {isCurrentlyAnalyzing ? "Analisando..." : (currentDoc?.analysisResult && !(currentDoc.analysisResult as any).error ? "Reanalisar" : "Analisar IA")}
                 </Button>
               )}
-              <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} disabled={isCurrentlyUploading || isCurrentlyAnalyzing} className="text-destructive/70 hover:text-destructive h-7 w-7">
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} disabled={uploadingDocKey !== null || isCurrentlyAnalyzing} className="text-destructive/70 hover:text-destructive h-7 w-7">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           </div>
         )}
-        {currentDoc?.analysisResult && !isCurrentlyUploading && ( 
+        {currentDoc?.analysisResult && !isCurrentlyUploadingThisSlot && ( 
            <div className="mt-2 p-3 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-x-auto">
             <p className="font-semibold text-primary/80">Dados Extraídos por IA:</p>
             {(currentDoc.analysisResult as any).error ? <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p> : <>
@@ -582,7 +585,7 @@ export default function DocumentosPage() {
           disabled={globalDisableCondition || isNavigatingNext}
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          {isNavigatingNext ? (
+          {isNavigatingNext && !globalDisableCondition ? ( 
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Aguarde...
@@ -597,3 +600,5 @@ export default function DocumentosPage() {
     </>
   );
 }
+
+    

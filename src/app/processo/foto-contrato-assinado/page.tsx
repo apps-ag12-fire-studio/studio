@@ -14,7 +14,7 @@ import { StoredProcessState, loadProcessState, saveProcessState, initialStoredPr
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud } from "lucide-react";
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
 import { firebaseApp, storage as firebaseStorage } from '@/lib/firebase'; 
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
 const db = getFirestore(firebaseApp); 
 
@@ -75,7 +75,7 @@ export default function FotoContratoAssinadoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingSignedContract(true);
-      setSignedContractUploadProgress(0); // Initial progress to 0
+      setSignedContractUploadProgress(0); 
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.signedContractPhotoStoragePath) {
@@ -98,12 +98,13 @@ export default function FotoContratoAssinadoPage() {
             : (snapshot.state === 'success' ? 100 : 0);
           setSignedContractUploadProgress(Math.round(progressValue));
         },
-        (error) => {
+        (error: FirebaseStorageError) => {
           console.error("Error uploading signed contract photo to Firebase Storage:", error);
           toast({ 
             title: "Erro no Upload", 
-            description: `Não foi possível enviar a foto do contrato assinado. (Erro: ${error.code} - ${error.message})`, 
-            variant: "destructive"
+            description: `Não foi possível enviar a foto do contrato assinado. Tente novamente. (Erro: ${error.code} - ${error.message})`, 
+            variant: "destructive",
+            duration: 7000
           });
           setIsUploadingSignedContract(false);
           setSignedContractUploadProgress(null);
@@ -304,9 +305,9 @@ export default function FotoContratoAssinadoPage() {
              <div className="mt-4 space-y-2">
                 <div className="flex items-center space-x-2 text-primary">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>{signedContractUploadProgress === null ? 'Preparando envio...' : `Enviando ${signedContractUploadProgress}%...`}</span>
+                    <span>{signedContractUploadProgress === null || signedContractUploadProgress === undefined ? 'Preparando envio...' : `Enviando ${signedContractUploadProgress}%...`}</span>
                 </div>
-                {signedContractUploadProgress !== null && (
+                {signedContractUploadProgress !== null && signedContractUploadProgress !== undefined && (
                   <Progress value={signedContractUploadProgress} className="w-full h-2 bg-primary/20" />
                 )}
             </div>
@@ -354,3 +355,5 @@ export default function FotoContratoAssinadoPage() {
     </>
   );
 }
+
+    

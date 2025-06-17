@@ -15,7 +15,7 @@ import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText } from "lucide-react";
 import { storage } from "@/lib/firebase"; 
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
 const generateUniqueFileName = (file: File, prefix: string = 'unknown') => {
   const timestamp = new Date().getTime();
@@ -45,7 +45,7 @@ export default function FotoContratoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingContractPhoto(true);
-      setContractPhotoUploadProgress(0); // Initial progress to 0
+      setContractPhotoUploadProgress(0); 
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.contractPhotoStoragePath) {
@@ -68,12 +68,13 @@ export default function FotoContratoPage() {
             : (snapshot.state === 'success' ? 100 : 0);
           setContractPhotoUploadProgress(Math.round(progressValue));
         },
-        (error) => {
+        (error: FirebaseStorageError) => {
           console.error("Error uploading contract photo to Firebase Storage:", error);
           toast({ 
             title: "Erro no Upload", 
             description: `Não foi possível enviar ${file.name}. Tente novamente. (Erro: ${error.code} - ${error.message})`, 
-            variant: "destructive"
+            variant: "destructive",
+            duration: 7000
           });
           setIsUploadingContractPhoto(false);
           setContractPhotoUploadProgress(null);
@@ -272,9 +273,9 @@ export default function FotoContratoPage() {
                 <div className="mt-4 space-y-2">
                     <div className="flex items-center space-x-2 text-primary">
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>{contractPhotoUploadProgress === null ? 'Preparando envio...' : `Enviando ${contractPhotoUploadProgress}%...`}</span>
+                        <span>{contractPhotoUploadProgress === null || contractPhotoUploadProgress === undefined ? 'Preparando envio...' : `Enviando ${contractPhotoUploadProgress}%...`}</span>
                     </div>
-                    {contractPhotoUploadProgress !== null && (
+                    {contractPhotoUploadProgress !== null && contractPhotoUploadProgress !== undefined && (
                       <Progress value={contractPhotoUploadProgress} className="w-full h-2 bg-primary/20" />
                     )}
                 </div>
@@ -374,8 +375,8 @@ export default function FotoContratoPage() {
           disabled={globalDisableCondition}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
-          { isNavigatingNext && !isUploadingContractPhoto ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
-          { isNavigatingNext && !isUploadingContractPhoto ? "Voltando..." : "Voltar" }
+          { isNavigatingNext && globalDisableCondition ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
+          { isNavigatingNext && globalDisableCondition ? "Voltando..." : "Voltar" }
         </Button>
         <Button 
           onClick={handleNext} 
@@ -400,3 +401,5 @@ export default function FotoContratoPage() {
     </>
   );
 }
+
+    
