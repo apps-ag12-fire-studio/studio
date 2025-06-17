@@ -157,10 +157,15 @@ export default function DocumentosPage() {
         className: "bg-secondary text-secondary-foreground border-secondary"
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`AI Document Analysis Error for ${docKey} (${docName}):`, error);
       
-      const userFriendlyErrorMessage = "A IA não conseguiu processar o documento. Verifique a qualidade da imagem ou tente novamente.";
+      let userFriendlyErrorMessage = "A IA não conseguiu processar o documento. Verifique a qualidade da imagem ou tente novamente.";
+      // Check if the error is the Next.js specific server component rendering error
+      if (error?.message?.includes("An error occurred in the Server Components render")) {
+        userFriendlyErrorMessage = "Falha ao analisar: A IA não conseguiu processar este documento. Tente uma imagem mais nítida ou verifique se o documento é suportado.";
+      }
+
 
       setProcessState(prevState => {
         const baseDoc = prevState[docKey] as DocumentFile | null;
@@ -341,14 +346,14 @@ export default function DocumentosPage() {
           </div>
         )}
         {currentDoc?.analysisResult && ( 
-          <div className="mt-2 p-2 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md">
+          <div className="mt-2 p-2 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-hidden">
             <p className="font-semibold text-primary/80">Dados Extraídos:</p>
-            {(currentDoc.analysisResult as any).error ? <p className="text-destructive">{(currentDoc.analysisResult as any).error}</p> : <>
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto && <p><strong>Nome:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf && <p><strong>CPF:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento && <p><strong>Nasc.:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae && <p><strong>Mãe:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg && <p><strong>RG:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg}</p>}
+            {(currentDoc.analysisResult as any).error ? <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p> : <>
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto && <p className="break-all"><strong>Nome:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf && <p className="break-all"><strong>CPF:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento && <p className="break-all"><strong>Nasc.:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae && <p className="break-all"><strong>Mãe:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg && <p className="break-all"><strong>RG:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg}</p>}
             </>}
           </div>
         )}
