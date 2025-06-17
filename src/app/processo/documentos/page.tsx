@@ -22,7 +22,7 @@ import {
   PfDocumentType
 } from "@/lib/process-store";
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react"; // Removido QrCode
+import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
 
 const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -422,15 +422,15 @@ export default function DocumentosPage() {
           <RadioGroup
             value={processState.buyerType}
             onValueChange={(val) => handleBuyerTypeChange(val as BuyerType)}
-            className="flex space-x-4"
+            className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-4"
           >
-            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
+            <div className="flex items-center space-x-2 p-2 sm:p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
               <RadioGroupItem value="pf" id="type-pf" className="border-primary/50 text-primary focus:ring-primary"/>
-              <Label htmlFor="type-pf" className="font-medium text-lg cursor-pointer flex items-center"><UserCircle className="mr-2 h-5 w-5"/>Pessoa Física</Label>
+              <Label htmlFor="type-pf" className="font-medium text-base sm:text-lg cursor-pointer flex items-center"><UserCircle className="mr-2 h-5 w-5"/>Pessoa Física</Label>
             </div>
-            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
+            <div className="flex items-center space-x-2 p-2 sm:p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
               <RadioGroupItem value="pj" id="type-pj" className="border-primary/50 text-primary focus:ring-primary"/>
-              <Label htmlFor="type-pj" className="font-medium text-lg cursor-pointer flex items-center"><Building className="mr-2 h-5 w-5"/>Pessoa Jurídica</Label>
+              <Label htmlFor="type-pj" className="font-medium text-base sm:text-lg cursor-pointer flex items-center"><Building className="mr-2 h-5 w-5"/>Pessoa Jurídica</Label>
             </div>
           </RadioGroup>
         </CardContent>
@@ -490,13 +490,14 @@ export default function DocumentosPage() {
               <RadioGroup
                 value={selectedPfDocType}
                 onValueChange={(val) => handlePfDocTypeChange(val as PfDocumentType)}
-                className="grid grid-cols-2 gap-4 mb-4"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"
               >
                 {pfDocOptions.map(opt => (
-                  <div key={opt.value} className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
+                  <div key={opt.value} className="flex items-center space-x-2 p-2 sm:p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
                     <RadioGroupItem value={opt.value} id={`doc-${opt.value}`} className="border-primary/50 text-primary focus:ring-primary"/>
                     <Label htmlFor={`doc-${opt.value}`} className="font-medium text-base sm:text-lg cursor-pointer flex items-center">
-                      <opt.icon className="mr-2 h-5 w-5"/>{opt.label}
+                      <opt.icon className="mr-2 h-5 w-5 flex-shrink-0"/>
+                      <span className="whitespace-normal break-words">{opt.label}</span>
                     </Label>
                   </div>
                 ))}
@@ -527,3 +528,5 @@ export default function DocumentosPage() {
     </>
   );
 }
+
+    
