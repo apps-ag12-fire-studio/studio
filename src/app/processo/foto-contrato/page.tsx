@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, ChangeEvent, useRef } from "react";
@@ -44,7 +45,7 @@ export default function FotoContratoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingContractPhoto(true);
-      setContractPhotoUploadProgress(null); // Start with null for "Preparando envio..."
+      setContractPhotoUploadProgress(null); 
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.contractPhotoStoragePath) {
@@ -62,10 +63,14 @@ export default function FotoContratoPage() {
 
       uploadTask.on('state_changed',
         (snapshot: UploadTaskSnapshot) => {
-          const progressValue = snapshot.totalBytes > 0
-            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            : (snapshot.state === 'success' ? 100 : 0);
-          setContractPhotoUploadProgress(Math.round(progressValue));
+          const { state, bytesTransferred, totalBytes } = snapshot;
+          let calculatedProgress = 0;
+          if (state === 'success') {
+            calculatedProgress = 100;
+          } else if (totalBytes > 0) {
+            calculatedProgress = (bytesTransferred / totalBytes) * 100;
+          }
+          setContractPhotoUploadProgress(Math.round(calculatedProgress));
         },
         (error: FirebaseStorageError) => {
           console.error("Error uploading contract photo to Firebase Storage:", error);
@@ -84,7 +89,7 @@ export default function FotoContratoPage() {
           setProcessState(newState);
           saveProcessState(newState);
         },
-        async () => { 
+        async () => { // Complete callback
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             const newState = {
@@ -101,10 +106,10 @@ export default function FotoContratoPage() {
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
             console.error("Error getting download URL for contract photo:", error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name} após o upload. (Erro: ${error.message})`, variant: "destructive"});
+            setContractPhotoUploadProgress(null); // Reset progress if final step fails
           } finally {
             setIsUploadingContractPhoto(false);
-            // Progress will be 100 or null
           }
         }
       );
@@ -400,3 +405,5 @@ export default function FotoContratoPage() {
     </>
   );
 }
+
+    

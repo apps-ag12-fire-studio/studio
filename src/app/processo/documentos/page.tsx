@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, ChangeEvent, useCallback, useRef } from "react";
@@ -73,7 +74,7 @@ export default function DocumentosPage() {
 
     if (file) {
       setUploadingDocKey(docKey); 
-      setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Start with null for "Preparando envio..."
+      setUploadProgress(prev => ({ ...prev, [docKey]: null }));
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       const currentDoc = processState[docKey] as DocumentFile | null;
@@ -92,10 +93,14 @@ export default function DocumentosPage() {
 
       uploadTask.on('state_changed',
         (snapshot: UploadTaskSnapshot) => {
-          const progressValue = snapshot.totalBytes > 0
-            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            : (snapshot.state === 'success' ? 100 : 0); 
-          setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(progressValue) }));
+          const { state, bytesTransferred, totalBytes } = snapshot;
+          let calculatedProgress = 0;
+          if (state === 'success') {
+            calculatedProgress = 100;
+          } else if (totalBytes > 0) {
+            calculatedProgress = (bytesTransferred / totalBytes) * 100;
+          }
+          setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(calculatedProgress) }));
         },
         (error: FirebaseStorageError) => { 
           console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
@@ -112,7 +117,7 @@ export default function DocumentosPage() {
           saveProcessState(newState);
           if (inputElement) inputElement.value = "";
         },
-        async () => { 
+        async () => { // Complete callback
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             const newState = {
@@ -129,10 +134,10 @@ export default function DocumentosPage() {
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
             console.error(`Error getting download URL for ${docKey}:`, error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name} após o upload. (Erro: ${error.message})`, variant: "destructive"});
+            setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Reset progress if final step fails
           } finally {
             setUploadingDocKey(null);
-             // Progress will be 100 or null (if error before success)
           }
         }
       );
@@ -160,8 +165,8 @@ export default function DocumentosPage() {
     const newState = { ...processState, [docKey]: null };
     if(uploadingDocKey === docKey) { 
         setUploadingDocKey(null);
-        setUploadProgress(prev => ({...prev, [docKey]: null}));
     }
+    setUploadProgress(prev => ({...prev, [docKey]: null})); // Ensure progress is cleared
     setProcessState(newState);
     saveProcessState(newState);
     
@@ -599,3 +604,5 @@ export default function DocumentosPage() {
     </>
   );
 }
+
+    
