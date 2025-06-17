@@ -21,11 +21,11 @@ const ExtractBuyerDocumentDataInputSchema = z.object({
 export type ExtractBuyerDocumentDataInput = z.infer<typeof ExtractBuyerDocumentDataInputSchema>;
 
 const ExtractBuyerDocumentDataOutputSchema = z.object({
-  nomeCompleto: z.string().optional().describe('Nome completo do titular do documento, conforme exibido.'),
-  cpf: z.string().optional().describe('Número do Cadastro de Pessoas Físicas (CPF) do titular, se visível. Formatar como XXX.XXX.XXX-XX se possível.'),
-  dataNascimento: z.string().optional().describe('Data de nascimento do titular, no formato DD/MM/AAAA, se visível.'),
-  nomeMae: z.string().optional().describe('Nome completo da mãe do titular, se visível (comum em RGs).'),
-  rg: z.string().optional().describe('Número do Registro Geral (RG) ou Carteira de Identidade, incluindo órgão emissor e UF se disponíveis (ex: 12.345.678-9 SSP/SP), se visível.'),
+  nomeCompleto: z.string().optional().describe('Nome completo do titular do documento, conforme exibido ou contido no QR Code.'),
+  cpf: z.string().optional().describe('Número do Cadastro de Pessoas Físicas (CPF) do titular, se visível ou contido no QR Code. Formatar como XXX.XXX.XXX-XX se possível.'),
+  dataNascimento: z.string().optional().describe('Data de nascimento do titular, no formato DD/MM/AAAA, se visível ou contida no QR Code.'),
+  nomeMae: z.string().optional().describe('Nome completo da mãe do titular, se visível ou contido no QR Code (comum em RGs).'),
+  rg: z.string().optional().describe('Número do Registro Geral (RG) ou Carteira de Identidade, incluindo órgão emissor e UF se disponíveis (ex: 12.345.678-9 SSP/SP), se visível ou contido no QR Code.'),
 });
 export type ExtractBuyerDocumentDataOutput = z.infer<typeof ExtractBuyerDocumentDataOutputSchema>;
 
@@ -39,10 +39,18 @@ const prompt = ai.definePrompt({
   name: 'extractBuyerDocumentDataPrompt',
   input: {schema: ExtractBuyerDocumentDataInputSchema},
   output: {schema: ExtractBuyerDocumentDataOutputSchema},
-  prompt: `Você é um assistente de IA especialista em análise de documentos de identidade brasileiros (como RG, CNH). Sua tarefa é extrair informações estruturadas de uma imagem de documento fornecida.
-Analise a imagem do documento cuidadosamente e preencha os campos do schema de saída com a maior precisão possível.
-Se alguma informação não estiver claramente visível ou não existir no documento, deixe o campo opcional correspondente vazio ou não o inclua na resposta.
-Priorize a fidelidade ao texto do documento. Extraia informações sobre:
+  prompt: `Você é um assistente de IA especialista em análise de documentos de identidade brasileiros (como RG, CNH), incluindo a decodificação de QR Codes presentes nesses documentos. Sua tarefa é extrair informações estruturadas de uma imagem de documento fornecida.
+
+Instruções:
+1.  **Verifique a Presença de QR Code:** Primeiramente, examine a imagem em busca de um QR Code.
+2.  **Priorize o QR Code:** Se um QR Code for encontrado e puder ser decodificado, as informações extraídas dele (como nome, CPF, data de nascimento, RG, nome da mãe) devem ser consideradas a fonte primária e mais confiável de dados. Preencha os campos do schema de saída com base nesses dados.
+3.  **Extração Visual (Fallback):** Se não houver QR Code, ou se ele estiver ilegível, danificado ou não contiver todas as informações necessárias, extraia as informações faltantes do texto visível no documento.
+4.  **Fidelidade:** Em todos os casos (QR Code ou visual), priorize a fidelidade aos dados originais.
+5.  **Campos Opcionais:** Se alguma informação não estiver claramente disponível (seja no QR Code ou no texto) ou não existir no documento, deixe o campo opcional correspondente vazio ou não o inclua na resposta.
+
+Analise a imagem do documento cuidadosamente e preencha os campos do schema de saída com a maior precisão possível, seguindo as prioridades acima.
+
+Extraia informações sobre:
 - Nome completo do titular.
 - CPF do titular (formate como XXX.XXX.XXX-XX se possível).
 - Data de nascimento (formate como DD/MM/AAAA).
