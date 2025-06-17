@@ -280,7 +280,7 @@ export default function DadosIniciaisPage() {
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
               <PlayersIcon className="mr-3 h-7 w-7" /> Selecionar Player (Expert)
             </CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Escolha o produtor do conteúdo ou parte principal do contrato.</CardDescription>
+            <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Escolha o produtor do conteúdo ou parte principal do contrato.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 pt-0">
             <Select value={processState.selectedPlayer || ""} onValueChange={handlePlayerSelect}>
@@ -305,7 +305,7 @@ export default function DadosIniciaisPage() {
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
               <FileTextIcon className="mr-3 h-7 w-7" /> Selecionar Modelo de Contrato
             </CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Escolha um modelo pré-definido para o Player: <strong>{processState.selectedPlayer}</strong></CardDescription>
+            <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Escolha um modelo pré-definido para o Player: <strong>{processState.selectedPlayer}</strong></CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 p-6 pt-0">
               {contractTemplates.map(template => (
@@ -314,13 +314,15 @@ export default function DadosIniciaisPage() {
                   type="button" 
                   onClick={() => handleSelectContractTemplate(template.id)} 
                   variant={processState.selectedContractTemplateName === template.displayName ? "secondary" : "outline"}
-                  className="w-full border-primary/80 text-primary hover:bg-primary/10 text-base py-4 rounded-lg flex justify-between items-center group data-[variant=secondary]:bg-primary/20"
+                  className="w-full border-primary/80 text-primary hover:bg-primary/10 text-sm sm:text-base py-3 sm:py-4 px-2 sm:px-4 rounded-lg flex justify-between items-center group data-[variant=secondary]:bg-primary/20"
                 >
-                  <div className="flex items-center">
-                    <FileTextIcon className="mr-3 h-5 w-5" /> 
-                    {template.displayName}
+                  <div className="flex items-center flex-1 min-w-0 mr-2">
+                    <FileTextIcon className="mr-2 sm:mr-3 h-5 w-5 flex-shrink-0" />
+                    <span className="whitespace-normal break-words text-left">
+                      {template.displayName}
+                    </span>
                   </div>
-                  <ChevronRight className="h-5 w-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all"/>
+                  <ChevronRight className="h-5 w-5 flex-shrink-0 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all"/>
                 </Button>
               ))}
               {processState.extractedData && processState.selectedContractTemplateName && (
@@ -341,7 +343,3 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
-
-    
-
-    

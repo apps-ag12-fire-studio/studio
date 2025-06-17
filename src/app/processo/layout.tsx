@@ -27,8 +27,16 @@ export default function ProcessoLayout({
                 <h3 className="text-lg font-headline text-primary mb-4 uppercase tracking-wider">Precisa de Ajuda?</h3>
                 <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
                     {suporteItems.map(item => (
-                        <Button key={item.label} variant="outline" size="lg" asChild className="text-foreground/80 hover:text-primary hover:border-primary/70 bg-card/70 border-border/50 hover:bg-card text-sm rounded-lg py-3 px-5 transition-all hover:shadow-md">
-                            <a href="#"> <item.icon className="mr-2 h-5 w-5" /> {item.label} </a>
+                        <Button 
+                          key={item.label} 
+                          variant="outline" 
+                          asChild 
+                          className="text-foreground/80 hover:text-primary hover:border-primary/70 bg-card/70 border-border/50 hover:bg-card text-xs sm:text-sm rounded-lg py-2 px-3 sm:py-3 sm:px-4 transition-all hover:shadow-md"
+                        >
+                            <a href="#" className="flex items-center justify-center"> 
+                              <item.icon className="mr-1 sm:mr-2 h-4 w-4 flex-shrink-0" /> 
+                              <span className="whitespace-normal text-center leading-tight">{item.label}</span>
+                            </a>
                         </Button>
                     ))}
                 </div>
