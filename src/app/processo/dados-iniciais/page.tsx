@@ -225,7 +225,7 @@ export default function DadosIniciaisPage() {
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-2xl font-headline text-primary">
-            <FileSearch className="mr-3 h-7 w-7" /> Origem do Contrato
+            <FileSearch className="mr-3 h-7 w-7" /> O Contrato que será assinado é:
           </CardTitle>
           <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Escolha como fornecer os dados do contrato.</CardDescription>
         </CardHeader>
@@ -237,11 +237,11 @@ export default function DadosIniciaisPage() {
           >
             <div className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
               <RadioGroupItem value="new" id="source-new" className="border-primary/50 text-primary focus:ring-primary" />
-              <Label htmlFor="source-new" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Novo Contrato <span className="text-sm text-muted-foreground">(Enviar Foto para Análise)</span></Label>
+              <Label htmlFor="source-new" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Um Novo Modelo de Contrato <span className="text-sm text-muted-foreground">(Enviar Foto para Análise)</span></Label>
             </div>
             <div className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
               <RadioGroupItem value="existing" id="source-existing" className="border-primary/50 text-primary focus:ring-primary" />
-              <Label htmlFor="source-existing" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Contrato Existente <span className="text-sm text-muted-foreground">(Selecionar Modelo)</span></Label>
+              <Label htmlFor="source-existing" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Contrato Validado pela ADM <span className="text-sm text-muted-foreground">(Selecionar Modelo)</span></Label>
             </div>
           </RadioGroup>
         </CardContent>
