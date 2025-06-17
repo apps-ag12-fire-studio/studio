@@ -35,9 +35,9 @@ const fileToDataUri = (file: File): Promise<string> => {
 
 type DocumentSlotKey = Extract<keyof StoredProcessState, 
   | "rgAntigoFrente" | "rgAntigoVerso" 
-  | "rgQrcodeDoc" // Updated from rgQrcodeFrente/Verso
+  | "rgQrcodeDoc"
   | "cnhAntigaFrente" | "cnhAntigaVerso" 
-  | "cnhQrcodeDoc" // Updated from cnhQrcodeFrente/Verso
+  | "cnhQrcodeDoc"
   | "cartaoCnpjFile" | "docSocioFrente" | "docSocioVerso" | "comprovanteEndereco"
 >;
 
@@ -63,7 +63,6 @@ export default function DocumentosPage() {
     }
     setProcessState(loadedState);
     if (loadedState.buyerType === 'pf') {
-      // Determine selectedPfDocType based on which documents are already present
       if (loadedState.rgAntigoFrente || loadedState.rgAntigoVerso) setSelectedPfDocType('rgAntigo');
       else if (loadedState.rgQrcodeDoc) setSelectedPfDocType('rgQrcode');
       else if (loadedState.cnhAntigaFrente || loadedState.cnhAntigaVerso) setSelectedPfDocType('cnhAntiga');
@@ -267,14 +266,12 @@ export default function DocumentosPage() {
       ...prevState,
       buyerType: value,
       companyInfo: value === 'pj' ? (prevState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
-      // Clear all PF specific docs if switching to PJ
       rgAntigoFrente: value === 'pj' ? null : prevState.rgAntigoFrente,
       rgAntigoVerso: value === 'pj' ? null : prevState.rgAntigoVerso,
       rgQrcodeDoc: value === 'pj' ? null : prevState.rgQrcodeDoc,
       cnhAntigaFrente: value === 'pj' ? null : prevState.cnhAntigaFrente,
       cnhAntigaVerso: value === 'pj' ? null : prevState.cnhAntigaVerso,
       cnhQrcodeDoc: value === 'pj' ? null : prevState.cnhQrcodeDoc,
-      // Clear PJ specific docs if switching to PF
       cartaoCnpjFile: value === 'pf' ? null : prevState.cartaoCnpjFile,
       docSocioFrente: value === 'pf' ? null : prevState.docSocioFrente,
       docSocioVerso: value === 'pf' ? null : prevState.docSocioVerso,
@@ -410,7 +407,7 @@ export default function DocumentosPage() {
         );
       case 'rgQrcode':
         return (
-          <div className="grid grid-cols-1 gap-4"> {/* Only one column for single doc */}
+          <div className="grid grid-cols-1 gap-4">
             {renderDocumentSlot('rgQrcodeDoc', 'RG (QRCode)')}
           </div>
         );
@@ -423,7 +420,7 @@ export default function DocumentosPage() {
         );
       case 'cnhQrcode':
          return (
-          <div className="grid grid-cols-1 gap-4"> {/* Only one column for single doc */}
+          <div className="grid grid-cols-1 gap-4">
             {renderDocumentSlot('cnhQrcodeDoc', 'CNH (QRCode)')}
           </div>
         );
@@ -560,3 +557,5 @@ export default function DocumentosPage() {
   );
 }
 
+
+    
