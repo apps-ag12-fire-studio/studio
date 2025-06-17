@@ -22,7 +22,7 @@ import {
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Edit3, Building } from "lucide-react";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Building } from "lucide-react";
 
 
 const attemptToPreFillInfo = (
@@ -42,7 +42,6 @@ const attemptToPreFillInfo = (
   if (processState.buyerType === 'pf') {
     const rgAntigoFrenteData = getAnalysisDataFromDocKey('rgAntigoFrente');
     const cnhAntigaFrenteData = getAnalysisDataFromDocKey('cnhAntigaFrente');
-    // QRCode docs removed, so no data from them
     
     const docData = rgAntigoFrenteData || cnhAntigaFrenteData;
 
@@ -89,6 +88,72 @@ const attemptToPreFillInfo = (
   return { buyerInfo: newBuyerInfo, companyInfo: newCompanyInfo };
 };
 
+const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolean => {
+  if (!data) return true;
+  return !Object.values(data).some(value => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== null && value !== '';
+  });
+};
+
+const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo']): boolean => {
+  if (!data) return true;
+  return !data.nome && !data.cpf && !data.email && !data.telefone;
+};
+
+const getMissingFieldsList = (state: StoredProcessState): string[] => {
+  const missingFields: string[] = [];
+
+  // Check Buyer Info (PF or Representative)
+  if (!state.buyerInfo.nome) missingFields.push("Nome do comprador/representante não informado.");
+  if (!state.buyerInfo.cpf) missingFields.push("CPF do comprador/representante não informado.");
+  if (!state.buyerInfo.telefone) missingFields.push("Telefone do comprador/representante não informado.");
+  if (!state.buyerInfo.email) missingFields.push("E-mail do comprador/representante não informado.");
+
+  if (state.buyerType === 'pf') {
+    const hasRgAntigo = state.rgAntigoFrente?.previewUrl && state.rgAntigoVerso?.previewUrl;
+    const hasCnhAntiga = state.cnhAntigaFrente?.previewUrl && state.cnhAntigaVerso?.previewUrl;
+    if (!(hasRgAntigo || hasCnhAntiga)) {
+      missingFields.push("Documento pessoal (RG ou CNH Antiga - frente e verso) não anexado.");
+    }
+    if (!state.comprovanteEndereco?.previewUrl) {
+      missingFields.push("Comprovante de endereço pessoal não anexado.");
+    }
+  } else { // PJ
+    if (!state.companyInfo?.razaoSocial) missingFields.push("Razão Social da empresa não informada.");
+    if (!state.companyInfo?.cnpj) missingFields.push("CNPJ da empresa não informado.");
+    
+    if (!state.cartaoCnpjFile?.previewUrl) missingFields.push("Cartão CNPJ não anexado.");
+    if (!(state.docSocioFrente?.previewUrl && state.docSocioVerso?.previewUrl)) {
+      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado.");
+    }
+    if (!state.comprovanteEndereco?.previewUrl) {
+      missingFields.push("Comprovante de endereço da empresa não anexado.");
+    }
+  }
+
+  if (isInternalTeamMemberInfoEmpty(state.internalTeamMemberInfo)) {
+    missingFields.push("Informações do Responsável Interno (Nome, CPF, Telefone, E-mail) não preenchidas.");
+  }
+
+  if (state.contractSourceType === 'new') {
+    if (!state.contractPhotoPreview) missingFields.push("Foto do contrato original não carregada.");
+    else if (!state.photoVerified) missingFields.push("Foto do contrato original não verificada pela IA.");
+    
+    if (!state.extractedData || isExtractedDataEmpty(state.extractedData)) {
+      missingFields.push("Dados do contrato original não extraídos/preenchidos.");
+    }
+  } else if (state.contractSourceType === 'existing') {
+    if (!state.selectedPlayer) missingFields.push("Player (Expert) não selecionado.");
+    if (!state.extractedData || isExtractedDataEmpty(state.extractedData)) {
+      missingFields.push("Modelo de contrato não carregado para o Player.");
+    }
+  } else {
+    missingFields.push("Origem do contrato não definida (erro inesperado).");
+  }
+  return missingFields;
+};
+
 
 export default function RevisaoEnvioPage() {
   const router = useRouter();
@@ -120,78 +185,42 @@ export default function RevisaoEnvioPage() {
     setCurrentCompanyInfo(updatedCompanyInfo);
   };
 
-
-  const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolean => {
-    if (!data) return true;
-    return !Object.values(data).some(value => {
-      if (Array.isArray(value)) return value.length > 0;
-      return value !== undefined && value !== null && value !== '';
-    });
-  };
-  
-  const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo']): boolean => {
-    if (!data) return true;
-    return !data.nome && !data.cpf && !data.email && !data.telefone;
-  }
-
-  const isBuyerInfoComplete = (data: BuyerInfo): boolean => {
-    return !!data.nome && !!data.cpf && !!data.telefone && !!data.email;
-  }
-  const isCompanyInfoComplete = (data: CompanyInfo | null): boolean => {
-    return !!data && !!data.razaoSocial && !!data.cnpj;
-  }
-
-  const validatePage = () => {
-    if (processState.buyerType === 'pf') {
-      if (!isBuyerInfoComplete(currentBuyerInfo)) {
-        toast({ title: "Campos Obrigatórios (Comprador PF)", description: "Preencha todas as 'Informações do Comprador'.", variant: "destructive" });
-        return false;
-      }
-    } else { // PJ
-      if (!isCompanyInfoComplete(currentCompanyInfo)) {
-        toast({ title: "Campos Obrigatórios (Empresa)", description: "Preencha Razão Social e CNPJ da empresa.", variant: "destructive" });
-        return false;
-      }
-      if (!isBuyerInfoComplete(currentBuyerInfo)) { // For representative
-        toast({ title: "Campos Obrigatórios (Representante PJ)", description: "Preencha todas as 'Informações do Representante'.", variant: "destructive" });
-        return false;
-      }
-    }
-    return true;
-  }
-
   const isPrintDisabled = useCallback(() => { 
-    const currentState = { ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo };
-    if (currentState.buyerType === 'pf') {
-        if (!isBuyerInfoComplete(currentState.buyerInfo)) return true;
-        const hasRgAntigo = currentState.rgAntigoFrente && currentState.rgAntigoVerso;
-        const hasCnhAntiga = currentState.cnhAntigaFrente && currentState.cnhAntigaVerso;
-        if (!(hasRgAntigo || hasCnhAntiga) || !currentState.comprovanteEndereco) return true; // Simplified check
-    } else { // PJ
-        if (!isCompanyInfoComplete(currentState.companyInfo)) return true;
-        if (!isBuyerInfoComplete(currentState.buyerInfo)) return true; // Representative
-        if (!currentState.cartaoCnpjFile || !(currentState.docSocioFrente && currentState.docSocioVerso) || !currentState.comprovanteEndereco) return true;
-    }
-    if (isInternalTeamMemberInfoEmpty(currentState.internalTeamMemberInfo)) return true;
-
-    if (currentState.contractSourceType === 'new') {
-      if (!currentState.photoVerified || !currentState.extractedData || isExtractedDataEmpty(currentState.extractedData)) return true; 
-    } else if (currentState.contractSourceType === 'existing') {
-      if (!currentState.selectedPlayer || !currentState.extractedData || isExtractedDataEmpty(currentState.extractedData)) return true; 
-    } else {
-      return true; 
-    }
-    return false; 
+    const currentState: StoredProcessState = { 
+      ...processState, 
+      buyerInfo: currentBuyerInfo, 
+      companyInfo: currentCompanyInfo 
+    };
+    return getMissingFieldsList(currentState).length > 0;
   }, [processState, currentBuyerInfo, currentCompanyInfo]);
 
 
   const handlePrepareForPrint = () => {
-    if (!validatePage()) return;
-    
-    const finalProcessState = { ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo };
-    if (isPrintDisabled()){ 
-       toast({ title: "Ação Necessária", description: "Complete todas as etapas e informações obrigatórias para preparar a impressão.", variant: "destructive" });
-       return;
+    const finalProcessState: StoredProcessState = { 
+      ...processState, 
+      buyerInfo: currentBuyerInfo, 
+      companyInfo: currentCompanyInfo 
+    };
+
+    const missingFields = getMissingFieldsList(finalProcessState);
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Dados Incompletos para Impressão",
+        description: (
+          <div className="max-h-60 overflow-y-auto">
+            <p className="mb-2">Por favor, preencha os seguintes campos/anexos para continuar:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              {missingFields.map((field, index) => (
+                <li key={index}>{field}</li>
+              ))}
+            </ul>
+          </div>
+        ),
+        variant: "destructive",
+        duration: 10000, 
+      });
+      return;
     }
     
     const printPayload: PrintData = { 
@@ -359,7 +388,8 @@ export default function RevisaoEnvioPage() {
                 <h3 className="flex items-center text-lg font-semibold text-primary/90"><Camera className="mr-2 h-5 w-5" />Foto do Contrato Original</h3>
                 <p className="text-foreground/80"><strong>Arquivo:</strong> {processState.contractPhotoName}</p>
                 <p className={`text-sm ${processState.photoVerified ? 'text-green-400' : 'text-red-400'}`}>
-                  {processState.photoVerified ? 'Foto Verificada com Sucesso' : 'Foto Não Verificada ou Com Falhas'}
+                  {processState.photoVerified ? 'Foto Verificada com Sucesso' : 
+                    (processState.photoVerificationResult?.reason ? `Falha na Verificação: ${processState.photoVerificationResult.reason}` : 'Foto Não Verificada ou Com Falhas')}
                 </p>
               </div>
               <hr className="border-border/30"/>
@@ -406,3 +436,4 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
