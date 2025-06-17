@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress"; // Import Progress
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, clearProcessState, loadPrintData, DocumentFile } from "@/lib/process-store";
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud } from "lucide-react";
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
-import { firebaseApp, storage as firebaseStorage } from '@/lib/firebase'; // Import firebaseStorage
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { firebaseApp, storage as firebaseStorage } from '@/lib/firebase'; 
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage"; // Updated import
 
 const db = getFirestore(firebaseApp); 
 
@@ -25,7 +26,7 @@ const generateUniqueFileName = (file: File, prefix: string = 'unknown') => {
 
 interface DocumentToSave {
   name?: string;
-  photoUrl?: string | null; // Changed from photoDataUri to photoUrl
+  photoUrl?: string | null; 
   storagePath?: string | null;
   analysisResult?: any; 
 }
@@ -34,7 +35,7 @@ const mapDocumentFileToSave = (docFile: DocumentFile | null): DocumentToSave | n
   if (!docFile) return null;
   return {
     name: docFile.name,
-    photoUrl: docFile.previewUrl, // previewUrl now holds the downloadURL
+    photoUrl: docFile.previewUrl, 
     storagePath: docFile.storagePath,
     analysisResult: docFile.analysisResult,
   };
@@ -46,6 +47,7 @@ export default function FotoContratoAssinadoPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [isUploadingSignedContract, setIsUploadingSignedContract] = useState(false);
+  const [signedContractUploadProgress, setSignedContractUploadProgress] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -53,7 +55,7 @@ export default function FotoContratoAssinadoPage() {
 
   useEffect(() => {
     const loadedState = loadProcessState();
-    const printData = loadPrintData(); // Verifies if previous step (print prep) was done
+    const printData = loadPrintData(); 
 
     if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) {
       toast({
@@ -73,6 +75,7 @@ export default function FotoContratoAssinadoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingSignedContract(true);
+      setSignedContractUploadProgress(0);
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.signedContractPhotoStoragePath) {
@@ -86,28 +89,47 @@ export default function FotoContratoAssinadoPage() {
 
       const filePath = generateUniqueFileName(file, 'signed_contracts');
       const fileRef = storageRef(firebaseStorage, filePath);
+      const uploadTask = uploadBytesResumable(fileRef, file);
       
-      try {
-        await uploadBytes(fileRef, file);
-        const downloadURL = await getDownloadURL(fileRef); 
-        const newState = {
-          ...processState,
-          signedContractPhotoPreview: downloadURL, 
-          signedContractPhotoName: file.name,
-          signedContractPhotoStoragePath: filePath,
-        };
-        setProcessState(newState);
-        saveProcessState(newState);
-        toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
-      } catch (error) {
-        console.error("Error uploading signed contract photo to Firebase Storage:", error);
-        toast({ title: "Erro no Upload", description: "Não foi possível enviar a foto do contrato assinado.", variant: "destructive"});
-        if (photoInputRef.current) {
-            photoInputRef.current.value = "";
+      uploadTask.on('state_changed',
+        (snapshot: UploadTaskSnapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setSignedContractUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Error uploading signed contract photo to Firebase Storage:", error);
+          toast({ title: "Erro no Upload", description: `Não foi possível enviar a foto do contrato assinado. (${error.code})`, variant: "destructive"});
+          setIsUploadingSignedContract(false);
+          setSignedContractUploadProgress(null);
+          if (photoInputRef.current) {
+              photoInputRef.current.value = "";
+          }
+          // Optionally revert state
+          const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: undefined, signedContractPhotoStoragePath: null};
+          setProcessState(newState);
+          saveProcessState(newState);
+        },
+        async () => { // On Upload Complete
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref); 
+            const newState = {
+              ...processState,
+              signedContractPhotoPreview: downloadURL, 
+              signedContractPhotoName: file.name,
+              signedContractPhotoStoragePath: filePath,
+            };
+            setProcessState(newState);
+            saveProcessState(newState);
+            toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+          } catch (error) {
+            console.error("Error getting download URL for signed contract photo:", error);
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}.`, variant: "destructive"});
+          } finally {
+            setIsUploadingSignedContract(false);
+            setSignedContractUploadProgress(null);
+          }
         }
-      } finally {
-        setIsUploadingSignedContract(false);
-      }
+      );
     }
   };
   
@@ -220,6 +242,7 @@ export default function FotoContratoAssinadoPage() {
 
 
   const handleBack = () => {
+    setIsSubmitting(true); // Use a different state like isNavigatingBack if needed
     saveProcessState(processState); 
     router.push("/print-contract"); 
   };
@@ -269,10 +292,18 @@ export default function FotoContratoAssinadoPage() {
                   aria-describedby="signed-contract-photo-hint"
                   disabled={globalDisableCondition}
                 />
-                {isUploadingSignedContract && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
             </div>
             <p id="signed-contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.signedContractPhotoName && `Atual: ${processState.signedContractPhotoName}`}</p>
           </div>
+          {isUploadingSignedContract && signedContractUploadProgress !== null && (
+             <div className="mt-4 space-y-2">
+                <div className="flex items-center space-x-2 text-primary">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>{`Enviando ${Math.round(signedContractUploadProgress)}%...`}</span>
+                </div>
+                <Progress value={signedContractUploadProgress} className="w-full h-2 bg-primary/20" />
+            </div>
+          )}
           {processState.signedContractPhotoPreview && !isUploadingSignedContract && (
             <div className="mt-4">
               <p className="text-sm font-medium mb-2 uppercase tracking-wider text-foreground/90">Pré-visualização do Contrato Assinado:</p>
@@ -306,12 +337,15 @@ export default function FotoContratoAssinadoPage() {
         <Button 
           onClick={handleBack} 
           variant="outline"
-          disabled={globalDisableCondition}
+          disabled={globalDisableCondition || isSubmitting} // Prevent back navigation during submission
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
-          <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Impressão
+          { isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
+          { isSubmitting ? "Processando..." : "Voltar para Impressão" }
         </Button>
       </div>
     </>
   );
 }
+
+    

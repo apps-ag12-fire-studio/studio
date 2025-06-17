@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Progress } from "@/components/ui/progress"; // Import Progress
 import { useToast } from "@/hooks/use-toast";
 import { 
   StoredProcessState, 
@@ -22,9 +23,9 @@ import {
   PfDocumentType
 } from "@/lib/process-store";
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2, UploadCloud } from "lucide-react";
-import { storage } from "@/lib/firebase"; // Firebase storage import
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
+import { storage } from "@/lib/firebase";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage"; // Updated import
 
 const generateUniqueFileName = (file: File, docType: string, prefix: string = 'buyer_documents') => {
   const timestamp = new Date().getTime();
@@ -49,6 +50,7 @@ export default function DocumentosPage() {
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [analyzingDocKey, setAnalyzingDocKey] = useState<DocumentSlotKey | null>(null);
   const [uploadingDocKey, setUploadingDocKey] = useState<DocumentSlotKey | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<Record<DocumentSlotKey, number | null>>({} as Record<DocumentSlotKey, number | null>);
   const [selectedPfDocType, setSelectedPfDocType] = useState<PfDocumentType | ''>('');
   const [isNavigatingNext, setIsNavigatingNext] = useState(false);
   const fileInputRefs = useRef<Record<DocumentSlotKey, HTMLInputElement | null>>({} as Record<DocumentSlotKey, HTMLInputElement | null>);
@@ -71,7 +73,8 @@ export default function DocumentosPage() {
     const inputElement = event.target; 
 
     if (file) {
-      setUploadingDocKey(docKey); // Set loading state for this specific slot
+      setUploadingDocKey(docKey); 
+      setUploadProgress(prev => ({ ...prev, [docKey]: 0 }));
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       const currentDoc = processState[docKey] as DocumentFile | null;
@@ -86,37 +89,51 @@ export default function DocumentosPage() {
 
       const filePath = generateUniqueFileName(file, docKey);
       const fileRef = storageRef(storage, filePath);
+      const uploadTask = uploadBytesResumable(fileRef, file);
 
-      try {
-        await uploadBytes(fileRef, file);
-        const downloadURL = await getDownloadURL(fileRef);
-        
-        const newState = {
-          ...processState,
-          [docKey]: {
-            name: file.name,
-            previewUrl: downloadURL, 
-            storagePath: filePath,   
-            analysisResult: null     
-          } as DocumentFile
-        };
-        setProcessState(newState);
-        saveProcessState(newState);
-        toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
-      } catch (error) {
-        console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
-        toast({ 
-          title: "Erro no Upload", 
-          description: `Não foi possível enviar ${file.name}. Tente novamente.`, 
-          variant: "destructive" 
-        });
-        const newState = { ...processState, [docKey]: null };
-        setProcessState(newState);
-        saveProcessState(newState);
-        if (inputElement) inputElement.value = "";
-      } finally {
-        setUploadingDocKey(null); // Reset loading state for this slot
-      }
+      uploadTask.on('state_changed',
+        (snapshot: UploadTaskSnapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(prev => ({ ...prev, [docKey]: progress }));
+        },
+        (error) => {
+          console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
+          toast({ 
+            title: "Erro no Upload", 
+            description: `Não foi possível enviar ${file.name}. Tente novamente. (${error.code})`, 
+            variant: "destructive" 
+          });
+          setUploadingDocKey(null);
+          setUploadProgress(prev => ({ ...prev, [docKey]: null }));
+          const newState = { ...processState, [docKey]: null };
+          setProcessState(newState);
+          saveProcessState(newState);
+          if (inputElement) inputElement.value = "";
+        },
+        async () => { // On Upload Complete
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            const newState = {
+              ...processState,
+              [docKey]: {
+                name: file.name,
+                previewUrl: downloadURL, 
+                storagePath: filePath,   
+                analysisResult: null     
+              } as DocumentFile
+            };
+            setProcessState(newState);
+            saveProcessState(newState);
+            toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+          } catch (error) {
+            console.error(`Error getting download URL for ${docKey}:`, error);
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}.`, variant: "destructive"});
+          } finally {
+            setUploadingDocKey(null);
+            setUploadProgress(prev => ({ ...prev, [docKey]: null }));
+          }
+        }
+      );
     } else {
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc && inputElement && inputElement.files && inputElement.files.length === 0) {
@@ -138,7 +155,7 @@ export default function DocumentosPage() {
       }
     }
 
-    const newState = { ...processState, [docKey]: null };
+    const newState = { ...processState, [docKey]: null, [uploadingDocKey === docKey ? 'uploadingDocKey' : '']: null, uploadProgress: {...uploadProgress, [docKey]: null} };
     setProcessState(newState);
     saveProcessState(newState);
     
@@ -332,6 +349,7 @@ export default function DocumentosPage() {
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isCurrentlyUploading = uploadingDocKey === docKey;
+    const currentUploadProgress = uploadProgress[docKey];
     const isCurrentlyAnalyzing = analyzingDocKey === docKey;
     const displayDocName = currentDoc?.name;
     const displayPreviewUrl = currentDoc?.previewUrl; 
@@ -341,9 +359,12 @@ export default function DocumentosPage() {
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
         <Label htmlFor={docKey} className="text-base font-medium text-foreground/90">{label}</Label>
         {isCurrentlyUploading && (
-          <div className="flex items-center justify-center p-4 space-x-2 text-primary">
+          <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" /> 
-            <span>Enviando...</span>
+            <span>{currentUploadProgress !== null && currentUploadProgress > 0 ? `Enviando ${Math.round(currentUploadProgress)}%...` : 'Iniciando envio...'}</span>
+            {currentUploadProgress !== null && currentUploadProgress >= 0 && ( // Show progress bar even at 0%
+              <Progress value={currentUploadProgress} className="w-full h-2 mt-1 bg-primary/20" />
+            )}
           </div>
         )}
         {displayPreviewUrl && !isPdf && !isCurrentlyUploading && (

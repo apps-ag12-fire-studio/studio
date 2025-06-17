@@ -8,17 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress"; // Import Progress
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState } from "@/lib/process-store";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
-import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText, UploadCloud } from "lucide-react";
-import { storage } from "@/lib/firebase"; // Firebase storage import
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText } from "lucide-react";
+import { storage } from "@/lib/firebase"; 
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot } from "firebase/storage"; // Updated import
 
 const generateUniqueFileName = (file: File, prefix: string = 'unknown') => {
   const timestamp = new Date().getTime();
-  // Sanitize filename: replace spaces with underscores and remove special characters other than period and hyphen
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
   return `${prefix}/${timestamp}-${saneFilename}`;
 };
@@ -29,6 +29,7 @@ export default function FotoContratoPage() {
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   
   const [isUploadingContractPhoto, setIsUploadingContractPhoto] = useState(false);
+  const [contractPhotoUploadProgress, setContractPhotoUploadProgress] = useState<number | null>(null);
   const [isVerifyingPhoto, setIsVerifyingPhoto] = useState(false);
   const [isExtractingData, setIsExtractingData] = useState(false);
   const [isNavigatingNext, setIsNavigatingNext] = useState(false);
@@ -44,9 +45,9 @@ export default function FotoContratoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingContractPhoto(true);
+      setContractPhotoUploadProgress(0);
       toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
-      // Clear previous photo and related data if any, including from Firebase Storage
       if (processState.contractPhotoStoragePath) {
         try {
           const oldPhotoRef = storageRef(storage, processState.contractPhotoStoragePath);
@@ -58,44 +59,62 @@ export default function FotoContratoPage() {
       
       const filePath = generateUniqueFileName(file, 'original_contracts');
       const fileRef = storageRef(storage, filePath);
+      const uploadTask = uploadBytesResumable(fileRef, file);
 
-      try {
-        await uploadBytes(fileRef, file);
-        const downloadURL = await getDownloadURL(fileRef);
-        
-        const newState = {
-          ...processState,
-          contractPhotoPreview: downloadURL,
-          contractPhotoName: file.name,
-          contractPhotoStoragePath: filePath, // Save storage path for potential deletion
-          photoVerificationResult: null,
-          photoVerified: false,
-          extractedData: null, 
-        };
-        setProcessState(newState);
-        saveProcessState(newState);
-        toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
-      } catch (error) {
-        console.error("Error uploading contract photo to Firebase Storage:", error);
-        toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. Tente novamente.`, variant: "destructive"});
-        if (contractPhotoInputRef.current) {
-          contractPhotoInputRef.current.value = "";
+      uploadTask.on('state_changed',
+        (snapshot: UploadTaskSnapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setContractPhotoUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Error uploading contract photo to Firebase Storage:", error);
+          toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. Tente novamente. (${error.code})`, variant: "destructive"});
+          setIsUploadingContractPhoto(false);
+          setContractPhotoUploadProgress(null);
+          if (contractPhotoInputRef.current) {
+            contractPhotoInputRef.current.value = "";
+          }
+          // Optionally revert state
+          const newState = {...processState, contractPhotoPreview: null, contractPhotoName: undefined, contractPhotoStoragePath: null, photoVerified: false, photoVerificationResult: null, extractedData: null};
+          setProcessState(newState);
+          saveProcessState(newState);
+        },
+        async () => { // On Upload Complete
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            const newState = {
+              ...processState,
+              contractPhotoPreview: downloadURL,
+              contractPhotoName: file.name,
+              contractPhotoStoragePath: filePath,
+              photoVerificationResult: null,
+              photoVerified: false,
+              extractedData: null, 
+            };
+            setProcessState(newState);
+            saveProcessState(newState);
+            toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+          } catch (error) {
+            console.error("Error getting download URL for contract photo:", error);
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}.`, variant: "destructive"});
+          } finally {
+            setIsUploadingContractPhoto(false);
+            setContractPhotoUploadProgress(null);
+          }
         }
-      } finally {
-        setIsUploadingContractPhoto(false);
-      }
+      );
     }
   };
 
   const handleVerifyPhoto = async () => {
-    if (!processState.contractPhotoPreview) { // contractPhotoPreview is now a downloadURL
+    if (!processState.contractPhotoPreview) {
       toast({ title: "Verificação Necessária", description: "Por favor, carregue a foto do contrato.", variant: "destructive" });
       return;
     }
     setIsVerifyingPhoto(true);
     
     try {
-      const result = await verifyContractPhoto({ photoDataUri: processState.contractPhotoPreview }); // Pass downloadURL
+      const result = await verifyContractPhoto({ photoDataUri: processState.contractPhotoPreview });
       const newState = {
         ...processState,
         photoVerificationResult: result,
@@ -141,7 +160,7 @@ export default function FotoContratoPage() {
     setIsExtractingData(true);
     try {
       if (processState.contractSourceType === 'new' && processState.contractPhotoPreview) {
-         const result = await extractContractData({ photoDataUri: processState.contractPhotoPreview }); // Pass downloadURL
+         const result = await extractContractData({ photoDataUri: processState.contractPhotoPreview });
          const newState = {
            ...processState,
            extractedData: result,
@@ -156,7 +175,7 @@ export default function FotoContratoPage() {
       }
     } catch (error) {
       console.error("AI Extraction Error:", error);
-      const newState = { ...processState, extractedData: null }; // Clear extracted data on error
+      const newState = { ...processState, extractedData: null };
       setProcessState(newState); 
       saveProcessState(newState);
       toast({ title: "Erro na Análise do Contrato", description: "Não foi possível extrair os dados com IA. Verifique a imagem ou tente novamente.", variant: "destructive" });
@@ -195,6 +214,7 @@ export default function FotoContratoPage() {
   };
 
   const handleBack = () => {
+    setIsNavigatingNext(true);
     saveProcessState(processState);
     router.push("/processo/dados-iniciais");
   };
@@ -237,12 +257,20 @@ export default function FotoContratoPage() {
                     onChange={handleContractPhotoChange}
                     className="flex-grow file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-2.5"
                     aria-describedby="contract-photo-hint"
-                    disabled={isUploadingContractPhoto}
+                    disabled={isUploadingContractPhoto || isVerifyingPhoto || isExtractingData}
                   />
-                  {isUploadingContractPhoto && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
                 </div>
                 <p id="contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.contractPhotoName && `Atual: ${processState.contractPhotoName}`}</p>
               </div>
+              {isUploadingContractPhoto && contractPhotoUploadProgress !== null && (
+                <div className="mt-4 space-y-2">
+                    <div className="flex items-center space-x-2 text-primary">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>{`Enviando ${Math.round(contractPhotoUploadProgress)}%...`}</span>
+                    </div>
+                    <Progress value={contractPhotoUploadProgress} className="w-full h-2 bg-primary/20" />
+                </div>
+              )}
               {processState.contractPhotoPreview && !isUploadingContractPhoto && (
                 <div className="mt-4">
                   <p className="text-sm font-medium mb-2 uppercase tracking-wider text-foreground/90">Pré-visualização:</p>
@@ -340,7 +368,8 @@ export default function FotoContratoPage() {
           disabled={isNavigatingNext || isUploadingContractPhoto || isVerifyingPhoto || isExtractingData}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
-          <ArrowLeft className="mr-2 h-5 w-5" /> Voltar
+          { isNavigatingNext ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
+          { isNavigatingNext ? "Voltando..." : "Voltar" }
         </Button>
         <Button 
           onClick={handleNext} 
@@ -368,3 +397,5 @@ export default function FotoContratoPage() {
     </>
   );
 }
+
+    
