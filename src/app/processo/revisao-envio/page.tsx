@@ -22,7 +22,7 @@ import {
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Building, Loader2 } from "lucide-react";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Building, Loader2, Info } from "lucide-react";
 
 
 const attemptToPreFillInfo = (
@@ -107,21 +107,21 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
   const missingFields: string[] = [];
 
   if (isInternalTeamMemberInfoEmpty(state.internalTeamMemberInfo)) {
-    missingFields.push("Informações do Responsável Interno (Nome, CPF, Telefone, E-mail) - Etapa 1.");
+    missingFields.push("Informações do Responsável Interno (Nome, CPF, Telefone, E-mail) - Etapa 1: Dados Iniciais.");
   }
   if (state.contractSourceType === 'existing') {
-    if (!state.selectedPlayer) missingFields.push("Player (Expert) não selecionado - Etapa 1.");
+    if (!state.selectedPlayer) missingFields.push("Player (Expert) não selecionado - Etapa 1: Dados Iniciais.");
     if (!state.extractedData || isExtractedDataEmpty(state.extractedData)) {
-      missingFields.push("Modelo de contrato não carregado para o Player - Etapa 1.");
+      missingFields.push("Modelo de contrato não carregado para o Player - Etapa 1: Dados Iniciais.");
     }
   }
 
   if (state.contractSourceType === 'new') {
-    if (!state.contractPhotoPreview) missingFields.push("Foto do contrato original não carregada - Etapa 2.");
-    else if (!state.photoVerified) missingFields.push("Foto do contrato original não verificada pela IA - Etapa 2.");
+    if (!state.contractPhotoPreview) missingFields.push("Foto do contrato original não carregada - Etapa 2: Foto do Contrato.");
+    else if (!state.photoVerified) missingFields.push("Foto do contrato original não verificada pela IA - Etapa 2: Foto do Contrato.");
     
     if (state.photoVerified && (!state.extractedData || isExtractedDataEmpty(state.extractedData))) {
-      missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação - Etapa 2.");
+      missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação - Etapa 2: Foto do Contrato.");
     }
   }
   
@@ -129,28 +129,28 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
     const hasRgAntigo = state.rgAntigoFrente?.previewUrl && state.rgAntigoVerso?.previewUrl;
     const hasCnhAntiga = state.cnhAntigaFrente?.previewUrl && state.cnhAntigaVerso?.previewUrl;
     if (!(hasRgAntigo || hasCnhAntiga)) {
-      missingFields.push("Documento pessoal (RG Antigo ou CNH Antiga - frente e verso) não anexado - Etapa 3.");
+      missingFields.push("Documento pessoal (RG Antigo ou CNH Antiga - frente e verso) não anexado - Etapa 3: Documentos.");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço pessoal não anexado - Etapa 3.");
+      missingFields.push("Comprovante de endereço pessoal não anexado - Etapa 3: Documentos.");
     }
   } else { 
-    if (!state.companyInfo?.razaoSocial) missingFields.push("Razão Social da empresa não informada - Etapa 3 ou preencha na Etapa 4.");
-    if (!state.companyInfo?.cnpj) missingFields.push("CNPJ da empresa não informado - Etapa 3 ou preencha na Etapa 4.");
+    if (!state.companyInfo?.razaoSocial) missingFields.push("Razão Social da empresa não informada - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
+    if (!state.companyInfo?.cnpj) missingFields.push("CNPJ da empresa não informado - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
     
-    if (!state.cartaoCnpjFile?.previewUrl) missingFields.push("Cartão CNPJ não anexado - Etapa 3.");
+    if (!state.cartaoCnpjFile?.previewUrl) missingFields.push("Cartão CNPJ não anexado - Etapa 3: Documentos.");
     if (!(state.docSocioFrente?.previewUrl && state.docSocioVerso?.previewUrl)) {
-      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado - Etapa 3.");
+      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado - Etapa 3: Documentos.");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço da empresa não anexado - Etapa 3.");
+      missingFields.push("Comprovante de endereço da empresa não anexado - Etapa 3: Documentos.");
     }
   }
 
-  if (!state.buyerInfo.nome) missingFields.push("Nome do comprador/representante não informado - Etapa 3 ou preencha na Etapa 4.");
-  if (!state.buyerInfo.cpf) missingFields.push("CPF do comprador/representante não informado - Etapa 3 ou preencha na Etapa 4.");
-  if (!state.buyerInfo.telefone) missingFields.push("Telefone do comprador/representante não informado - Preencha na Etapa 4.");
-  if (!state.buyerInfo.email) missingFields.push("E-mail do comprador/representante não informado - Preencha na Etapa 4.");
+  if (!state.buyerInfo.nome) missingFields.push("Nome do comprador/representante não informado - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
+  if (!state.buyerInfo.cpf) missingFields.push("CPF do comprador/representante não informado - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
+  if (!state.buyerInfo.telefone) missingFields.push("Telefone do comprador/representante não informado - Preencha aqui (Etapa 4).");
+  if (!state.buyerInfo.email) missingFields.push("E-mail do comprador/representante não informado - Preencha aqui (Etapa 4).");
 
   return missingFields;
 };
@@ -167,11 +167,22 @@ export default function RevisaoEnvioPage() {
   useEffect(() => {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
+    
     const { buyerInfo: preFilledBuyerInfo, companyInfo: preFilledCompanyInfo } = attemptToPreFillInfo(loadedState);
-    setCurrentBuyerInfo(preFilledBuyerInfo);
+
+    setCurrentBuyerInfo(prev => ({
+      nome: prev.nome || preFilledBuyerInfo.nome || '',
+      cpf: prev.cpf || preFilledBuyerInfo.cpf || '',
+      telefone: prev.telefone || preFilledBuyerInfo.telefone || '',
+      email: prev.email || preFilledBuyerInfo.email || '',
+    }));
 
     if (loadedState.buyerType === 'pj') {
-      setCurrentCompanyInfo(preFilledCompanyInfo);
+      setCurrentCompanyInfo(prev => ({
+        razaoSocial: prev?.razaoSocial || preFilledCompanyInfo?.razaoSocial || '',
+        nomeFantasia: prev?.nomeFantasia || preFilledCompanyInfo?.nomeFantasia || '',
+        cnpj: prev?.cnpj || preFilledCompanyInfo?.cnpj || '',
+      }));
     } else {
       setCurrentCompanyInfo(null);
     }
@@ -197,6 +208,40 @@ export default function RevisaoEnvioPage() {
     };
     return getMissingFieldsList(currentState).length > 0;
   }, [processState, currentBuyerInfo, currentCompanyInfo]);
+
+  const showPendingChecks = () => {
+    const currentState: StoredProcessState = {
+      ...processState,
+      buyerInfo: currentBuyerInfo,
+      companyInfo: currentCompanyInfo,
+    };
+    const missingFields = getMissingFieldsList(currentState);
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Dados Incompletos para Impressão",
+        description: (
+          <div className="max-h-60 overflow-y-auto">
+            <p className="mb-2 font-semibold">Por favor, verifique e complete os seguintes itens. Use o botão "Voltar" para navegar para as etapas anteriores, se necessário:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              {missingFields.map((field, index) => (
+                <li key={index}>{field}</li>
+              ))}
+            </ul>
+          </div>
+        ),
+        variant: "destructive",
+        duration: 20000, 
+      });
+    } else {
+      toast({
+        title: "Tudo Certo!",
+        description: "Todos os dados necessários estão preenchidos. Você pode prosseguir para a impressão.",
+        className: "bg-green-600 text-primary-foreground border-green-700",
+        duration: 5000,
+      });
+    }
+  };
 
 
   const handlePrepareForPrint = () => {
@@ -249,11 +294,10 @@ export default function RevisaoEnvioPage() {
     saveProcessState({ ...finalProcessState, currentStep: "/print-contract" }); 
     toast({
       title: "Etapa 4 Concluída!",
-      description: "Informações salvas. Preparando contrato para impressão...",
+      description: "Informações salvas. Carregando contrato para impressão...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push('/print-contract');
-    //setIsPreparingPrint(false); // Not strictly necessary as component will unmount
   };
 
   const handleBack = () => {
@@ -422,13 +466,21 @@ export default function RevisaoEnvioPage() {
             <CardTitle className="flex items-center text-2xl font-headline text-primary"><Printer className="mr-3 h-7 w-7" />Preparar para Impressão</CardTitle>
             <CardDescription className="text-foreground/70 pt-1">Gere o contrato para impressão física, assinatura e posterior anexo da foto do documento assinado.</CardDescription>
         </CardHeader>
-        <CardContent className="p-6 pt-0">
-             <Button 
+        <CardFooter className="p-6 flex flex-col sm:flex-row gap-4">
+            <Button 
+                type="button" 
+                variant="outline" 
+                onClick={showPendingChecks} 
+                className="w-full sm:w-auto border-blue-500/70 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
+            >
+                <Info className="mr-2 h-5 w-5" /> Verificar Pendências
+            </Button>
+            <Button 
                 type="button" 
                 onClick={handlePrepareForPrint} 
-                className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
+                className="w-full sm:flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
                 disabled={isPreparingPrint || isPrintDisabled()}
-             >
+            >
                 {isPreparingPrint ? (
                   <>
                     <Loader2 className="mr-2 h-6 w-6 animate-spin" />
@@ -440,7 +492,7 @@ export default function RevisaoEnvioPage() {
                   </>
                 )}
             </Button>
-        </CardContent>
+        </CardFooter>
       </Card>
 
       <div className="flex justify-start mt-8">
@@ -455,5 +507,3 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-
-    
