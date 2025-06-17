@@ -71,42 +71,50 @@ export default function DocumentosPage() {
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
     const file = event.target.files?.[0];
     const inputElement = event.target; 
+    console.log(`[${docKey}] handleFileChange: File selected - ${file?.name}`);
 
     if (file) {
       setUploadingDocKey(docKey); 
-      setUploadProgress(prev => ({ ...prev, [docKey]: null }));
+      setUploadProgress(prev => ({ ...prev, [docKey]: 0 })); // Initialize progress to 0 to show "Enviando 0%..."
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+      console.log(`[${docKey}] Upload initiated for ${file.name}. Current uploadingDocKey: ${docKey}`);
 
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc?.storagePath) {
+        console.log(`[${docKey}] Deleting old file from storage: ${currentDoc.storagePath}`);
         try {
           const oldFileRef = storageRef(storage, currentDoc.storagePath);
           await deleteObject(oldFileRef);
+          console.log(`[${docKey}] Old file deleted successfully.`);
         } catch (deleteError) {
-          console.warn(`Could not delete old file for ${docKey} from Firebase Storage:`, deleteError);
+          console.warn(`[${docKey}] Could not delete old file from Firebase Storage:`, deleteError);
         }
       }
 
       const filePath = generateUniqueFileName(file, docKey);
+      console.log(`[${docKey}] Generated new file path: ${filePath}`);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
+      console.log(`[${docKey}] Upload task created.`);
 
       uploadTask.on('state_changed',
         (snapshot: UploadTaskSnapshot) => {
           const { state, bytesTransferred, totalBytes } = snapshot;
           let calculatedProgress = 0;
-          if (state === 'success') {
-            calculatedProgress = 100;
-          } else if (totalBytes > 0) {
+          if (totalBytes > 0) {
             calculatedProgress = (bytesTransferred / totalBytes) * 100;
           }
+          if (state === 'success') { // Firebase reports success before getDownloadURL
+             calculatedProgress = 100;
+          }
+          console.log(`[${docKey}] Upload progress: ${calculatedProgress.toFixed(2)}% (State: ${state}, Transferred: ${bytesTransferred}, Total: ${totalBytes})`);
           setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(calculatedProgress) }));
         },
         (error: FirebaseStorageError) => { 
-          console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
+          console.error(`[${docKey}] Error uploading file to Firebase Storage: Code: ${error.code}, Message: ${error.message}`, error);
           toast({ 
             title: "Erro no Upload", 
-            description: `Não foi possível enviar ${file.name}. Tente novamente. (Erro: ${error.code} - ${error.message})`, 
+            description: `Não foi possível enviar ${file.name}. (Erro: ${error.code} - ${error.message})`, 
             variant: "destructive",
             duration: 7000 
           });
@@ -116,10 +124,13 @@ export default function DocumentosPage() {
           setProcessState(newState);
           saveProcessState(newState);
           if (inputElement) inputElement.value = "";
+          console.log(`[${docKey}] Upload error, state reset. Current uploadingDocKey: null`);
         },
-        async () => { // Complete callback
+        async () => { // Complete callback for uploadTask (upload to Storage successful)
+          console.log(`[${docKey}] Firebase Storage upload successful for ${file.name}. Attempting to get Download URL.`);
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log(`[${docKey}] Download URL obtained: ${downloadURL}`);
             const newState = {
               ...processState,
               [docKey]: {
@@ -132,32 +143,48 @@ export default function DocumentosPage() {
             setProcessState(newState);
             saveProcessState(newState);
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+            // Progress should already be 100% from state_changed 'success'
           } catch (error: any) {
-            console.error(`Error getting download URL for ${docKey}:`, error);
+            console.error(`[${docKey}] Error getting download URL for ${file.name}:`, error);
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name} após o upload. (Erro: ${error.message})`, variant: "destructive"});
-            setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Reset progress if final step fails
+            setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Reset progress visual if this final step fails
+             const newState = { ...processState, [docKey]: { // Keep file name if available, but clear URLs
+                name: processState[docKey]?.name || file.name, 
+                previewUrl: null, 
+                storagePath: filePath, // Keep storage path for potential manual cleanup or retry logic
+                analysisResult: null
+              } as DocumentFile };
+            setProcessState(newState);
+            saveProcessState(newState);
+            if (inputElement) inputElement.value = ""; // Clear input as the overall operation failed
           } finally {
             setUploadingDocKey(null);
+            console.log(`[${docKey}] Upload complete callback finished. Current uploadingDocKey: null`);
           }
         }
       );
     } else {
+      console.log(`[${docKey}] handleFileChange: No file selected or file removed.`);
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc && inputElement && inputElement.files && inputElement.files.length === 0) {
-        removeDocument(docKey);
+        console.log(`[${docKey}] File input cleared, removing document.`);
+        removeDocument(docKey); // This will also clear the input ref
       }
     }
   };
 
   const removeDocument = async (docKey: DocumentSlotKey) => {
+    console.log(`[${docKey}] removeDocument called.`);
     const currentDoc = processState[docKey] as DocumentFile | null;
     if (currentDoc?.storagePath) {
+      console.log(`[${docKey}] Attempting to delete from storage: ${currentDoc.storagePath}`);
       try {
         const fileToDeleteRef = storageRef(storage, currentDoc.storagePath);
         await deleteObject(fileToDeleteRef);
         toast({ title: "Arquivo Removido", description: `${currentDoc.name} removido do servidor.`, className: "bg-orange-500 text-white border-orange-600" });
+        console.log(`[${docKey}] File deleted from storage.`);
       } catch (error: any) {
-        console.error(`Error deleting file ${currentDoc.storagePath} from Firebase Storage:`, error);
+        console.error(`[${docKey}] Error deleting file ${currentDoc.storagePath} from Firebase Storage:`, error);
         toast({ title: "Erro ao Remover Arquivo", description: `Não foi possível remover ${currentDoc.name} do servidor. (Erro: ${error.message}) Ele será removido apenas da listagem local.`, variant: "destructive"});
       }
     }
@@ -165,18 +192,22 @@ export default function DocumentosPage() {
     const newState = { ...processState, [docKey]: null };
     if(uploadingDocKey === docKey) { 
         setUploadingDocKey(null);
+        console.log(`[${docKey}] Was uploading, set uploadingDocKey to null.`);
     }
-    setUploadProgress(prev => ({...prev, [docKey]: null})); // Ensure progress is cleared
+    setUploadProgress(prev => ({...prev, [docKey]: null}));
     setProcessState(newState);
     saveProcessState(newState);
+    console.log(`[${docKey}] Document removed from state.`);
     
     const inputElement = fileInputRefs.current[docKey];
     if (inputElement) {
         inputElement.value = "";
+        console.log(`[${docKey}] File input element cleared.`);
     }
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
+    console.log(`[${docKey}] handleAnalyzeDocument called.`);
     const currentDocInState = processState[docKey] as DocumentFile | null;
     const photoDownloadUrl = currentDocInState?.previewUrl; 
     const docName = currentDocInState?.name;
@@ -184,12 +215,15 @@ export default function DocumentosPage() {
     if (!photoDownloadUrl) {
       toast({ title: "Arquivo não encontrado", description: "Carregue um arquivo para ser analisado.", variant: "destructive"});
       setAnalyzingDocKey(null);
+      console.log(`[${docKey}] Analysis aborted: No photoDownloadUrl.`);
       return;
     }
 
     setAnalyzingDocKey(docKey);
+    console.log(`[${docKey}] Analysis started for ${docName}. AnalyzingDocKey: ${docKey}`);
     try {
       const result = await extractBuyerDocumentData({ photoDataUri: photoDownloadUrl }); 
+      console.log(`[${docKey}] AI Analysis result:`, result);
       
       const newState = {
         ...processState,
@@ -208,8 +242,7 @@ export default function DocumentosPage() {
       });
 
     } catch (error: any) {
-      console.error(`AI Document Analysis Error for ${docKey} (${docName}):`, error);
-      
+      console.error(`[${docKey}] AI Document Analysis Error for ${docName}:`, error);
       let userFriendlyErrorMessage = "A IA não conseguiu processar o documento. Verifique a qualidade da imagem ou tente novamente.";
       if (error?.message?.includes("An error occurred in the Server Components render") || error?.message?.includes("flow execution failed")) {
          userFriendlyErrorMessage = "Falha ao analisar: A IA não conseguiu processar este documento. Tente uma imagem mais nítida, verifique os logs do Genkit ou se o documento é suportado.";
@@ -233,6 +266,7 @@ export default function DocumentosPage() {
       });
     } finally {
       setAnalyzingDocKey(null);
+      console.log(`[${docKey}] Analysis finished. AnalyzingDocKey: null.`);
     }
   };
   
@@ -374,8 +408,8 @@ export default function DocumentosPage() {
         {isCurrentlyUploadingThisSlot && (
           <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" /> 
-            <span>{currentUploadPercent === null ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
-            {currentUploadPercent !== null && (
+            <span>{currentUploadPercent === null || typeof currentUploadPercent === 'undefined' ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
+            {(currentUploadPercent !== null && typeof currentUploadPercent !== 'undefined') && (
               <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
             )}
           </div>
@@ -605,4 +639,5 @@ export default function DocumentosPage() {
   );
 }
 
+    
     
