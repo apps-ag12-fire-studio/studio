@@ -30,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${inter.variable} ${playfairDisplay.variable}`}>
-      <body className="font-body antialiased bg-background text-foreground">
+      <body className="font-body antialiased bg-background text-foreground" suppressHydrationWarning={true}>
         <main className="flex-grow">
           {children}
         </main>
@@ -40,4 +40,3 @@ export default function RootLayout({
     </html>
   );
 }
-
