@@ -137,10 +137,12 @@ export default function FotoContratoAssinadoPage() {
         originalContractPhotoName: processState.contractSourceType === 'new' ? processState.contractPhotoName : null,
 
         // Documents (Storing Data URIs directly, be mindful of Firestore limits)
-        rgFrente: mapDocumentFileToSave(processState.rgFrente),
-        rgVerso: mapDocumentFileToSave(processState.rgVerso),
-        cnhFrente: mapDocumentFileToSave(processState.cnhFrente),
-        cnhVerso: mapDocumentFileToSave(processState.cnhVerso),
+        rgAntigoFrente: mapDocumentFileToSave(processState.rgAntigoFrente),
+        rgAntigoVerso: mapDocumentFileToSave(processState.rgAntigoVerso),
+        rgQrcodeDoc: mapDocumentFileToSave(processState.rgQrcodeDoc),
+        cnhAntigaFrente: mapDocumentFileToSave(processState.cnhAntigaFrente),
+        cnhAntigaVerso: mapDocumentFileToSave(processState.cnhAntigaVerso),
+        cnhQrcodeDoc: mapDocumentFileToSave(processState.cnhQrcodeDoc),
         cartaoCnpjFile: mapDocumentFileToSave(processState.cartaoCnpjFile),
         docSocioFrente: mapDocumentFileToSave(processState.docSocioFrente),
         docSocioVerso: mapDocumentFileToSave(processState.docSocioVerso),
@@ -151,14 +153,10 @@ export default function FotoContratoAssinadoPage() {
         signedContractPhotoName: processState.signedContractPhotoName,
       };
 
-      // IMPORTANT: Storing full Data URIs in Firestore can lead to large documents
-      // and may hit the 1MB document size limit.
-      // Consider Cloud Storage for Firebase for actual file storage.
       console.log("Attempting to save to Firestore:", submissionData);
       const docRef = await addDoc(collection(db, "submittedContracts"), submissionData);
       console.log("Document written with ID: ", docRef.id);
       
-      // --- SIMULATING EMAIL ---
       console.log("\n--- SIMULANDO ENVIO DE EMAIL FINAL ---");
       const recipients = ['financeiro@empresa.com', 'juridico@empresa.com']; 
       if (processState.buyerInfo.email) {
@@ -174,10 +172,12 @@ export default function FotoContratoAssinadoPage() {
       emailBody += `Objeto do Contrato: ${processState.extractedData?.objetoDoContrato || 'N/A'}\n`;
       
       const attachedDocs: string[] = [];
-      if (processState.rgFrente?.name) attachedDocs.push(processState.rgFrente.name);
-      if (processState.rgVerso?.name) attachedDocs.push(processState.rgVerso.name);
-      if (processState.cnhFrente?.name) attachedDocs.push(processState.cnhFrente.name);
-      if (processState.cnhVerso?.name) attachedDocs.push(processState.cnhVerso.name);
+      if (processState.rgAntigoFrente?.name) attachedDocs.push(processState.rgAntigoFrente.name);
+      if (processState.rgAntigoVerso?.name) attachedDocs.push(processState.rgAntigoVerso.name);
+      if (processState.rgQrcodeDoc?.name) attachedDocs.push(processState.rgQrcodeDoc.name);
+      if (processState.cnhAntigaFrente?.name) attachedDocs.push(processState.cnhAntigaFrente.name);
+      if (processState.cnhAntigaVerso?.name) attachedDocs.push(processState.cnhAntigaVerso.name);
+      if (processState.cnhQrcodeDoc?.name) attachedDocs.push(processState.cnhQrcodeDoc.name);
       if (processState.cartaoCnpjFile?.name) attachedDocs.push(processState.cartaoCnpjFile.name);
       if (processState.docSocioFrente?.name) attachedDocs.push(processState.docSocioFrente.name);
       if (processState.docSocioVerso?.name) attachedDocs.push(processState.docSocioVerso.name);

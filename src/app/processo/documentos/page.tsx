@@ -35,9 +35,9 @@ const fileToDataUri = (file: File): Promise<string> => {
 
 type DocumentSlotKey = Extract<keyof StoredProcessState, 
   | "rgAntigoFrente" | "rgAntigoVerso" 
-  | "rgQrcodeFrente" | "rgQrcodeVerso" 
+  | "rgQrcodeDoc" // Updated from rgQrcodeFrente/Verso
   | "cnhAntigaFrente" | "cnhAntigaVerso" 
-  | "cnhQrcodeFrente" | "cnhQrcodeVerso" 
+  | "cnhQrcodeDoc" // Updated from cnhQrcodeFrente/Verso
   | "cartaoCnpjFile" | "docSocioFrente" | "docSocioVerso" | "comprovanteEndereco"
 >;
 
@@ -53,7 +53,7 @@ export default function DocumentosPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [analyzingDocKey, setAnalyzingDocKey] = useState<DocumentSlotKey | null>(null);
-  const [localFiles, setLocalFiles] = useState<Record<DocumentSlotKey, File | null>>({});
+  const [localFiles, setLocalFiles] = useState<Partial<Record<DocumentSlotKey, File | null>>>({});
   const [selectedPfDocType, setSelectedPfDocType] = useState<PfDocumentType | ''>('');
 
   useEffect(() => {
@@ -65,9 +65,9 @@ export default function DocumentosPage() {
     if (loadedState.buyerType === 'pf') {
       // Determine selectedPfDocType based on which documents are already present
       if (loadedState.rgAntigoFrente || loadedState.rgAntigoVerso) setSelectedPfDocType('rgAntigo');
-      else if (loadedState.rgQrcodeFrente || loadedState.rgQrcodeVerso) setSelectedPfDocType('rgQrcode');
+      else if (loadedState.rgQrcodeDoc) setSelectedPfDocType('rgQrcode');
       else if (loadedState.cnhAntigaFrente || loadedState.cnhAntigaVerso) setSelectedPfDocType('cnhAntiga');
-      else if (loadedState.cnhQrcodeFrente || loadedState.cnhQrcodeVerso) setSelectedPfDocType('cnhQrcode');
+      else if (loadedState.cnhQrcodeDoc) setSelectedPfDocType('cnhQrcode');
     }
   }, []);
 
@@ -203,29 +203,25 @@ export default function DocumentosPage() {
         toast({ title: "Tipo de Documento Necessário", description: "Selecione um tipo de documento pessoal para anexar.", variant: "destructive" });
         return false;
       }
-      let frontDoc: DocumentFile | null = null;
-      let versoDoc: DocumentFile | null = null;
+      let docIsValid = false;
       switch(selectedPfDocType) {
         case 'rgAntigo':
-          frontDoc = processState.rgAntigoFrente;
-          versoDoc = processState.rgAntigoVerso;
+          docIsValid = !!(processState.rgAntigoFrente?.name && processState.rgAntigoVerso?.name);
           break;
         case 'rgQrcode':
-          frontDoc = processState.rgQrcodeFrente;
-          versoDoc = processState.rgQrcodeVerso;
+          docIsValid = !!processState.rgQrcodeDoc?.name;
           break;
         case 'cnhAntiga':
-          frontDoc = processState.cnhAntigaFrente;
-          versoDoc = processState.cnhAntigaVerso;
+          docIsValid = !!(processState.cnhAntigaFrente?.name && processState.cnhAntigaVerso?.name);
           break;
         case 'cnhQrcode':
-          frontDoc = processState.cnhQrcodeFrente;
-          versoDoc = processState.cnhQrcodeVerso;
+          docIsValid = !!processState.cnhQrcodeDoc?.name;
           break;
       }
-      if (!frontDoc?.name || !versoDoc?.name) {
+      if (!docIsValid) {
         const docLabel = pfDocOptions.find(opt => opt.value === selectedPfDocType)?.label || 'Documento Pessoal';
-        toast({ title: `Documentos Insuficientes (${docLabel})`, description: `Anexe frente e verso do ${docLabel}.`, variant: "destructive" });
+        const requiredFiles = (selectedPfDocType === 'rgAntigo' || selectedPfDocType === 'cnhAntiga') ? 'frente e verso' : 'o arquivo';
+        toast({ title: `Documentos Insuficientes (${docLabel})`, description: `Anexe ${requiredFiles} do ${docLabel}.`, variant: "destructive" });
         return false;
       }
       if (!processState.comprovanteEndereco?.name) {
@@ -274,12 +270,10 @@ export default function DocumentosPage() {
       // Clear all PF specific docs if switching to PJ
       rgAntigoFrente: value === 'pj' ? null : prevState.rgAntigoFrente,
       rgAntigoVerso: value === 'pj' ? null : prevState.rgAntigoVerso,
-      rgQrcodeFrente: value === 'pj' ? null : prevState.rgQrcodeFrente,
-      rgQrcodeVerso: value === 'pj' ? null : prevState.rgQrcodeVerso,
+      rgQrcodeDoc: value === 'pj' ? null : prevState.rgQrcodeDoc,
       cnhAntigaFrente: value === 'pj' ? null : prevState.cnhAntigaFrente,
       cnhAntigaVerso: value === 'pj' ? null : prevState.cnhAntigaVerso,
-      cnhQrcodeFrente: value === 'pj' ? null : prevState.cnhQrcodeFrente,
-      cnhQrcodeVerso: value === 'pj' ? null : prevState.cnhQrcodeVerso,
+      cnhQrcodeDoc: value === 'pj' ? null : prevState.cnhQrcodeDoc,
       // Clear PJ specific docs if switching to PF
       cartaoCnpjFile: value === 'pf' ? null : prevState.cartaoCnpjFile,
       docSocioFrente: value === 'pf' ? null : prevState.docSocioFrente,
@@ -294,19 +288,18 @@ export default function DocumentosPage() {
     setSelectedPfDocType(value);
     setProcessState(prevState => {
       const newState = {...prevState};
-      // Clear all PF document types other than the selected one
       const allPfDocKeys: (keyof StoredProcessState)[] = [
-        'rgAntigoFrente', 'rgAntigoVerso', 'rgQrcodeFrente', 'rgQrcodeVerso',
-        'cnhAntigaFrente', 'cnhAntigaVerso', 'cnhQrcodeFrente', 'cnhQrcodeVerso'
+        'rgAntigoFrente', 'rgAntigoVerso', 'rgQrcodeDoc',
+        'cnhAntigaFrente', 'cnhAntigaVerso', 'cnhQrcodeDoc'
       ];
       const localFilesToClear: Partial<Record<DocumentSlotKey, null>> = {};
 
       allPfDocKeys.forEach(key => {
         let shouldClear = true;
         if (value === 'rgAntigo' && (key === 'rgAntigoFrente' || key === 'rgAntigoVerso')) shouldClear = false;
-        else if (value === 'rgQrcode' && (key === 'rgQrcodeFrente' || key === 'rgQrcodeVerso')) shouldClear = false;
+        else if (value === 'rgQrcode' && key === 'rgQrcodeDoc') shouldClear = false;
         else if (value === 'cnhAntiga' && (key === 'cnhAntigaFrente' || key === 'cnhAntigaVerso')) shouldClear = false;
-        else if (value === 'cnhQrcode' && (key === 'cnhQrcodeFrente' || key === 'cnhQrcodeVerso')) shouldClear = false;
+        else if (value === 'cnhQrcode' && key === 'cnhQrcodeDoc') shouldClear = false;
         
         if (shouldClear) {
           newState[key] = null;
@@ -417,9 +410,8 @@ export default function DocumentosPage() {
         );
       case 'rgQrcode':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {renderDocumentSlot('rgQrcodeFrente', 'RG (QRCode) - Frente')}
-            {renderDocumentSlot('rgQrcodeVerso', 'RG (QRCode) - Verso')}
+          <div className="grid grid-cols-1 gap-4"> {/* Only one column for single doc */}
+            {renderDocumentSlot('rgQrcodeDoc', 'RG (QRCode)')}
           </div>
         );
       case 'cnhAntiga':
@@ -431,9 +423,8 @@ export default function DocumentosPage() {
         );
       case 'cnhQrcode':
          return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {renderDocumentSlot('cnhQrcodeFrente', 'CNH (QRCode) - Frente')}
-            {renderDocumentSlot('cnhQrcodeVerso', 'CNH (QRCode) - Verso')}
+          <div className="grid grid-cols-1 gap-4"> {/* Only one column for single doc */}
+            {renderDocumentSlot('cnhQrcodeDoc', 'CNH (QRCode)')}
           </div>
         );
       default:
@@ -568,3 +559,4 @@ export default function DocumentosPage() {
     </>
   );
 }
+

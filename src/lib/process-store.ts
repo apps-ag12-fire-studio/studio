@@ -41,15 +41,13 @@ export interface StoredProcessState {
   companyInfo: CompanyInfo | null; // For PJ
   internalTeamMemberInfo: BuyerInfo;
 
-  // Pessoa Física specific documents - Granular
+  // Pessoa Física specific documents
   rgAntigoFrente: DocumentFile | null;
   rgAntigoVerso: DocumentFile | null;
-  rgQrcodeFrente: DocumentFile | null;
-  rgQrcodeVerso: DocumentFile | null;
+  rgQrcodeDoc: DocumentFile | null; // Simplified from frente/verso
   cnhAntigaFrente: DocumentFile | null;
   cnhAntigaVerso: DocumentFile | null;
-  cnhQrcodeFrente: DocumentFile | null;
-  cnhQrcodeVerso: DocumentFile | null;
+  cnhQrcodeDoc: DocumentFile | null; // Simplified from frente/verso
   
   // Pessoa Jurídica specific documents
   cartaoCnpjFile: DocumentFile | null;
@@ -82,12 +80,10 @@ export const initialStoredProcessState: StoredProcessState = {
 
   rgAntigoFrente: null,
   rgAntigoVerso: null,
-  rgQrcodeFrente: null,
-  rgQrcodeVerso: null,
+  rgQrcodeDoc: null,
   cnhAntigaFrente: null,
   cnhAntigaVerso: null,
-  cnhQrcodeFrente: null,
-  cnhQrcodeVerso: null,
+  cnhQrcodeDoc: null,
 
   cartaoCnpjFile: null,
   docSocioFrente: null,
@@ -103,8 +99,8 @@ export const initialStoredProcessState: StoredProcessState = {
   signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v7'; // Incremented version due to new fields
-const PRINT_DATA_KEY = 'contractPrintData_v4'; // Incremented version
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v8'; // Incremented version
+const PRINT_DATA_KEY = 'contractPrintData_v5'; // Incremented version
 
 
 export function saveProcessState(state: StoredProcessState) {
@@ -141,6 +137,20 @@ export function loadProcessState(): StoredProcessState {
         parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
       }
       
+      // Ensure new single QRCode doc fields are initialized if loading older state
+      if (parsedState.rgQrcodeDoc === undefined) parsedState.rgQrcodeDoc = null;
+      if (parsedState.cnhQrcodeDoc === undefined) parsedState.cnhQrcodeDoc = null;
+
+      // Clean up old multi-file QRCode fields if they exist from a previous version
+      const legacyRgQrcodeFrente = (parsedState as any).rgQrcodeFrente;
+      if (legacyRgQrcodeFrente !== undefined) delete (parsedState as any).rgQrcodeFrente;
+      const legacyRgQrcodeVerso = (parsedState as any).rgQrcodeVerso;
+      if (legacyRgQrcodeVerso !== undefined) delete (parsedState as any).rgQrcodeVerso;
+      const legacyCnhQrcodeFrente = (parsedState as any).cnhQrcodeFrente;
+      if (legacyCnhQrcodeFrente !== undefined) delete (parsedState as any).cnhQrcodeFrente;
+      const legacyCnhQrcodeVerso = (parsedState as any).cnhQrcodeVerso;
+      if (legacyCnhQrcodeVerso !== undefined) delete (parsedState as any).cnhQrcodeVerso;
+      
       return parsedState;
     }
   } catch (error) {
@@ -169,12 +179,10 @@ export interface PrintData {
   // PF Documents for printing
   rgAntigoFrenteUrl?: string | null;
   rgAntigoVersoUrl?: string | null;
-  rgQrcodeFrenteUrl?: string | null;
-  rgQrcodeVersoUrl?: string | null;
+  rgQrcodeDocUrl?: string | null; // Simplified
   cnhAntigaFrenteUrl?: string | null;
   cnhAntigaVersoUrl?: string | null;
-  cnhQrcodeFrenteUrl?: string | null;
-  cnhQrcodeVersoUrl?: string | null;
+  cnhQrcodeDocUrl?: string | null; // Simplified
   // PJ Documents
   cartaoCnpjFileUrl?: string | null;
   docSocioFrenteUrl?: string | null;
@@ -205,6 +213,17 @@ export function loadPrintData(): PrintData | null {
       const parsedData = JSON.parse(dataString) as PrintData;
        parsedData.buyerType = parsedData.buyerType || 'pf';
        parsedData.companyInfo = parsedData.companyInfo || null;
+       
+       // Ensure new QRCode doc URL fields are initialized
+       if (parsedData.rgQrcodeDocUrl === undefined) parsedData.rgQrcodeDocUrl = null;
+       if (parsedData.cnhQrcodeDocUrl === undefined) parsedData.cnhQrcodeDocUrl = null;
+
+       // Clean up old multi-file QRCode URL fields
+       if ((parsedData as any).rgQrcodeFrenteUrl !== undefined) delete (parsedData as any).rgQrcodeFrenteUrl;
+       if ((parsedData as any).rgQrcodeVersoUrl !== undefined) delete (parsedData as any).rgQrcodeVersoUrl;
+       if ((parsedData as any).cnhQrcodeFrenteUrl !== undefined) delete (parsedData as any).cnhQrcodeFrenteUrl;
+       if ((parsedData as any).cnhQrcodeVersoUrl !== undefined) delete (parsedData as any).cnhQrcodeVersoUrl;
+
       return parsedData;
     }
   } catch (error)
@@ -214,3 +233,4 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
+

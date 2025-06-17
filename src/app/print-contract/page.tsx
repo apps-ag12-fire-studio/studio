@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react'; 
 import { loadPrintData, type PrintData } from '@/lib/process-store';
-import { saveProcessState, loadProcessState } from '@/lib/process-store'; // Added save and load
+import { saveProcessState, loadProcessState } from '@/lib/process-store'; 
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -257,12 +257,10 @@ export default function PrintContractPage() {
                 <>
                   {renderDocumentImage(printData.rgAntigoFrenteUrl, 'RG (Antigo) - Frente')}
                   {renderDocumentImage(printData.rgAntigoVersoUrl, 'RG (Antigo) - Verso')}
-                  {renderDocumentImage(printData.rgQrcodeFrenteUrl, 'RG (QRCode) - Frente')}
-                  {renderDocumentImage(printData.rgQrcodeVersoUrl, 'RG (QRCode) - Verso')}
+                  {renderDocumentImage(printData.rgQrcodeDocUrl, 'RG (QRCode)')}
                   {renderDocumentImage(printData.cnhAntigaFrenteUrl, 'CNH (Antiga) - Frente')}
                   {renderDocumentImage(printData.cnhAntigaVersoUrl, 'CNH (Antiga) - Verso')}
-                  {renderDocumentImage(printData.cnhQrcodeFrenteUrl, 'CNH (QRCode) - Frente')}
-                  {renderDocumentImage(printData.cnhQrcodeVersoUrl, 'CNH (QRCode) - Verso')}
+                  {renderDocumentImage(printData.cnhQrcodeDocUrl, 'CNH (QRCode)')}
                 </>
               )}
               {buyerType === 'pj' && (
@@ -294,3 +292,4 @@ export default function PrintContractPage() {
     </>
   );
 }
+

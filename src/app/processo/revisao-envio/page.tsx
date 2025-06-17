@@ -17,7 +17,8 @@ import {
   BuyerInfo,
   CompanyInfo,
   DocumentFile,
-  BuyerType
+  BuyerType,
+  PrintData // Import PrintData
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
@@ -39,26 +40,26 @@ const attemptToPreFillInfo = (
   };
   
   if (processState.buyerType === 'pf') {
-    const rgFrenteData = getAnalysisDataFromDocKey('rgFrente');
-    const cnhFrenteData = getAnalysisDataFromDocKey('cnhFrente');
+    const rgAntigoFrenteData = getAnalysisDataFromDocKey('rgAntigoFrente');
+    const cnhAntigaFrenteData = getAnalysisDataFromDocKey('cnhAntigaFrente');
+    const rgQrcodeData = getAnalysisDataFromDocKey('rgQrcodeDoc');
+    const cnhQrcodeData = getAnalysisDataFromDocKey('cnhQrcodeDoc');
     
-    const docData = rgFrenteData || cnhFrenteData; // Prioritize RG, then CNH
+    const docData = rgAntigoFrenteData || cnhAntigaFrenteData || rgQrcodeData || cnhQrcodeData;
 
     if (docData?.nomeCompleto && !newBuyerInfo.nome) newBuyerInfo.nome = docData.nomeCompleto;
     if (docData?.cpf && !newBuyerInfo.cpf) newBuyerInfo.cpf = docData.cpf;
-    // Email and Telefone are not typically in RG/CNH for AI extraction by current flow
   } else if (processState.buyerType === 'pj' && newCompanyInfo) {
     const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile');
     const docSocioData = getAnalysisDataFromDocKey('docSocioFrente');
 
     if (cartaoCnpjData?.nomeCompleto && !newCompanyInfo.razaoSocial) newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto; 
-    if (cartaoCnpjData?.rg && !newCompanyInfo.cnpj) newCompanyInfo.cnpj = cartaoCnpjData.rg; // AI might put CNPJ in RG field if numeric
+    if (cartaoCnpjData?.rg && !newCompanyInfo.cnpj) newCompanyInfo.cnpj = cartaoCnpjData.rg; 
 
     if (docSocioData?.nomeCompleto && !newBuyerInfo.nome) newBuyerInfo.nome = docSocioData.nomeCompleto;
     if (docSocioData?.cpf && !newBuyerInfo.cpf) newBuyerInfo.cpf = docSocioData.cpf;
   }
 
-  // Fallback to contract data if primary fields are still empty
   const contractData = processState.extractedData;
   if (contractData?.nomesDasPartes) {
     for (let i = 0; i < contractData.nomesDasPartes.length; i++) {
@@ -100,8 +101,6 @@ export default function RevisaoEnvioPage() {
   useEffect(() => {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
-
-    // Always attempt to pre-fill/update buyer and company info from all available sources
     const { buyerInfo: preFilledBuyerInfo, companyInfo: preFilledCompanyInfo } = attemptToPreFillInfo(loadedState);
     setCurrentBuyerInfo(preFilledBuyerInfo);
 
@@ -115,13 +114,11 @@ export default function RevisaoEnvioPage() {
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const updatedBuyerInfo = { ...currentBuyerInfo, [field]: e.target.value };
     setCurrentBuyerInfo(updatedBuyerInfo);
-    // No need to setProcessState here directly as it's derived for saving, currentBuyerInfo is the source of truth for the form
   };
 
   const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
     const updatedCompanyInfo = { ...(currentCompanyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }), [field]: e.target.value };
     setCurrentCompanyInfo(updatedCompanyInfo);
-    // No need to setProcessState here, currentCompanyInfo is the source of truth for the form
   };
 
 
@@ -165,15 +162,17 @@ export default function RevisaoEnvioPage() {
   }
 
   const isPrintDisabled = useCallback(() => { 
-    const currentState = processState; // Use a snapshot for this check
+    const currentState = { ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo };
     if (currentState.buyerType === 'pf') {
-        if (!isBuyerInfoComplete(currentBuyerInfo)) return true;
-         const hasRg = currentState.rgFrente && currentState.rgVerso;
-         const hasCnh = currentState.cnhFrente && currentState.cnhVerso;
-        if (! (hasRg || hasCnh) || !currentState.comprovanteEndereco) return true;
+        if (!isBuyerInfoComplete(currentState.buyerInfo)) return true;
+        const hasRgAntigo = currentState.rgAntigoFrente && currentState.rgAntigoVerso;
+        const hasRgQrcode = currentState.rgQrcodeDoc;
+        const hasCnhAntiga = currentState.cnhAntigaFrente && currentState.cnhAntigaVerso;
+        const hasCnhQrcode = currentState.cnhQrcodeDoc;
+        if (!(hasRgAntigo || hasRgQrcode || hasCnhAntiga || hasCnhQrcode) || !currentState.comprovanteEndereco) return true;
     } else { // PJ
-        if (!isCompanyInfoComplete(currentCompanyInfo)) return true;
-        if (!isBuyerInfoComplete(currentBuyerInfo)) return true; // Representative
+        if (!isCompanyInfoComplete(currentState.companyInfo)) return true;
+        if (!isBuyerInfoComplete(currentState.buyerInfo)) return true; // Representative
         if (!currentState.cartaoCnpjFile || !(currentState.docSocioFrente && currentState.docSocioVerso) || !currentState.comprovanteEndereco) return true;
     }
     if (isInternalTeamMemberInfoEmpty(currentState.internalTeamMemberInfo)) return true;
@@ -193,19 +192,30 @@ export default function RevisaoEnvioPage() {
     if (!validatePage()) return;
     
     const finalProcessState = { ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo };
-    if (isPrintDisabled()){ // Call without args to use current state from closure
+    if (isPrintDisabled()){ 
        toast({ title: "Ação Necessária", description: "Complete todas as etapas e informações obrigatórias para preparar a impressão.", variant: "destructive" });
        return;
     }
     
-    savePrintData({ 
+    const printPayload: PrintData = { 
       extractedData: finalProcessState.extractedData, 
       buyerInfo: finalProcessState.buyerInfo,
       companyInfo: finalProcessState.companyInfo,
       buyerType: finalProcessState.buyerType,
       selectedPlayer: finalProcessState.selectedPlayer,
-      internalTeamMemberInfo: finalProcessState.internalTeamMemberInfo
-    });
+      internalTeamMemberInfo: finalProcessState.internalTeamMemberInfo,
+      rgAntigoFrenteUrl: finalProcessState.rgAntigoFrente?.previewUrl,
+      rgAntigoVersoUrl: finalProcessState.rgAntigoVerso?.previewUrl,
+      rgQrcodeDocUrl: finalProcessState.rgQrcodeDoc?.previewUrl,
+      cnhAntigaFrenteUrl: finalProcessState.cnhAntigaFrente?.previewUrl,
+      cnhAntigaVersoUrl: finalProcessState.cnhAntigaVerso?.previewUrl,
+      cnhQrcodeDocUrl: finalProcessState.cnhQrcodeDoc?.previewUrl,
+      cartaoCnpjFileUrl: finalProcessState.cartaoCnpjFile?.previewUrl,
+      docSocioFrenteUrl: finalProcessState.docSocioFrente?.previewUrl,
+      docSocioVersoUrl: finalProcessState.docSocioVerso?.previewUrl,
+      comprovanteEnderecoUrl: finalProcessState.comprovanteEndereco?.previewUrl,
+    };
+    savePrintData(printPayload);
     saveProcessState({ ...finalProcessState, currentStep: "/print-contract" });
     toast({
       title: "Etapa 4 Concluída!",
@@ -216,21 +226,10 @@ export default function RevisaoEnvioPage() {
   };
 
   const handleBack = () => {
-    // Save current form data before navigating back
     saveProcessState({ ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo });
     router.push("/processo/documentos");
   };
 
-/*
-  const displayDocumentStatus = (doc: DocumentFile | null, docName: string) => {
-    if (!doc || !doc.name) return <p className="text-sm text-muted-foreground">{docName}: Não anexado</p>;
-    let status = "";
-    if (doc.analysisResult) {
-      status = (doc.analysisResult as any).error ? "Falha na análise IA" : "Dados da IA disponíveis";
-    }
-    return <p className="text-sm text-foreground/80">{docName}: {doc.name} {status && <span className={`text-xs ml-1 ${ (doc.analysisResult as any).error ? 'text-red-400' : 'text-green-400'}`}>({status})</span>}</p>;
-  };
-*/
 
   return (
     <>
@@ -383,30 +382,6 @@ export default function RevisaoEnvioPage() {
           )}
            <hr className="border-border/30"/>
           
-          {/* 
-          <div className="space-y-1">
-            <h3 className="flex items-center text-lg font-semibold text-primary/90"><Paperclip className="mr-2 h-5 w-5" />Documentos Anexados</h3>
-            {processState.buyerType === 'pf' && (
-              <>
-                {displayDocumentStatus(processState.rgFrente, "RG (Frente)")}
-                {displayDocumentStatus(processState.rgVerso, "RG (Verso)")}
-                {displayDocumentStatus(processState.cnhFrente, "CNH (Frente)")}
-                {displayDocumentStatus(processState.cnhVerso, "CNH (Verso)")}
-              </>
-            )}
-            {processState.buyerType === 'pj' && (
-              <>
-                {displayDocumentStatus(processState.cartaoCnpjFile, "Cartão CNPJ")}
-                {displayDocumentStatus(processState.docSocioFrente, "Doc. Sócio (Frente)")}
-                {displayDocumentStatus(processState.docSocioVerso, "Doc. Sócio (Verso)")}
-              </>
-            )}
-            {displayDocumentStatus(processState.comprovanteEndereco, "Comprovante de Endereço")}
-             {!processState.rgFrente && !processState.cnhFrente && !processState.cartaoCnpjFile && !processState.comprovanteEndereco && (
-                 <p className="text-sm text-muted-foreground">Nenhum documento específico anexado.</p>
-             )}
-          </div>
-           */}
         </CardContent>
       </Card>
       
