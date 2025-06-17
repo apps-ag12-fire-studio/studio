@@ -95,8 +95,8 @@ export const initialStoredProcessState: StoredProcessState = {
   signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v10'; // Incremented version
-const PRINT_DATA_KEY = 'contractPrintData_v7'; // Incremented version
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v10'; 
+const PRINT_DATA_KEY = 'contractPrintData_v7'; 
 
 
 export function saveProcessState(state: StoredProcessState) {
@@ -105,7 +105,7 @@ export function saveProcessState(state: StoredProcessState) {
   } catch (error: any) {
     console.error("Error saving process state to localStorage:", error);
     let description = "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio.";
-    if (error.name === 'QuotaExceededError') {
+    if (error.name === 'QuotaExceededError' || (error.message && error.message.toLowerCase().includes('quota'))) {
       description = "O armazenamento local está cheio. Algumas imagens grandes podem não ter sido salvas. Tente limpar o cache do navegador ou prossiga com cuidado.";
     }
     toast({
@@ -207,3 +207,4 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
+
