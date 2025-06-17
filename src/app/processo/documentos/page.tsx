@@ -71,13 +71,13 @@ export default function DocumentosPage() {
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
     const file = event.target.files?.[0];
     const inputElement = event.target; 
-    console.log(`[${docKey}] handleFileChange: File selected - ${file?.name}`);
+    console.log(`[${docKey}] handleFileChange: File selected - ${file?.name}, Size: ${file?.size}, Type: ${file?.type}`);
 
     if (file) {
       setUploadingDocKey(docKey); 
-      setUploadProgress(prev => ({ ...prev, [docKey]: 0 })); // Initialize progress to 0 to show "Enviando 0%..."
+      setUploadProgress(prev => ({ ...prev, [docKey]: 0 })); 
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
-      console.log(`[${docKey}] Upload initiated for ${file.name}. Current uploadingDocKey: ${docKey}`);
+      console.log(`[${docKey}] Upload initiated for ${file.name}. Current uploadingDocKey: ${docKey}. Progress set to 0.`);
 
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc?.storagePath) {
@@ -95,39 +95,38 @@ export default function DocumentosPage() {
       console.log(`[${docKey}] Generated new file path: ${filePath}`);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
-      console.log(`[${docKey}] Upload task created.`);
+      console.log(`[${docKey}] Firebase upload task created.`);
 
       uploadTask.on('state_changed',
-        (snapshot: UploadTaskSnapshot) => {
+        (snapshot: UploadTaskSnapshot) => { // Next (progress) observer
           const { state, bytesTransferred, totalBytes } = snapshot;
+          console.log(`[${docKey}] Upload state_changed: State: "${state}", Transferred: ${bytesTransferred}, Total: ${totalBytes}`);
+
           let calculatedProgress = 0;
           if (totalBytes > 0) {
             calculatedProgress = (bytesTransferred / totalBytes) * 100;
           }
-          if (state === 'success') { // Firebase reports success before getDownloadURL
-             calculatedProgress = 100;
-          }
-          console.log(`[${docKey}] Upload progress: ${calculatedProgress.toFixed(2)}% (State: ${state}, Transferred: ${bytesTransferred}, Total: ${totalBytes})`);
+          console.log(`[${docKey}] Calculated progress: ${calculatedProgress.toFixed(2)}%`);
           setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(calculatedProgress) }));
         },
-        (error: FirebaseStorageError) => { 
-          console.error(`[${docKey}] Error uploading file to Firebase Storage: Code: ${error.code}, Message: ${error.message}`, error);
+        (error: FirebaseStorageError) => { // Error observer
+          console.error(`[${docKey}] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
           toast({ 
             title: "Erro no Upload", 
-            description: `Não foi possível enviar ${file.name}. (Erro: ${error.code} - ${error.message})`, 
+            description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`, 
             variant: "destructive",
             duration: 7000 
           });
           setUploadingDocKey(null);
-          setUploadProgress(prev => ({ ...prev, [docKey]: null }));
+          setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Clear progress on error
           const newState = { ...processState, [docKey]: null };
           setProcessState(newState);
           saveProcessState(newState);
-          if (inputElement) inputElement.value = "";
-          console.log(`[${docKey}] Upload error, state reset. Current uploadingDocKey: null`);
+          if (inputElement) inputElement.value = ""; // Clear the file input
+          console.log(`[${docKey}] Upload error, state reset. Current uploadingDocKey: null. Input cleared.`);
         },
-        async () => { // Complete callback for uploadTask (upload to Storage successful)
-          console.log(`[${docKey}] Firebase Storage upload successful for ${file.name}. Attempting to get Download URL.`);
+        async () => { // Complete observer
+          console.log(`[${docKey}] Firebase Storage Upload Complete (complete observer triggered for ${file.name}). Snapshot state: ${uploadTask.snapshot.state}. Attempting to get Download URL.`);
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             console.log(`[${docKey}] Download URL obtained: ${downloadURL}`);
@@ -143,23 +142,22 @@ export default function DocumentosPage() {
             setProcessState(newState);
             saveProcessState(newState);
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
-            // Progress should already be 100% from state_changed 'success'
           } catch (error: any) {
             console.error(`[${docKey}] Error getting download URL for ${file.name}:`, error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name} após o upload. (Erro: ${error.message})`, variant: "destructive"});
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
             setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Reset progress visual if this final step fails
-             const newState = { ...processState, [docKey]: { // Keep file name if available, but clear URLs
+             const newState = { ...processState, [docKey]: { 
                 name: processState[docKey]?.name || file.name, 
                 previewUrl: null, 
-                storagePath: filePath, // Keep storage path for potential manual cleanup or retry logic
+                storagePath: filePath, 
                 analysisResult: null
               } as DocumentFile };
             setProcessState(newState);
             saveProcessState(newState);
-            if (inputElement) inputElement.value = ""; // Clear input as the overall operation failed
+            if (inputElement) inputElement.value = ""; 
           } finally {
-            setUploadingDocKey(null);
-            console.log(`[${docKey}] Upload complete callback finished. Current uploadingDocKey: null`);
+            setUploadingDocKey(null); // Ensure this is always reset
+            console.log(`[${docKey}] Upload complete callback finished. Current uploadingDocKey: null.`);
           }
         }
       );
@@ -168,7 +166,7 @@ export default function DocumentosPage() {
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc && inputElement && inputElement.files && inputElement.files.length === 0) {
         console.log(`[${docKey}] File input cleared, removing document.`);
-        removeDocument(docKey); // This will also clear the input ref
+        removeDocument(docKey); 
       }
     }
   };
@@ -201,7 +199,7 @@ export default function DocumentosPage() {
     
     const inputElement = fileInputRefs.current[docKey];
     if (inputElement) {
-        inputElement.value = "";
+        inputElement.value = ""; // Clear the file input's value
         console.log(`[${docKey}] File input element cleared.`);
     }
   };
@@ -405,13 +403,11 @@ export default function DocumentosPage() {
     return (
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
         <Label htmlFor={docKey} className="text-base font-medium text-foreground/90">{label}</Label>
-        {isCurrentlyUploadingThisSlot && (
+        {isCurrentlyUploadingThisSlot && typeof currentUploadPercent === 'number' && (
           <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" /> 
-            <span>{currentUploadPercent === null || typeof currentUploadPercent === 'undefined' ? 'Preparando envio...' : `Enviando ${currentUploadPercent}%...`}</span>
-            {(currentUploadPercent !== null && typeof currentUploadPercent !== 'undefined') && (
-              <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
-            )}
+            <span>Enviando {currentUploadPercent}%...</span>
+            <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
           </div>
         )}
         {displayPreviewUrl && !isPdf && !isCurrentlyUploadingThisSlot && (
@@ -638,6 +634,7 @@ export default function DocumentosPage() {
     </>
   );
 }
-
     
+    
+
     

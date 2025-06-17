@@ -73,13 +73,13 @@ export default function FotoContratoAssinadoPage() {
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log(`[FotoContratoAssinado] handlePhotoChange: File selected - ${file?.name}`);
+    console.log(`[FotoContratoAssinado] handlePhotoChange: File selected - ${file?.name}, Size: ${file?.size}, Type: ${file?.type}`);
 
     if (file) {
       setIsUploadingSignedContract(true);
-      setSignedContractUploadProgress(0); // Initialize progress to 0
+      setSignedContractUploadProgress(0); 
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
-      console.log(`[FotoContratoAssinado] Upload initiated for ${file.name}. isUploadingSignedContract: true`);
+      console.log(`[FotoContratoAssinado] Upload initiated for ${file.name}. isUploadingSignedContract: true. Progress set to 0.`);
 
       if (processState.signedContractPhotoStoragePath) {
         console.log(`[FotoContratoAssinado] Deleting old signed contract photo from storage: ${processState.signedContractPhotoStoragePath}`);
@@ -96,41 +96,40 @@ export default function FotoContratoAssinadoPage() {
       console.log(`[FotoContratoAssinado] Generated new file path: ${filePath}`);
       const fileRef = storageRef(firebaseStorage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
-      console.log(`[FotoContratoAssinado] Upload task created.`);
+      console.log(`[FotoContratoAssinado] Firebase upload task created.`);
       
       uploadTask.on('state_changed',
-        (snapshot: UploadTaskSnapshot) => {
+        (snapshot: UploadTaskSnapshot) => { // Next (progress) observer
           const { state, bytesTransferred, totalBytes } = snapshot;
+          console.log(`[FotoContratoAssinado] Upload state_changed: State: "${state}", Transferred: ${bytesTransferred}, Total: ${totalBytes}`);
+          
           let calculatedProgress = 0;
           if (totalBytes > 0) {
             calculatedProgress = (bytesTransferred / totalBytes) * 100;
           }
-           if (state === 'success') {
-             calculatedProgress = 100;
-          }
-          console.log(`[FotoContratoAssinado] Upload progress: ${calculatedProgress.toFixed(2)}% (State: ${state}, Transferred: ${bytesTransferred}, Total: ${totalBytes})`);
+          console.log(`[FotoContratoAssinado] Calculated progress: ${calculatedProgress.toFixed(2)}%`);
           setSignedContractUploadProgress(Math.round(calculatedProgress));
         },
-        (error: FirebaseStorageError) => {
-          console.error(`[FotoContratoAssinado] Error uploading signed contract photo: Code: ${error.code}, Message: ${error.message}`, error);
+        (error: FirebaseStorageError) => { // Error observer
+          console.error(`[FotoContratoAssinado] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
           toast({ 
             title: "Erro no Upload", 
-            description: `Não foi possível enviar a foto do contrato assinado. (Erro: ${error.code} - ${error.message})`, 
+            description: `Não foi possível enviar a foto do contrato assinado. (Erro: ${error.code})`, 
             variant: "destructive",
             duration: 7000
           });
           setIsUploadingSignedContract(false);
-          setSignedContractUploadProgress(null);
+          setSignedContractUploadProgress(null); // Clear progress on error
           if (photoInputRef.current) {
-              photoInputRef.current.value = "";
+              photoInputRef.current.value = ""; // Clear the file input
           }
           const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: undefined, signedContractPhotoStoragePath: null};
           setProcessState(newState);
           saveProcessState(newState);
-          console.log(`[FotoContratoAssinado] Upload error, state reset. isUploadingSignedContract: false`);
+          console.log(`[FotoContratoAssinado] Upload error, state reset. isUploadingSignedContract: false. Input cleared.`);
         },
-        async () => { // Complete callback
-          console.log(`[FotoContratoAssinado] Firebase Storage upload successful for ${file.name}. Attempting to get Download URL.`);
+        async () => { // Complete observer
+          console.log(`[FotoContratoAssinado] Firebase Storage Upload Complete (complete observer triggered for ${file.name}). Snapshot state: ${uploadTask.snapshot.state}. Attempting to get Download URL.`);
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref); 
             console.log(`[FotoContratoAssinado] Download URL obtained: ${downloadURL}`);
@@ -147,12 +146,12 @@ export default function FotoContratoAssinadoPage() {
             console.error("[FotoContratoAssinado] Error getting download URL for signed contract photo:", error);
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name} após o upload. (Erro: ${error.message})`, variant: "destructive"});
             setSignedContractUploadProgress(null); 
-            const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: file.name, signedContractPhotoStoragePath: filePath}; // Keep name and path
+            const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: file.name, signedContractPhotoStoragePath: filePath};
             setProcessState(newState);
             saveProcessState(newState);
             if (photoInputRef.current) photoInputRef.current.value = "";
           } finally {
-            setIsUploadingSignedContract(false);
+            setIsUploadingSignedContract(false); // Ensure this is always reset
             console.log(`[FotoContratoAssinado] Upload complete callback finished. isUploadingSignedContract: false`);
           }
         }
@@ -332,15 +331,13 @@ export default function FotoContratoAssinadoPage() {
             </div>
             <p id="signed-contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.signedContractPhotoName && `Atual: ${processState.signedContractPhotoName}`}</p>
           </div>
-          {isUploadingSignedContract && (
+          {isUploadingSignedContract && typeof signedContractUploadProgress === 'number' && (
              <div className="mt-4 space-y-2">
                 <div className="flex items-center space-x-2 text-primary">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>{signedContractUploadProgress === null || typeof signedContractUploadProgress === 'undefined' ? 'Preparando envio...' : `Enviando ${signedContractUploadProgress}%...`}</span>
+                    <span>Enviando {signedContractUploadProgress}%...</span>
                 </div>
-                {(signedContractUploadProgress !== null && typeof signedContractUploadProgress !== 'undefined') && (
-                  <Progress value={signedContractUploadProgress} className="w-full h-2 bg-primary/20" />
-                )}
+                <Progress value={signedContractUploadProgress} className="w-full h-2 bg-primary/20" />
             </div>
           )}
           {processState.signedContractPhotoPreview && !isUploadingSignedContract && (
@@ -386,6 +383,7 @@ export default function FotoContratoAssinadoPage() {
     </>
   );
 }
-
     
+    
+
     
