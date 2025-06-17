@@ -104,8 +104,6 @@ const PRINT_DATA_KEY = 'contractPrintData_v8_firebase_storage';
 export function saveProcessState(state: StoredProcessState) {
   try {
     const stateToSave = { ...state };
-    // Ensure File objects are not stored in localStorage
-    // This should not be an issue anymore as we are storing URLs
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(stateToSave));
   } catch (error: any) {
     console.error("Error saving process state to localStorage:", error);
@@ -153,8 +151,6 @@ export function loadProcessState(): StoredProcessState {
 
 export function clearProcessState() {
   try {
-    // Note: Implement deletion of files from Firebase Storage here if needed when clearing state.
-    // For now, it just clears localStorage.
     localStorage.removeItem(PROCESS_STATE_KEY);
     localStorage.removeItem(PRINT_DATA_KEY);
   } catch (error) {
@@ -180,7 +176,6 @@ export interface PrintData {
   docSocioVersoUrl?: string | null;
   
   comprovanteEnderecoUrl?: string | null;
-  // signedContractPhotoUrl is not typically part of pre-signed print data
 }
 
 
@@ -214,3 +209,4 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
+
