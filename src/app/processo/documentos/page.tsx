@@ -71,45 +71,36 @@ export default function DocumentosPage() {
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
     const file = event.target.files?.[0];
     const inputElement = event.target; 
-    console.log(`[${docKey}] handleFileChange: File selected - ${file?.name}, Size: ${file?.size}, Type: ${file?.type}`);
 
     if (file) {
       setUploadingDocKey(docKey); 
       setUploadProgress(prev => ({ ...prev, [docKey]: 0 })); 
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
-      console.log(`[${docKey}] Upload initiated for ${file.name}. Current uploadingDocKey: ${docKey}. Progress set to 0.`);
 
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc?.storagePath) {
-        console.log(`[${docKey}] Deleting old file from storage: ${currentDoc.storagePath}`);
         try {
           const oldFileRef = storageRef(storage, currentDoc.storagePath);
           await deleteObject(oldFileRef);
-          console.log(`[${docKey}] Old file deleted successfully.`);
         } catch (deleteError) {
           console.warn(`[${docKey}] Could not delete old file from Firebase Storage:`, deleteError);
         }
       }
 
       const filePath = generateUniqueFileName(file, docKey);
-      console.log(`[${docKey}] Generated new file path: ${filePath}`);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
-      console.log(`[${docKey}] Firebase upload task created.`);
 
       uploadTask.on('state_changed',
-        (snapshot: UploadTaskSnapshot) => { // Next (progress) observer
-          const { state, bytesTransferred, totalBytes } = snapshot;
-          console.log(`[${docKey}] Upload state_changed: State: "${state}", Transferred: ${bytesTransferred}, Total: ${totalBytes}`);
-
+        (snapshot: UploadTaskSnapshot) => { 
+          const { bytesTransferred, totalBytes } = snapshot;
           let calculatedProgress = 0;
           if (totalBytes > 0) {
             calculatedProgress = (bytesTransferred / totalBytes) * 100;
           }
-          console.log(`[${docKey}] Calculated progress: ${calculatedProgress.toFixed(2)}%`);
           setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(calculatedProgress) }));
         },
-        (error: FirebaseStorageError) => { // Error observer
+        (error: FirebaseStorageError) => { 
           console.error(`[${docKey}] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
           toast({ 
             title: "Erro no Upload", 
@@ -118,18 +109,15 @@ export default function DocumentosPage() {
             duration: 7000 
           });
           setUploadingDocKey(null);
-          setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Clear progress on error
+          setUploadProgress(prev => ({ ...prev, [docKey]: null })); 
           const newState = { ...processState, [docKey]: null };
           setProcessState(newState);
           saveProcessState(newState);
-          if (inputElement) inputElement.value = ""; // Clear the file input
-          console.log(`[${docKey}] Upload error, state reset. Current uploadingDocKey: null. Input cleared.`);
+          if (inputElement) inputElement.value = ""; 
         },
-        async () => { // Complete observer
-          console.log(`[${docKey}] Firebase Storage Upload Complete (complete observer triggered for ${file.name}). Snapshot state: ${uploadTask.snapshot.state}. Attempting to get Download URL.`);
+        async () => { 
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            console.log(`[${docKey}] Download URL obtained: ${downloadURL}`);
             const newState = {
               ...processState,
               [docKey]: {
@@ -145,7 +133,7 @@ export default function DocumentosPage() {
           } catch (error: any) {
             console.error(`[${docKey}] Error getting download URL for ${file.name}:`, error);
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
-            setUploadProgress(prev => ({ ...prev, [docKey]: null })); // Reset progress visual if this final step fails
+            setUploadProgress(prev => ({ ...prev, [docKey]: null })); 
              const newState = { ...processState, [docKey]: { 
                 name: processState[docKey]?.name || file.name, 
                 previewUrl: null, 
@@ -156,31 +144,25 @@ export default function DocumentosPage() {
             saveProcessState(newState);
             if (inputElement) inputElement.value = ""; 
           } finally {
-            setUploadingDocKey(null); // Ensure this is always reset
-            console.log(`[${docKey}] Upload complete callback finished. Current uploadingDocKey: null.`);
+            setUploadingDocKey(null); 
           }
         }
       );
     } else {
-      console.log(`[${docKey}] handleFileChange: No file selected or file removed.`);
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc && inputElement && inputElement.files && inputElement.files.length === 0) {
-        console.log(`[${docKey}] File input cleared, removing document.`);
         removeDocument(docKey); 
       }
     }
   };
 
   const removeDocument = async (docKey: DocumentSlotKey) => {
-    console.log(`[${docKey}] removeDocument called.`);
     const currentDoc = processState[docKey] as DocumentFile | null;
     if (currentDoc?.storagePath) {
-      console.log(`[${docKey}] Attempting to delete from storage: ${currentDoc.storagePath}`);
       try {
         const fileToDeleteRef = storageRef(storage, currentDoc.storagePath);
         await deleteObject(fileToDeleteRef);
         toast({ title: "Arquivo Removido", description: `${currentDoc.name} removido do servidor.`, className: "bg-orange-500 text-white border-orange-600" });
-        console.log(`[${docKey}] File deleted from storage.`);
       } catch (error: any) {
         console.error(`[${docKey}] Error deleting file ${currentDoc.storagePath} from Firebase Storage:`, error);
         toast({ title: "Erro ao Remover Arquivo", description: `Não foi possível remover ${currentDoc.name} do servidor. (Erro: ${error.message}) Ele será removido apenas da listagem local.`, variant: "destructive"});
@@ -190,22 +172,18 @@ export default function DocumentosPage() {
     const newState = { ...processState, [docKey]: null };
     if(uploadingDocKey === docKey) { 
         setUploadingDocKey(null);
-        console.log(`[${docKey}] Was uploading, set uploadingDocKey to null.`);
     }
     setUploadProgress(prev => ({...prev, [docKey]: null}));
     setProcessState(newState);
     saveProcessState(newState);
-    console.log(`[${docKey}] Document removed from state.`);
     
     const inputElement = fileInputRefs.current[docKey];
     if (inputElement) {
-        inputElement.value = ""; // Clear the file input's value
-        console.log(`[${docKey}] File input element cleared.`);
+        inputElement.value = ""; 
     }
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
-    console.log(`[${docKey}] handleAnalyzeDocument called.`);
     const currentDocInState = processState[docKey] as DocumentFile | null;
     const photoDownloadUrl = currentDocInState?.previewUrl; 
     const docName = currentDocInState?.name;
@@ -213,15 +191,12 @@ export default function DocumentosPage() {
     if (!photoDownloadUrl) {
       toast({ title: "Arquivo não encontrado", description: "Carregue um arquivo para ser analisado.", variant: "destructive"});
       setAnalyzingDocKey(null);
-      console.log(`[${docKey}] Analysis aborted: No photoDownloadUrl.`);
       return;
     }
 
     setAnalyzingDocKey(docKey);
-    console.log(`[${docKey}] Analysis started for ${docName}. AnalyzingDocKey: ${docKey}`);
     try {
       const result = await extractBuyerDocumentData({ photoDataUri: photoDownloadUrl }); 
-      console.log(`[${docKey}] AI Analysis result:`, result);
       
       const newState = {
         ...processState,
@@ -264,7 +239,6 @@ export default function DocumentosPage() {
       });
     } finally {
       setAnalyzingDocKey(null);
-      console.log(`[${docKey}] Analysis finished. AnalyzingDocKey: null.`);
     }
   };
   
@@ -635,6 +609,8 @@ export default function DocumentosPage() {
   );
 }
     
+    
+
     
 
     

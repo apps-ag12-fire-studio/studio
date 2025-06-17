@@ -43,44 +43,35 @@ export default function FotoContratoPage() {
 
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log(`[FotoContrato] handleContractPhotoChange: File selected - ${file?.name}, Size: ${file?.size}, Type: ${file?.type}`);
 
     if (file) {
       setIsUploadingContractPhoto(true);
       setContractPhotoUploadProgress(0); 
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
-      console.log(`[FotoContrato] Upload initiated for ${file.name}. isUploadingContractPhoto: true. Progress set to 0.`);
 
       if (processState.contractPhotoStoragePath) {
-        console.log(`[FotoContrato] Deleting old contract photo from storage: ${processState.contractPhotoStoragePath}`);
         try {
           const oldPhotoRef = storageRef(storage, processState.contractPhotoStoragePath);
           await deleteObject(oldPhotoRef);
-          console.log(`[FotoContrato] Old contract photo deleted successfully.`);
         } catch (deleteError) {
           console.warn("[FotoContrato] Could not delete old contract photo from Firebase Storage:", deleteError);
         }
       }
       
       const filePath = generateUniqueFileName(file, 'original_contracts');
-      console.log(`[FotoContrato] Generated new file path: ${filePath}`);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
-      console.log(`[FotoContrato] Firebase upload task created.`);
 
       uploadTask.on('state_changed',
-        (snapshot: UploadTaskSnapshot) => { // Next (progress) observer
-          const { state, bytesTransferred, totalBytes } = snapshot;
-          console.log(`[FotoContrato] Upload state_changed: State: "${state}", Transferred: ${bytesTransferred}, Total: ${totalBytes}`);
-          
+        (snapshot: UploadTaskSnapshot) => { 
+          const { bytesTransferred, totalBytes } = snapshot;
           let calculatedProgress = 0;
           if (totalBytes > 0) {
             calculatedProgress = (bytesTransferred / totalBytes) * 100;
           }
-          console.log(`[FotoContrato] Calculated progress: ${calculatedProgress.toFixed(2)}%`);
           setContractPhotoUploadProgress(Math.round(calculatedProgress));
         },
-        (error: FirebaseStorageError) => { // Error observer
+        (error: FirebaseStorageError) => { 
           console.error(`[FotoContrato] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
           toast({ 
             title: "Erro no Upload", 
@@ -89,20 +80,17 @@ export default function FotoContratoPage() {
             duration: 7000
           });
           setIsUploadingContractPhoto(false);
-          setContractPhotoUploadProgress(null); // Clear progress on error
+          setContractPhotoUploadProgress(null); 
           if (contractPhotoInputRef.current) {
-            contractPhotoInputRef.current.value = ""; // Clear the file input
+            contractPhotoInputRef.current.value = ""; 
           }
           const newState = {...processState, contractPhotoPreview: null, contractPhotoName: undefined, contractPhotoStoragePath: null, photoVerified: false, photoVerificationResult: null, extractedData: null};
           setProcessState(newState);
           saveProcessState(newState);
-          console.log(`[FotoContrato] Upload error, state reset. isUploadingContractPhoto: false. Input cleared.`);
         },
-        async () => { // Complete observer
-          console.log(`[FotoContrato] Firebase Storage Upload Complete (complete observer triggered for ${file.name}). Snapshot state: ${uploadTask.snapshot.state}. Attempting to get Download URL.`);
+        async () => { 
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            console.log(`[FotoContrato] Download URL obtained: ${downloadURL}`);
             const newState = {
               ...processState,
               contractPhotoPreview: downloadURL,
@@ -116,7 +104,7 @@ export default function FotoContratoPage() {
             saveProcessState(newState);
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
-            console.error(`[FotoContrato] Error getting download URL for contract photo:`, error);
+            console.error("[FotoContrato] Error getting download URL for contract photo:", error);
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
             setContractPhotoUploadProgress(null); 
              const newState = {...processState, contractPhotoPreview: null, contractPhotoName: file.name, contractPhotoStoragePath: filePath, photoVerified: false, photoVerificationResult: null, extractedData: null}; 
@@ -124,13 +112,11 @@ export default function FotoContratoPage() {
             saveProcessState(newState);
             if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
           } finally {
-            setIsUploadingContractPhoto(false); // Ensure this is always reset
-            console.log(`[FotoContrato] Upload complete callback finished. isUploadingContractPhoto: false`);
+            setIsUploadingContractPhoto(false); 
           }
         }
       );
     } else {
-      console.log(`[FotoContrato] handleContractPhotoChange: No file selected.`);
        if (contractPhotoInputRef.current) {
           contractPhotoInputRef.current.value = "";
       }
@@ -141,18 +127,14 @@ export default function FotoContratoPage() {
   };
 
   const handleVerifyPhoto = async () => {
-    console.log(`[FotoContrato] handleVerifyPhoto called.`);
     if (!processState.contractPhotoPreview) {
       toast({ title: "Verificação Necessária", description: "Por favor, carregue a foto do contrato.", variant: "destructive" });
-      console.log(`[FotoContrato] Verification aborted: No contractPhotoPreview.`);
       return;
     }
     setIsVerifyingPhoto(true);
-    console.log(`[FotoContrato] Verification started. isVerifyingPhoto: true`);
     
     try {
       const result = await verifyContractPhoto({ photoDataUri: processState.contractPhotoPreview });
-      console.log(`[FotoContrato] AI Verification result:`, result);
       const newState = {
         ...processState,
         photoVerificationResult: result,
@@ -182,29 +164,23 @@ export default function FotoContratoPage() {
       toast({ title: "Erro na Verificação com IA", description: `Não foi possível concluir a verificação da foto. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsVerifyingPhoto(false);
-      console.log(`[FotoContrato] Verification finished. isVerifyingPhoto: false`);
     }
   };
 
   const handleExtractContractData = async () => {
-    console.log(`[FotoContrato] handleExtractContractData called.`);
     if (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified)) {
       toast({ title: "Ação Requerida", description: "Carregue e verifique a foto do contrato antes da análise.", variant: "destructive" });
-      console.log(`[FotoContrato] Extraction aborted: Photo not uploaded/verified.`);
       return;
     }
      if (processState.contractSourceType === 'new' && !processState.contractPhotoPreview) {
       toast({ title: "Foto não encontrada", description: "Carregue a foto do contrato para análise.", variant: "destructive" });
-      console.log(`[FotoContrato] Extraction aborted: No contractPhotoPreview.`);
       return;
     }
 
     setIsExtractingData(true);
-    console.log(`[FotoContrato] Extraction started. isExtractingData: true`);
     try {
       if (processState.contractSourceType === 'new' && processState.contractPhotoPreview) {
          const result = await extractContractData({ photoDataUri: processState.contractPhotoPreview });
-         console.log(`[FotoContrato] AI Extraction result:`, result);
          const newState = {
            ...processState,
            extractedData: result,
@@ -225,7 +201,6 @@ export default function FotoContratoPage() {
       toast({ title: "Erro na Análise do Contrato", description: `Não foi possível extrair os dados com IA. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsExtractingData(false);
-      console.log(`[FotoContrato] Extraction finished. isExtractingData: false`);
     }
   };
   
@@ -439,6 +414,8 @@ export default function FotoContratoPage() {
   );
 }
     
+    
+
     
 
     
