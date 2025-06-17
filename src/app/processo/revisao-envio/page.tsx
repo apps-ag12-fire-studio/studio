@@ -101,27 +101,14 @@ export default function RevisaoEnvioPage() {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
 
-    const isBuyerInfoEffectivelyInitial = 
-        !loadedState.buyerInfo.nome && 
-        !loadedState.buyerInfo.cpf &&
-        !loadedState.buyerInfo.email &&
-        !loadedState.buyerInfo.telefone;
+    // Always attempt to pre-fill/update buyer and company info from all available sources
+    const { buyerInfo: preFilledBuyerInfo, companyInfo: preFilledCompanyInfo } = attemptToPreFillInfo(loadedState);
+    setCurrentBuyerInfo(preFilledBuyerInfo);
 
-    const isCompanyInfoEffectivelyInitial = 
-        loadedState.buyerType === 'pj' && 
-        (!loadedState.companyInfo || (!loadedState.companyInfo.razaoSocial && !loadedState.companyInfo.cnpj));
-
-    if (isBuyerInfoEffectivelyInitial || (loadedState.buyerType === 'pj' && isCompanyInfoEffectivelyInitial)) {
-      const { buyerInfo: preFilledBuyerInfo, companyInfo: preFilledCompanyInfo } = attemptToPreFillInfo(loadedState);
-      setCurrentBuyerInfo(preFilledBuyerInfo);
-      if (loadedState.buyerType === 'pj') {
-        setCurrentCompanyInfo(preFilledCompanyInfo);
-      } else {
-        setCurrentCompanyInfo(null);
-      }
+    if (loadedState.buyerType === 'pj') {
+      setCurrentCompanyInfo(preFilledCompanyInfo);
     } else {
-      setCurrentBuyerInfo(loadedState.buyerInfo);
-      setCurrentCompanyInfo(loadedState.companyInfo);
+      setCurrentCompanyInfo(null);
     }
   }, []); 
   
