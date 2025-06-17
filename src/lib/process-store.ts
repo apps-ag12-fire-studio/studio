@@ -4,7 +4,7 @@
 import type { VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { toast } from '@/hooks/use-toast'; // Import useToast
+import { toast } from '@/hooks/use-toast';
 
 export interface BuyerInfo {
   nome: string;
@@ -27,6 +27,8 @@ export interface CompanyInfo {
   cnpj: string;
 }
 
+export type PfDocumentType = 'rgAntigo' | 'rgQrcode' | 'cnhAntiga' | 'cnhQrcode';
+
 // StoredProcessState holds data that is JSON serializable for localStorage
 export interface StoredProcessState {
   currentStep: string;
@@ -39,11 +41,15 @@ export interface StoredProcessState {
   companyInfo: CompanyInfo | null; // For PJ
   internalTeamMemberInfo: BuyerInfo;
 
-  // Pessoa Física specific documents
-  rgFrente: DocumentFile | null;
-  rgVerso: DocumentFile | null;
-  cnhFrente: DocumentFile | null;
-  cnhVerso: DocumentFile | null;
+  // Pessoa Física specific documents - Granular
+  rgAntigoFrente: DocumentFile | null;
+  rgAntigoVerso: DocumentFile | null;
+  rgQrcodeFrente: DocumentFile | null;
+  rgQrcodeVerso: DocumentFile | null;
+  cnhAntigaFrente: DocumentFile | null;
+  cnhAntigaVerso: DocumentFile | null;
+  cnhQrcodeFrente: DocumentFile | null;
+  cnhQrcodeVerso: DocumentFile | null;
   
   // Pessoa Jurídica specific documents
   cartaoCnpjFile: DocumentFile | null;
@@ -74,10 +80,15 @@ export const initialStoredProcessState: StoredProcessState = {
   companyInfo: null,
   internalTeamMemberInfo: { nome: '', cpf: '', telefone: '', email: '' },
 
-  rgFrente: null,
-  rgVerso: null,
-  cnhFrente: null,
-  cnhVerso: null,
+  rgAntigoFrente: null,
+  rgAntigoVerso: null,
+  rgQrcodeFrente: null,
+  rgQrcodeVerso: null,
+  cnhAntigaFrente: null,
+  cnhAntigaVerso: null,
+  cnhQrcodeFrente: null,
+  cnhQrcodeVerso: null,
+
   cartaoCnpjFile: null,
   docSocioFrente: null,
   docSocioVerso: null,
@@ -92,8 +103,8 @@ export const initialStoredProcessState: StoredProcessState = {
   signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v6';
-const PRINT_DATA_KEY = 'contractPrintData_v3';
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v7'; // Incremented version due to new fields
+const PRINT_DATA_KEY = 'contractPrintData_v4'; // Incremented version
 
 
 export function saveProcessState(state: StoredProcessState) {
@@ -101,7 +112,6 @@ export function saveProcessState(state: StoredProcessState) {
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(state));
   } catch (error) {
     console.error("Error saving process state to localStorage:", error);
-    // Attempt to notify the user if saving fails (e.g., quota exceeded)
     toast({
       title: "Erro ao Salvar Progresso",
       description: "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio.",
@@ -156,7 +166,24 @@ export interface PrintData {
   buyerType: BuyerType;
   selectedPlayer: string | null;
   internalTeamMemberInfo: BuyerInfo | null;
+  // PF Documents for printing
+  rgAntigoFrenteUrl?: string | null;
+  rgAntigoVersoUrl?: string | null;
+  rgQrcodeFrenteUrl?: string | null;
+  rgQrcodeVersoUrl?: string | null;
+  cnhAntigaFrenteUrl?: string | null;
+  cnhAntigaVersoUrl?: string | null;
+  cnhQrcodeFrenteUrl?: string | null;
+  cnhQrcodeVersoUrl?: string | null;
+  // PJ Documents
+  cartaoCnpjFileUrl?: string | null;
+  docSocioFrenteUrl?: string | null;
+  docSocioVersoUrl?: string | null;
+  // Common
+  comprovanteEnderecoUrl?: string | null;
+  signedContractPhotoUrl?: string | null;
 }
+
 
 export function savePrintData(data: PrintData) {
   try {
@@ -187,4 +214,3 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
-

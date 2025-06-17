@@ -3,11 +3,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Printer, Loader2, FilePenLine } from 'lucide-react'; 
-import { loadPrintData, type PrintData, saveProcessState, loadProcessState, BuyerType } from '@/lib/process-store';
+import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react'; 
+import { loadPrintData, type PrintData } from '@/lib/process-store';
+import { saveProcessState, loadProcessState } from '@/lib/process-store'; // Added save and load
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -39,6 +41,26 @@ export default function PrintContractPage() {
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push('/processo/foto-contrato-assinado');
+  };
+
+  const renderDocumentImage = (url: string | null | undefined, label: string) => {
+    if (!url) return null;
+    if (url.startsWith('data:application/pdf')) {
+      return (
+        <div className="mb-4 p-2 border border-dashed border-border text-center text-sm text-muted-foreground">
+          <FilePenLine className="h-8 w-8 mx-auto mb-1 text-primary" />
+          {label} (PDF) - Conteúdo de PDFs não é exibido na pré-visualização, mas será incluído se o navegador suportar a impressão de data URIs de PDF.
+        </div>
+      );
+    }
+    return (
+      <div className="mb-6 document-to-print" style={{ pageBreakInside: 'avoid' }}>
+        <p className="font-semibold text-center text-muted-foreground mb-2 print:text-xs">{label}</p>
+        <div className="relative w-full aspect-[7/10] mx-auto border border-border/50 rounded overflow-hidden bg-muted/10 print:aspect-auto print:h-[calc(100vh/2.2)] print:w-auto print:max-w-full print:border-none print:shadow-none">
+          <Image src={url} alt={label} layout="fill" objectFit="contain" />
+        </div>
+      </div>
+    );
   };
 
 
@@ -99,7 +121,6 @@ export default function PrintContractPage() {
         </>
       );
     }
-    // Pessoa Física
     return (
       <>
         <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA FÍSICA):</p>
@@ -114,6 +135,16 @@ export default function PrintContractPage() {
 
   return (
     <>
+      <style jsx global>{`
+        @media print {
+          .document-to-print {
+            page-break-before: always !important;
+          }
+          .no-page-break-after {
+            page-break-after: avoid !important;
+          }
+        }
+      `}</style>
       <header className="text-center py-8 print-hidden">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
@@ -122,16 +153,16 @@ export default function PrintContractPage() {
           Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
         </p>
         <p className="text-xl text-muted-foreground font-headline">
-          Passo 5: Impressão do Contrato
+          Passo 5: Impressão do Contrato e Documentos
         </p>
       </header>
       <div className="flex min-h-screen flex-col items-center justify-start bg-background text-foreground p-6 sm:p-12 print-only-flex-col">
         <div className="w-full max-w-3xl space-y-8">
           <div className="print-hidden text-center mb-6">
-              <h1 className="text-3xl font-headline text-primary text-glow-gold">Pré-visualização do Contrato</h1>
-              <p className="text-muted-foreground mt-2">Este documento está pronto para impressão. Após imprimir e assinar, anexe a foto do contrato assinado.</p>
+              <h1 className="text-3xl font-headline text-primary text-glow-gold">Pré-visualização do Contrato e Documentos</h1>
+              <p className="text-muted-foreground mt-2">Este conjunto está pronto para impressão. Após imprimir e assinar, anexe a foto do contrato assinado.</p>
           </div>
-          <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
+          <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area no-page-break-after">
             <CardHeader className="border-b border-border/50 pb-4 p-6">
               <CardTitle className="text-xl sm:text-2xl font-headline text-primary text-center uppercase tracking-wider">
                 Contrato de Compra de Produto Digital
@@ -158,25 +189,17 @@ export default function PrintContractPage() {
               </div>
 
               <p>Têm entre si justo e contratado o seguinte:</p>
-
               <hr className="my-4 border-border/30"/>
-
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">1. OBJETO DO CONTRATO</h3>
               <p className="pl-4">1.1. O presente contrato tem por objeto a aquisição do produto digital denominado: <strong>{extractedData?.objetoDoContrato || '[NOME DO PRODUTO DIGITAL]'}</strong>, de autoria de {selectedPlayer || 'Pablo Marçal'} (ou empresa representante), disponibilizado via acesso online, conforme especificações detalhadas na oferta do produto.</p>
-
               <hr className="my-4 border-border/30"/>
-
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">2. VALOR E CONDIÇÕES DE PAGAMENTO</h3>
               <p className="pl-4">2.1. O valor total para a aquisição do produto digital é de <strong>{extractedData?.valorPrincipal || 'R$ [VALOR TOTAL]'}</strong>.</p>
               <p className="pl-4">2.2. Forma de Pagamento: {extractedData?.condicoesDePagamento ? extractedData.condicoesDePagamento : 'Conforme selecionado pelo COMPRADOR no ato da compra.'}</p>
-              
               <hr className="my-4 border-border/30"/>
-
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">3. ACESSO E ENTREGA</h3>
               <p className="pl-4">3.1. O produto será entregue digitalmente, com as credenciais e instruções de acesso enviadas para o e-mail cadastrado pelo COMPRADOR.</p>
               <p className="pl-4">3.2. O prazo de acesso ao conteúdo do produto é de {extractedData?.prazoContrato || '[PRAZO DE ACESSO]'} a contar da data de liberação do acesso.</p>
-
-              {/* Remaining clauses from original template */}
               <hr className="my-4 border-border/30"/>
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">4. DIREITOS E RESPONSABILIDADES</h3>
               <p className="pl-4">4.1. O COMPRADOR compromete-se a utilizar o conteúdo exclusivamente para fins pessoais e intransferíveis, sendo vedada a reprodução, cópia, distribuição, ou comercialização do material sem autorização expressa e por escrito do VENDEDOR.</p>
@@ -190,11 +213,8 @@ export default function PrintContractPage() {
               {extractedData?.outrasObservacoesRelevantes && (
                   <p className="pl-4 mt-2"><strong>Observações Adicionais:</strong> {extractedData.outrasObservacoesRelevantes}</p>
               )}
-              
               <hr className="my-6 border-border/30"/>
-
               <p className="text-center mt-8 text-muted-foreground">{extractedData?.localEDataAssinatura || '[Local], [Data]'}</p>
-              
               <div className="mt-12 space-y-10">
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
                    <p className="text-sm min-h-[1.25rem]">
@@ -208,7 +228,6 @@ export default function PrintContractPage() {
                    <p className="text-xs text-muted-foreground">(VENDEDOR - Representante Legal {selectedPlayer ? `- ${selectedPlayer}`: ''})</p>
                 </div>
               </div>
-
               <hr className="my-6 border-border/30"/>
               <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide text-center">TESTEMUNHAS</h3>
               <div className="mt-8 space-y-10">
@@ -223,13 +242,43 @@ export default function PrintContractPage() {
                    <p className="text-xs text-muted-foreground">CPF: [CPF DA SEGUNDA TESTEMUNHA]</p>
                 </div>
               </div>
-              
             </CardContent>
           </Card>
           
+          {/* Documentos do Comprador */}
+          <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
+            <CardHeader className="border-b border-border/50 pb-4 p-6">
+              <CardTitle className="text-xl sm:text-2xl font-headline text-primary text-center uppercase tracking-wider">
+                <ImageIcon className="inline-block mr-2 h-6 w-6" /> Anexos - Documentos do Comprador
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 sm:p-8 space-y-4">
+              {buyerType === 'pf' && (
+                <>
+                  {renderDocumentImage(printData.rgAntigoFrenteUrl, 'RG (Antigo) - Frente')}
+                  {renderDocumentImage(printData.rgAntigoVersoUrl, 'RG (Antigo) - Verso')}
+                  {renderDocumentImage(printData.rgQrcodeFrenteUrl, 'RG (QRCode) - Frente')}
+                  {renderDocumentImage(printData.rgQrcodeVersoUrl, 'RG (QRCode) - Verso')}
+                  {renderDocumentImage(printData.cnhAntigaFrenteUrl, 'CNH (Antiga) - Frente')}
+                  {renderDocumentImage(printData.cnhAntigaVersoUrl, 'CNH (Antiga) - Verso')}
+                  {renderDocumentImage(printData.cnhQrcodeFrenteUrl, 'CNH (QRCode) - Frente')}
+                  {renderDocumentImage(printData.cnhQrcodeVersoUrl, 'CNH (QRCode) - Verso')}
+                </>
+              )}
+              {buyerType === 'pj' && (
+                <>
+                  {renderDocumentImage(printData.cartaoCnpjFileUrl, 'Cartão CNPJ')}
+                  {renderDocumentImage(printData.docSocioFrenteUrl, 'Documento do Sócio/Representante - Frente')}
+                  {renderDocumentImage(printData.docSocioVersoUrl, 'Documento do Sócio/Representante - Verso')}
+                </>
+              )}
+              {renderDocumentImage(printData.comprovanteEnderecoUrl, buyerType === 'pf' ? 'Comprovante de Endereço Pessoal' : 'Comprovante de Endereço da Empresa')}
+            </CardContent>
+          </Card>
+
           <div className="mt-8 w-full max-w-3xl flex flex-col sm:flex-row gap-4 print-hidden">
             <Button onClick={() => window.print()} className="flex-1 bg-gradient-to-br from-blue-600 to-blue-800 hover:from-blue-600/90 hover:to-blue-800/90 text-lg py-4 rounded-lg text-white shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
-              <Printer className="mr-2 h-5 w-5" /> Imprimir Contrato
+              <Printer className="mr-2 h-5 w-5" /> Imprimir Tudo
             </Button>
             <Button onClick={handleProceedToSignedUpload} className="flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-4 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
                <FilePenLine className="mr-2 h-5 w-5" /> Contrato Assinado - Anexar Foto
