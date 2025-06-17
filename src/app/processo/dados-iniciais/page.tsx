@@ -38,7 +38,7 @@ const contractTemplates: ContractTemplate[] = [
       nomesDasPartes: ["CLIENTE EXEMPLO, COMO COMPRADOR", `${selectedPlayer || 'NOME DO PLAYER'}, COMO VENDEDOR`],
       documentosDasPartes: ["000.000.000-00", "[CNPJ DA EMPRESA VENDEDORA]"],
       objetoDoContrato: `PRODUTO DIGITAL (Player: ${selectedPlayer || 'NOME DO PLAYER'})`,
-      valorPrincipal: "R$ 1.000,00 (mil reais)",
+      valorPrincipal: "R$ 15.000,00 (quinze mil reais)",
       condicoesDePagamento: "Pagamento único via Pix.",
       prazoContrato: "Acesso por 12 meses",
       localEDataAssinatura: "São Paulo, Data Atual",
