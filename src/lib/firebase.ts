@@ -4,7 +4,7 @@
 
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-// import { getStorage } from "firebase/storage"; // Uncomment if you decide to use Firebase Storage
+import { getStorage } from "firebase/storage"; // Ensure this is uncommented
 
 // Your web app's Firebase configuration using environment variables
 // IMPORTANT: Ensure these variables are set in your .env.local file
@@ -27,9 +27,9 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(firebaseApp);
-// const storage = getStorage(firebaseApp); // Uncomment if you use Firebase Storage
+const storage = getStorage(firebaseApp); // Initialize Firebase Storage
 
-export { firebaseApp, db /*, storage */ };
+export { firebaseApp, db, storage }; // Export storage
 
 // Instructions for the user:
 // 1. Create a .env.local file in the root of your project (if it doesn't exist).

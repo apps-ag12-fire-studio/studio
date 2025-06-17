@@ -12,15 +12,15 @@ import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState } from "@/lib/process-store";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
-import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText } from "lucide-react";
+import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText, UploadCloud } from "lucide-react";
+import { storage } from "@/lib/firebase"; // Firebase storage import
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
-const fileToDataUri = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+const generateUniqueFileName = (file: File, prefix: string = 'unknown') => {
+  const timestamp = new Date().getTime();
+  // Sanitize filename: replace spaces with underscores and remove special characters other than period and hyphen
+  const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+  return `${prefix}/${timestamp}-${saneFilename}`;
 };
 
 export default function FotoContratoPage() {
@@ -28,8 +28,7 @@ export default function FotoContratoPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   
-  const [contractPhotoFile, setContractPhotoFile] = useState<File | null>(null);
-
+  const [isUploadingContractPhoto, setIsUploadingContractPhoto] = useState(false);
   const [isVerifyingPhoto, setIsVerifyingPhoto] = useState(false);
   const [isExtractingData, setIsExtractingData] = useState(false);
   const [isNavigatingNext, setIsNavigatingNext] = useState(false);
@@ -39,62 +38,64 @@ export default function FotoContratoPage() {
   useEffect(() => {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
-
-     // If a photo name exists in loaded state but no file, it means it was loaded from localStorage
-     // We don't need to re-instantiate a File object from data URI here,
-     // as contractPhotoFile is primarily for new uploads.
-     // The preview will come from processState.contractPhotoPreview (data URI).
   }, []);
-
 
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setContractPhotoFile(file); 
+      setIsUploadingContractPhoto(true);
+      toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+
+      // Clear previous photo and related data if any, including from Firebase Storage
+      if (processState.contractPhotoStoragePath) {
+        try {
+          const oldPhotoRef = storageRef(storage, processState.contractPhotoStoragePath);
+          await deleteObject(oldPhotoRef);
+        } catch (deleteError) {
+          console.warn("Could not delete old contract photo from Firebase Storage:", deleteError);
+        }
+      }
+      
+      const filePath = generateUniqueFileName(file, 'original_contracts');
+      const fileRef = storageRef(storage, filePath);
+
       try {
-        const dataUri = await fileToDataUri(file); // Convert to data URI
+        await uploadBytes(fileRef, file);
+        const downloadURL = await getDownloadURL(fileRef);
+        
         const newState = {
           ...processState,
-          contractPhotoPreview: dataUri, // Store data URI
+          contractPhotoPreview: downloadURL,
           contractPhotoName: file.name,
+          contractPhotoStoragePath: filePath, // Save storage path for potential deletion
           photoVerificationResult: null,
           photoVerified: false,
           extractedData: null, 
         };
         setProcessState(newState);
-        saveProcessState(newState); // Attempt to save to localStorage immediately
-      } catch (error) {
-        console.error("Error converting file to Data URI:", error);
-        toast({ title: "Erro ao processar imagem", description: "Não foi possível carregar a imagem para pré-visualização.", variant: "destructive"});
-        // Reset relevant parts of state if conversion fails
-        const newState = {
-            ...processState,
-            contractPhotoPreview: null,
-            contractPhotoName: undefined,
-            photoVerificationResult: null,
-            photoVerified: false,
-            extractedData: null,
-        };
-        setProcessState(newState);
         saveProcessState(newState);
+        toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+      } catch (error) {
+        console.error("Error uploading contract photo to Firebase Storage:", error);
+        toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. Tente novamente.`, variant: "destructive"});
         if (contractPhotoInputRef.current) {
-          contractPhotoInputRef.current.value = ""; // Clear the file input
+          contractPhotoInputRef.current.value = "";
         }
+      } finally {
+        setIsUploadingContractPhoto(false);
       }
     }
   };
 
   const handleVerifyPhoto = async () => {
-    // Use processState.contractPhotoPreview (data URI) instead of relying on contractPhotoFile for verification
-    if (!processState.contractPhotoPreview) {
+    if (!processState.contractPhotoPreview) { // contractPhotoPreview is now a downloadURL
       toast({ title: "Verificação Necessária", description: "Por favor, carregue a foto do contrato.", variant: "destructive" });
       return;
     }
     setIsVerifyingPhoto(true);
     
     try {
-      // photoDataUri is already in processState.contractPhotoPreview
-      const result = await verifyContractPhoto({ photoDataUri: processState.contractPhotoPreview });
+      const result = await verifyContractPhoto({ photoDataUri: processState.contractPhotoPreview }); // Pass downloadURL
       const newState = {
         ...processState,
         photoVerificationResult: result,
@@ -116,12 +117,12 @@ export default function FotoContratoPage() {
       console.error("AI Verification Error:", error);
       const newState = {
         ...processState,
-        photoVerificationResult: { isCompleteAndClear: false, reason: "Erro ao verificar. Tente novamente." },
+        photoVerificationResult: { isCompleteAndClear: false, reason: "Erro ao verificar com IA. Tente novamente." },
         photoVerified: false,
       };
       setProcessState(newState);
       saveProcessState(newState);
-      toast({ title: "Erro na Verificação", description: "Não foi possível concluir a verificação da foto. Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro na Verificação com IA", description: "Não foi possível concluir a verificação da foto. Verifique a imagem ou tente novamente.", variant: "destructive" });
     } finally {
       setIsVerifyingPhoto(false);
     }
@@ -132,15 +133,15 @@ export default function FotoContratoPage() {
       toast({ title: "Ação Requerida", description: "Carregue e verifique a foto do contrato antes da análise.", variant: "destructive" });
       return;
     }
-     if (processState.contractSourceType === 'new' && !processState.contractPhotoPreview) { // Check for preview (data URI)
+     if (processState.contractSourceType === 'new' && !processState.contractPhotoPreview) {
       toast({ title: "Foto não encontrada", description: "Carregue a foto do contrato para análise.", variant: "destructive" });
       return;
     }
 
     setIsExtractingData(true);
     try {
-      if (processState.contractSourceType === 'new' && processState.contractPhotoPreview) { // Use data URI from state
-         const result = await extractContractData({ photoDataUri: processState.contractPhotoPreview });
+      if (processState.contractSourceType === 'new' && processState.contractPhotoPreview) {
+         const result = await extractContractData({ photoDataUri: processState.contractPhotoPreview }); // Pass downloadURL
          const newState = {
            ...processState,
            extractedData: result,
@@ -155,21 +156,21 @@ export default function FotoContratoPage() {
       }
     } catch (error) {
       console.error("AI Extraction Error:", error);
-      const newState = { ...processState, extractedData: null };
+      const newState = { ...processState, extractedData: null }; // Clear extracted data on error
       setProcessState(newState); 
       saveProcessState(newState);
-      toast({ title: "Erro na Análise do Contrato", description: "Não foi possível extrair os dados. Verifique a imagem ou tente novamente.", variant: "destructive" });
+      toast({ title: "Erro na Análise do Contrato", description: "Não foi possível extrair os dados com IA. Verifique a imagem ou tente novamente.", variant: "destructive" });
     } finally {
       setIsExtractingData(false);
     }
   };
   
   const validateStep = () => {
-    const { contractSourceType, photoVerified, extractedData } = processState;
+    const { contractSourceType, photoVerified, extractedData, contractPhotoPreview } = processState;
     
     if (contractSourceType === 'new') {
-      if (!processState.contractPhotoPreview || !photoVerified || !extractedData) { 
-        toast({ title: "Etapas Incompletas (Novo Contrato)", description: "Capture, verifique e analise a foto do contrato.", variant: "destructive" });
+      if (!contractPhotoPreview || !photoVerified || !extractedData) { 
+        toast({ title: "Etapas Incompletas (Novo Contrato)", description: "Capture/envie, verifique e analise a foto do contrato.", variant: "destructive" });
         return false;
       }
     } else { 
@@ -184,7 +185,6 @@ export default function FotoContratoPage() {
   const handleNext = () => {
     if (!validateStep()) return;
     setIsNavigatingNext(true);
-    // State is already saved by individual actions or load, but good practice to ensure it's current before nav
     saveProcessState({ ...processState, currentStep: "/processo/documentos" });
     toast({
       title: "Etapa 2 Concluída!",
@@ -195,25 +195,13 @@ export default function FotoContratoPage() {
   };
 
   const handleBack = () => {
-    saveProcessState(processState); // Ensure current state (even if no new photo) is saved
+    saveProcessState(processState);
     router.push("/processo/dados-iniciais");
   };
 
-  // No need to revoke ObjectURL if we are consistently using data URIs in processState.contractPhotoPreview
-  // If contractPhotoPreview was a blob URL, then revoke would be needed.
-  // useEffect(() => {
-  //   const previewUrl = processState.contractPhotoPreview;
-  //   return () => {
-  //     if (previewUrl && previewUrl.startsWith('blob:')) { 
-  //       URL.revokeObjectURL(previewUrl);
-  //     }
-  //   };
-  // }, [processState.contractPhotoPreview]);
-
-
   const shouldShowPhotoUploadAndVerify = processState.contractSourceType === 'new';
-  const shouldShowAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !processState.extractedData;
-  const shouldShowReAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !!processState.extractedData;
+  const shouldShowAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !processState.extractedData && !isUploadingContractPhoto;
+  const shouldShowReAnalysisButton = processState.contractSourceType === 'new' && processState.photoVerified && !isExtractingData && !!processState.extractedData && !isUploadingContractPhoto;
 
   return (
     <>
@@ -239,19 +227,23 @@ export default function FotoContratoPage() {
             <CardContent className="space-y-6 p-6 pt-0">
               <div>
                 <Label htmlFor="contract-photo-input" className="mb-2 block text-sm font-medium uppercase tracking-wider text-foreground/90">Carregar foto do contrato</Label>
-                <Input
-                  id="contract-photo-input"
-                  ref={contractPhotoInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleContractPhotoChange}
-                  className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-2.5"
-                  aria-describedby="contract-photo-hint"
-                />
-                <p id="contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.contractPhotoName && `Selecionado: ${processState.contractPhotoName}`}</p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="contract-photo-input"
+                    ref={contractPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleContractPhotoChange}
+                    className="flex-grow file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-2.5"
+                    aria-describedby="contract-photo-hint"
+                    disabled={isUploadingContractPhoto}
+                  />
+                  {isUploadingContractPhoto && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+                </div>
+                <p id="contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.contractPhotoName && `Atual: ${processState.contractPhotoName}`}</p>
               </div>
-              {processState.contractPhotoPreview && (
+              {processState.contractPhotoPreview && !isUploadingContractPhoto && (
                 <div className="mt-4">
                   <p className="text-sm font-medium mb-2 uppercase tracking-wider text-foreground/90">Pré-visualização:</p>
                   <div className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-dashed border-primary/30 bg-background/50 flex items-center justify-center" data-ai-hint="contract document">
@@ -260,7 +252,7 @@ export default function FotoContratoPage() {
                 </div>
               )}
             </CardContent>
-            {processState.contractPhotoPreview && !processState.photoVerified && (
+            {processState.contractPhotoPreview && !processState.photoVerified && !isUploadingContractPhoto && (
               <CardFooter className="p-6">
                 <Button type="button" onClick={handleVerifyPhoto} disabled={isVerifyingPhoto || isExtractingData} className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
                   {isVerifyingPhoto ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" />}
@@ -274,12 +266,12 @@ export default function FotoContratoPage() {
               <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
                 <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <p className="text-muted-foreground font-medium text-lg">Verificando qualidade da foto...</p>
+                    <p className="text-muted-foreground font-medium text-lg">Verificando qualidade da foto com IA...</p>
                 </CardContent>
             </Card>
           )}
           
-          {processState.photoVerificationResult && (
+          {processState.photoVerificationResult && !isUploadingContractPhoto && (
             <Card className={`shadow-card-premium rounded-2xl border-2 ${processState.photoVerificationResult.isCompleteAndClear ? "border-green-500/70" : "border-red-500/70"} bg-card/80 backdrop-blur-sm`}>
               <CardHeader className="p-6">
                 <CardTitle className="flex items-center font-headline text-xl">
@@ -291,7 +283,7 @@ export default function FotoContratoPage() {
                 <p className="text-base text-foreground/90">{processState.photoVerificationResult.reason || (processState.photoVerificationResult.isCompleteAndClear ? "A foto parece nítida e completa." : "A foto precisa de ajustes.")}</p>
                 {!processState.photoVerificationResult.isCompleteAndClear && (
                   <Button type="button" onClick={() => contractPhotoInputRef.current?.click()} variant="outline" className="w-full border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
-                    <Camera className="mr-2 h-5 w-5" /> Tentar Novamente
+                    <Camera className="mr-2 h-5 w-5" /> Tentar Nova Foto
                   </Button>
                 )}
               </CardContent>
@@ -305,12 +297,12 @@ export default function FotoContratoPage() {
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
               <ScanText className="mr-3 h-7 w-7" />
-              {shouldShowReAnalysisButton ? "Reanalisar Contrato" : "Análise do Contrato"}
+              {shouldShowReAnalysisButton ? "Reanalisar Contrato com IA" : "Análise do Contrato com IA"}
             </CardTitle>
             <CardDescription className="text-foreground/70 pt-1">
               {shouldShowReAnalysisButton 
                 ? "Dados já extraídos. Clique abaixo para reanalisar a foto do contrato com IA se necessário." 
-                : "Foto verificada. Prossiga para extrair informações chave do contrato."
+                : "Foto verificada. Prossiga para extrair informações chave do contrato com IA."
               }
             </CardDescription>
           </CardHeader>
@@ -319,7 +311,7 @@ export default function FotoContratoPage() {
               <Button 
                 type="button" 
                 onClick={handleExtractContractData} 
-                disabled={isVerifyingPhoto || isExtractingData} 
+                disabled={isVerifyingPhoto || isExtractingData || isUploadingContractPhoto} 
                 className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
               >
                   {isExtractingData ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" /> }
@@ -335,7 +327,7 @@ export default function FotoContratoPage() {
           <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
               <p className="text-muted-foreground font-medium text-lg">
-                Analisando contrato e extraindo dados...
+                Analisando contrato e extraindo dados com IA...
               </p>
           </CardContent>
         </Card>
@@ -345,6 +337,7 @@ export default function FotoContratoPage() {
         <Button 
           onClick={handleBack} 
           variant="outline"
+          disabled={isNavigatingNext || isUploadingContractPhoto || isVerifyingPhoto || isExtractingData}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
           <ArrowLeft className="mr-2 h-5 w-5" /> Voltar
@@ -353,6 +346,7 @@ export default function FotoContratoPage() {
           onClick={handleNext} 
           disabled={
             isNavigatingNext ||
+            isUploadingContractPhoto ||
             isVerifyingPhoto || 
             isExtractingData || 
             (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified || !processState.extractedData))

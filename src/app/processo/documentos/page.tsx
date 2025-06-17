@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, ChangeEvent, useCallback } from "react";
+import { useState, useEffect, ChangeEvent, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -22,15 +22,14 @@ import {
   PfDocumentType
 } from "@/lib/process-store";
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2, UploadCloud } from "lucide-react";
+import { storage } from "@/lib/firebase"; // Firebase storage import
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 
-const fileToDataUri = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+const generateUniqueFileName = (file: File, docType: string, prefix: string = 'buyer_documents') => {
+  const timestamp = new Date().getTime();
+  const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+  return `${prefix}/${docType}/${timestamp}-${saneFilename}`;
 };
 
 type DocumentSlotKey = Extract<keyof StoredProcessState, 
@@ -49,10 +48,11 @@ export default function DocumentosPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [analyzingDocKey, setAnalyzingDocKey] = useState<DocumentSlotKey | null>(null);
-  // localFiles stores File objects for newly selected files, not for those loaded from localStorage (data URIs)
-  const [localFiles, setLocalFiles] = useState<Partial<Record<DocumentSlotKey, File | null>>>({});
+  const [uploadingDocKey, setUploadingDocKey] = useState<DocumentSlotKey | null>(null);
   const [selectedPfDocType, setSelectedPfDocType] = useState<PfDocumentType | ''>('');
   const [isNavigatingNext, setIsNavigatingNext] = useState(false);
+  const fileInputRefs = useRef<Record<DocumentSlotKey, HTMLInputElement | null>>({} as Record<DocumentSlotKey, HTMLInputElement | null>);
+
 
   useEffect(() => {
     const loadedState = loadProcessState();
@@ -71,73 +71,90 @@ export default function DocumentosPage() {
     const inputElement = event.target; 
 
     if (file) {
-      setLocalFiles(prev => ({ ...prev, [docKey]: file })); // Keep local file object for potential re-analysis if needed
+      setUploadingDocKey(docKey);
+      toast({ title: "Upload Iniciado", description: `Enviando ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+
+      // Clear previous file for this slot if any, including from Firebase Storage
+      const currentDoc = processState[docKey] as DocumentFile | null;
+      if (currentDoc?.storagePath) {
+        try {
+          const oldFileRef = storageRef(storage, currentDoc.storagePath);
+          await deleteObject(oldFileRef);
+        } catch (deleteError) {
+          console.warn(`Could not delete old file for ${docKey} from Firebase Storage:`, deleteError);
+        }
+      }
+
+      const filePath = generateUniqueFileName(file, docKey);
+      const fileRef = storageRef(storage, filePath);
+
       try {
-        const dataUri = await fileToDataUri(file);
+        await uploadBytes(fileRef, file);
+        const downloadURL = await getDownloadURL(fileRef);
+        
         const newState = {
           ...processState,
           [docKey]: {
             name: file.name,
-            previewUrl: dataUri, // Store data URI
-            analysisResult: processState[docKey]?.analysisResult // Preserve existing analysis if any
+            previewUrl: downloadURL, // Store downloadURL
+            storagePath: filePath,   // Store storage path
+            analysisResult: null     // Reset analysis result for new file
           } as DocumentFile
         };
         setProcessState(newState);
-        saveProcessState(newState); // Attempt to save to localStorage immediately
+        saveProcessState(newState);
+        toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
       } catch (error) {
-        console.error(`Error processing file for ${docKey}:`, error);
+        console.error(`Error uploading file for ${docKey} to Firebase Storage:`, error);
         toast({ 
-          title: "Erro ao Processar Imagem", 
-          description: `Não foi possível gerar a pré-visualização para ${file.name}. Por favor, tente novamente ou escolha outro arquivo.`, 
+          title: "Erro no Upload", 
+          description: `Não foi possível enviar ${file.name}. Tente novamente.`, 
           variant: "destructive" 
         });
-        const newState = {
-          ...processState,
-          [docKey]: null 
-        };
+        // Clear the file from state if upload fails
+        const newState = { ...processState, [docKey]: null };
         setProcessState(newState);
         saveProcessState(newState);
-        setLocalFiles(prev => ({ ...prev, [docKey]: null }));
-        if (inputElement) {
-          inputElement.value = "";
-        }
+        if (inputElement) inputElement.value = "";
+      } finally {
+        setUploadingDocKey(null);
       }
     } else {
-      // If no file is selected (e.g., user cancels file dialog), clear the stored document for this key
       if (inputElement && inputElement.files && inputElement.files.length === 0) {
-         const newState = {
-          ...processState,
-          [docKey]: null
-        };
-        setProcessState(newState);
-        saveProcessState(newState);
-        setLocalFiles(prev => ({ ...prev, [docKey]: null }));
+        removeDocument(docKey); // Use existing remove function if user cancels
       }
     }
   };
 
-  const removeDocument = (docKey: DocumentSlotKey) => {
-    const newState = {
-      ...processState,
-      [docKey]: null
-    };
+  const removeDocument = async (docKey: DocumentSlotKey) => {
+    const currentDoc = processState[docKey] as DocumentFile | null;
+    if (currentDoc?.storagePath) {
+      try {
+        const fileToDeleteRef = storageRef(storage, currentDoc.storagePath);
+        await deleteObject(fileToDeleteRef);
+        toast({ title: "Arquivo Removido", description: `${currentDoc.name} removido do servidor.`, className: "bg-orange-500 text-white border-orange-600" });
+      } catch (error) {
+        console.error(`Error deleting file ${currentDoc.storagePath} from Firebase Storage:`, error);
+        toast({ title: "Erro ao Remover Arquivo", description: `Não foi possível remover ${currentDoc.name} do servidor. Ele será removido apenas da listagem local.`, variant: "destructive"});
+      }
+    }
+
+    const newState = { ...processState, [docKey]: null };
     setProcessState(newState);
     saveProcessState(newState);
-    setLocalFiles(prev => ({...prev, [docKey]: null}));
-     // Also clear the corresponding file input element if it exists
-    const inputElement = document.getElementById(docKey) as HTMLInputElement | null;
+    
+    const inputElement = fileInputRefs.current[docKey];
     if (inputElement) {
         inputElement.value = "";
     }
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
-    // Use processState[docKey].previewUrl (data URI) for analysis
     const currentDocInState = processState[docKey] as DocumentFile | null;
-    const photoDataUri = currentDocInState?.previewUrl;
+    const photoDownloadUrl = currentDocInState?.previewUrl; // This is now a downloadURL
     const docName = currentDocInState?.name;
     
-    if (!photoDataUri) {
+    if (!photoDownloadUrl) {
       toast({ title: "Arquivo não encontrado", description: "Carregue um arquivo para ser analisado.", variant: "destructive"});
       setAnalyzingDocKey(null);
       return;
@@ -145,13 +162,12 @@ export default function DocumentosPage() {
 
     setAnalyzingDocKey(docKey);
     try {
-      const result = await extractBuyerDocumentData({ photoDataUri });
+      const result = await extractBuyerDocumentData({ photoDataUri: photoDownloadUrl }); // Pass downloadURL
       
       const newState = {
         ...processState,
         [docKey]: {
-          name: docName, 
-          previewUrl: photoDataUri, 
+          ...currentDocInState,
           analysisResult: result,
         } as DocumentFile, 
       };
@@ -175,8 +191,7 @@ export default function DocumentosPage() {
       const newState = {
         ...processState,
         [docKey]: {
-          name: docName,
-          previewUrl: photoDataUri,
+          ...currentDocInState,
           analysisResult: { error: userFriendlyErrorMessage },
         } as DocumentFile,
       };
@@ -246,6 +261,7 @@ export default function DocumentosPage() {
   };
 
   const handleBack = () => {
+    setIsNavigatingNext(true); // Use same state to disable button during transition
     saveProcessState(processState);
     const prevStep = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/dados-iniciais"; 
     router.push(prevStep);
@@ -256,7 +272,6 @@ export default function DocumentosPage() {
       ...processState,
       buyerType: value,
       companyInfo: value === 'pj' ? (processState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
-      // Clear PF docs if switching to PJ, and vice-versa for PJ docs
       rgAntigoFrente: value === 'pj' ? null : processState.rgAntigoFrente,
       rgAntigoVerso: value === 'pj' ? null : processState.rgAntigoVerso,
       cnhAntigaFrente: value === 'pj' ? null : processState.cnhAntigaFrente,
@@ -265,6 +280,8 @@ export default function DocumentosPage() {
       docSocioFrente: value === 'pf' ? null : processState.docSocioFrente,
       docSocioVerso: value === 'pf' ? null : processState.docSocioVerso,
     };
+    // Consider deleting files from storage if type changes and files existed for the old type.
+    // For simplicity, this example only clears them from state.
     setProcessState(newState);
     saveProcessState(newState);
     if (value === 'pj') {
@@ -279,21 +296,19 @@ export default function DocumentosPage() {
       'rgAntigoFrente', 'rgAntigoVerso',
       'cnhAntigaFrente', 'cnhAntigaVerso',
     ];
-    const localFilesToClear: Partial<Record<DocumentSlotKey, null>> = {};
 
     allPfDocKeys.forEach(key => {
       let shouldClear = true;
       if (value === 'rgAntigo' && (key === 'rgAntigoFrente' || key === 'rgAntigoVerso')) shouldClear = false;
       else if (value === 'cnhAntiga' && (key === 'cnhAntigaFrente' || key === 'cnhAntigaVerso')) shouldClear = false;
       
-      if (shouldClear) {
+      if (shouldClear && newState[key]) {
+        // Future: Consider deleting from Firebase Storage here too if newState[key].storagePath exists
         newState[key] = null;
-        localFilesToClear[key as DocumentSlotKey] = null;
       }
     });
     setProcessState(newState);
     saveProcessState(newState);
-    setLocalFiles(prevLocals => ({...prevLocals, ...localFilesToClear}));
   };
   
   const handleCompanyInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
@@ -305,7 +320,7 @@ export default function DocumentosPage() {
       }
     };
     setProcessState(newState);
-    saveProcessState(newState);
+    // No need to saveProcessState on every keystroke, will be saved on nav or explicit save
   };
   
   const handleBuyerInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
@@ -317,12 +332,13 @@ export default function DocumentosPage() {
       }
     };
     setProcessState(newState);
-    saveProcessState(newState);
+    // No need to saveProcessState on every keystroke
   };
 
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
-    const isAnalyzing = analyzingDocKey === docKey;
+    const isCurrentlyUploading = uploadingDocKey === docKey;
+    const isCurrentlyAnalyzing = analyzingDocKey === docKey;
     const displayDocName = currentDoc?.name;
     const displayPreviewUrl = currentDoc?.previewUrl; 
     const isPdf = displayDocName?.toLowerCase().endsWith('.pdf');
@@ -330,25 +346,35 @@ export default function DocumentosPage() {
     return (
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
         <Label htmlFor={docKey} className="text-base font-medium text-foreground/90">{label}</Label>
-        {displayPreviewUrl && !isPdf && (
+        {isCurrentlyUploading && (
+          <div className="flex items-center justify-center p-4 space-x-2 text-primary">
+            <Loader2 className="h-6 w-6 animate-spin" /> 
+            <span>Enviando...</span>
+          </div>
+        )}
+        {displayPreviewUrl && !isPdf && !isCurrentlyUploading && (
           <div className="relative w-full aspect-[16/10] rounded-md overflow-hidden border border-dashed border-primary/30">
             <Image src={displayPreviewUrl} alt={`Pré-visualização de ${label}`} layout="fill" objectFit="contain" />
           </div>
         )}
-        {displayPreviewUrl && isPdf && (
+        {displayPreviewUrl && isPdf && !isCurrentlyUploading && (
             <div className="p-4 text-center text-muted-foreground border border-dashed border-primary/30 rounded-md">
                 <FileText className="mx-auto h-12 w-12 mb-2" />
                 PDF carregado: {displayDocName}. Pré-visualização não disponível.
             </div>
         )}
-        <Input
-          id={docKey}
-          type="file"
-          accept={docKey === 'cartaoCnpjFile' || docKey === 'comprovanteEndereco' ? "image/*,application/pdf" : "image/*"}
-          onChange={(e) => handleFileChange(e, docKey)}
-          className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
-        />
-        {displayDocName && ( 
+        {!isCurrentlyUploading && (
+          <Input
+            id={docKey}
+            ref={el => fileInputRefs.current[docKey] = el}
+            type="file"
+            accept={docKey === 'cartaoCnpjFile' || docKey === 'comprovanteEndereco' ? "image/*,application/pdf" : "image/*"}
+            onChange={(e) => handleFileChange(e, docKey)}
+            className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
+            disabled={isCurrentlyAnalyzing || isCurrentlyUploading}
+          />
+        )}
+        {displayDocName && !isCurrentlyUploading && ( 
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{displayDocName}</span>
             <div className="flex items-center space-x-2">
@@ -356,28 +382,28 @@ export default function DocumentosPage() {
                 <Button 
                   type="button" variant="outline" size="sm" 
                   onClick={() => handleAnalyzeDocument(docKey)}
-                  disabled={isAnalyzing || (!displayPreviewUrl)} 
+                  disabled={isCurrentlyAnalyzing || isCurrentlyUploading || (!displayPreviewUrl)} 
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
-                  {isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
-                  {isAnalyzing ? "Analisando..." : (currentDoc?.analysisResult ? "Reanalisar" : "Analisar IA")}
+                  {isCurrentlyAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
+                  {isCurrentlyAnalyzing ? "Analisando..." : (currentDoc?.analysisResult && !(currentDoc.analysisResult as any).error ? "Reanalisar" : "Analisar IA")}
                 </Button>
               )}
-              <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} className="text-destructive/70 hover:text-destructive h-7 w-7">
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} disabled={isCurrentlyUploading || isCurrentlyAnalyzing} className="text-destructive/70 hover:text-destructive h-7 w-7">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           </div>
         )}
-        {currentDoc?.analysisResult && ( 
-           <div className="mt-2 p-2 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-hidden">
-            <p className="font-semibold text-primary/80">Dados Extraídos:</p>
-            {(currentDoc.analysisResult as any).error ? <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p> : <>
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto && <p className="break-all"><strong>Nome:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf && <p className="break-all"><strong>CPF:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento && <p className="break-all"><strong>Nasc.:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae && <p className="break-all"><strong>Mãe:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg && <p className="break-all"><strong>RG:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg}</p>}
+        {currentDoc?.analysisResult && !isCurrentlyUploading && ( 
+           <div className="mt-2 p-3 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-x-auto">
+            <p className="font-semibold text-primary/80">Dados Extraídos por IA:</p>
+            {(currentDoc.analysisResult as any).error ? <p className="text-destructive break-words">{(currentDoc.analysisResult as any).error}</p> : <>
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto && <p className="break-words"><strong>Nome:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf && <p className="break-words"><strong>CPF:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento && <p className="break-words"><strong>Nasc.:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae && <p className="break-words"><strong>Mãe:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae}</p>}
+              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg && <p className="break-words"><strong>RG:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg}</p>}
             </>}
           </div>
         )}
@@ -408,6 +434,8 @@ export default function DocumentosPage() {
     }
   }
 
+  const globalDisableCondition = isNavigatingNext || uploadingDocKey !== null || analyzingDocKey !== null;
+
   return (
     <>
       <header className="text-center py-8">
@@ -431,13 +459,14 @@ export default function DocumentosPage() {
             value={processState.buyerType}
             onValueChange={(val) => handleBuyerTypeChange(val as BuyerType)}
             className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-4"
+            disabled={globalDisableCondition}
           >
-            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
-              <RadioGroupItem value="pf" id="type-pf" className="border-primary/50 text-primary focus:ring-primary"/>
+            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30 has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
+              <RadioGroupItem value="pf" id="type-pf" className="border-primary/50 text-primary focus:ring-primary" disabled={globalDisableCondition}/>
               <Label htmlFor="type-pf" className="font-medium text-base cursor-pointer flex items-center"><UserCircle className="mr-2 h-5 w-5"/>Pessoa Física</Label>
             </div>
-            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
-              <RadioGroupItem value="pj" id="type-pj" className="border-primary/50 text-primary focus:ring-primary"/>
+            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30 has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
+              <RadioGroupItem value="pj" id="type-pj" className="border-primary/50 text-primary focus:ring-primary" disabled={globalDisableCondition}/>
               <Label htmlFor="type-pj" className="font-medium text-base cursor-pointer flex items-center"><Building className="mr-2 h-5 w-5"/>Pessoa Jurídica</Label>
             </div>
           </RadioGroup>
@@ -452,15 +481,15 @@ export default function DocumentosPage() {
           <CardContent className="space-y-4 p-6 pt-0">
             <div>
               <Label htmlFor="razaoSocial">Razão Social</Label>
-              <Input id="razaoSocial" value={processState.companyInfo?.razaoSocial || ''} onChange={(e) => handleCompanyInfoChange(e, 'razaoSocial')} className="mt-1 bg-input"/>
+              <Input id="razaoSocial" value={processState.companyInfo?.razaoSocial || ''} onChange={(e) => handleCompanyInfoChange(e, 'razaoSocial')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
             </div>
             <div>
               <Label htmlFor="nomeFantasia">Nome Fantasia</Label>
-              <Input id="nomeFantasia" value={processState.companyInfo?.nomeFantasia || ''} onChange={(e) => handleCompanyInfoChange(e, 'nomeFantasia')} className="mt-1 bg-input"/>
+              <Input id="nomeFantasia" value={processState.companyInfo?.nomeFantasia || ''} onChange={(e) => handleCompanyInfoChange(e, 'nomeFantasia')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
             </div>
             <div>
               <Label htmlFor="cnpj">CNPJ</Label>
-              <Input id="cnpj" value={processState.companyInfo?.cnpj || ''} onChange={(e) => handleCompanyInfoChange(e, 'cnpj')} className="mt-1 bg-input"/>
+              <Input id="cnpj" value={processState.companyInfo?.cnpj || ''} onChange={(e) => handleCompanyInfoChange(e, 'cnpj')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
             </div>
              {renderDocumentSlot('cartaoCnpjFile', 'Cartão CNPJ (PDF ou Imagem)')}
           </CardContent>
@@ -479,11 +508,11 @@ export default function DocumentosPage() {
             <>
               <div>
                 <Label htmlFor="repNome">Nome Completo do Representante</Label>
-                <Input id="repNome" value={processState.buyerInfo.nome} onChange={(e) => handleBuyerInfoChange(e, 'nome')} className="mt-1 bg-input"/>
+                <Input id="repNome" value={processState.buyerInfo.nome} onChange={(e) => handleBuyerInfoChange(e, 'nome')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
               </div>
               <div>
                 <Label htmlFor="repCPF">CPF do Representante</Label>
-                <Input id="repCPF" value={processState.buyerInfo.cpf} onChange={(e) => handleBuyerInfoChange(e, 'cpf')} className="mt-1 bg-input"/>
+                <Input id="repCPF" value={processState.buyerInfo.cpf} onChange={(e) => handleBuyerInfoChange(e, 'cpf')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {renderDocumentSlot('docSocioFrente', 'Doc. Representante (Frente)')}
@@ -499,10 +528,11 @@ export default function DocumentosPage() {
                 value={selectedPfDocType}
                 onValueChange={(val) => handlePfDocTypeChange(val as PfDocumentType)}
                 className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"
+                disabled={globalDisableCondition}
               >
                 {pfDocOptions.map(opt => (
-                  <div key={opt.value} className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
-                    <RadioGroupItem value={opt.value} id={`doc-${opt.value}`} className="border-primary/50 text-primary focus:ring-primary"/>
+                  <div key={opt.value} className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30 has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
+                    <RadioGroupItem value={opt.value} id={`doc-${opt.value}`} className="border-primary/50 text-primary focus:ring-primary" disabled={globalDisableCondition}/>
                     <Label htmlFor={`doc-${opt.value}`} className="font-medium text-base cursor-pointer flex items-center">
                       <opt.icon className="mr-2 h-5 w-5 flex-shrink-0"/>
                       <span className="whitespace-normal break-words">{opt.label}</span>
@@ -521,13 +551,14 @@ export default function DocumentosPage() {
         <Button 
           onClick={handleBack} 
           variant="outline"
+          disabled={globalDisableCondition}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
           <ArrowLeft className="mr-2 h-5 w-5" /> Voltar
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={isNavigatingNext || analyzingDocKey !== null}
+          disabled={globalDisableCondition}
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
           {isNavigatingNext ? (

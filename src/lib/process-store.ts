@@ -17,7 +17,8 @@ export type BuyerType = 'pf' | 'pj'; // Pessoa Física ou Pessoa Jurídica
 
 export interface DocumentFile {
   name?: string;
-  previewUrl?: string | null;
+  previewUrl?: string | null; // Will store Firebase Storage downloadURL
+  storagePath?: string | null; // Path in Firebase Storage for deletion
   analysisResult?: ExtractBuyerDocumentDataOutput | { error: string } | null;
 }
 
@@ -29,7 +30,6 @@ export interface CompanyInfo {
 
 export type PfDocumentType = 'rgAntigo' | 'cnhAntiga';
 
-// StoredProcessState holds data that is JSON serializable for localStorage
 export interface StoredProcessState {
   currentStep: string;
   contractSourceType: 'new' | 'existing';
@@ -37,32 +37,31 @@ export interface StoredProcessState {
   selectedContractTemplateName: string | null;
   
   buyerType: BuyerType;
-  buyerInfo: BuyerInfo; // For PF or Representative of PJ
-  companyInfo: CompanyInfo | null; // For PJ
+  buyerInfo: BuyerInfo; 
+  companyInfo: CompanyInfo | null; 
   internalTeamMemberInfo: BuyerInfo;
 
-  // Pessoa Física specific documents
   rgAntigoFrente: DocumentFile | null;
   rgAntigoVerso: DocumentFile | null;
   cnhAntigaFrente: DocumentFile | null;
   cnhAntigaVerso: DocumentFile | null;
   
-  // Pessoa Jurídica specific documents
   cartaoCnpjFile: DocumentFile | null;
   docSocioFrente: DocumentFile | null;
   docSocioVerso: DocumentFile | null;
 
-  // Common documents
   comprovanteEndereco: DocumentFile | null;
 
-  contractPhotoPreview: string | null;
+  contractPhotoPreview: string | null; // Will store Firebase Storage downloadURL
   contractPhotoName?: string;
+  contractPhotoStoragePath?: string | null; // Path in Firebase Storage for deletion
   photoVerificationResult: VerifyContractPhotoOutput | null;
   photoVerified: boolean;
   extractedData: ExtractContractDataOutput | null;
   
-  signedContractPhotoPreview: string | null;
+  signedContractPhotoPreview: string | null; // Will store Firebase Storage downloadURL
   signedContractPhotoName?: string;
+  signedContractPhotoStoragePath?: string | null; // Path in Firebase Storage for deletion
 }
 
 export const initialStoredProcessState: StoredProcessState = {
@@ -88,25 +87,31 @@ export const initialStoredProcessState: StoredProcessState = {
 
   contractPhotoPreview: null,
   contractPhotoName: undefined,
+  contractPhotoStoragePath: null,
   photoVerificationResult: null,
   photoVerified: false,
   extractedData: null,
+
   signedContractPhotoPreview: null,
   signedContractPhotoName: undefined,
+  signedContractPhotoStoragePath: null,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v10'; 
-const PRINT_DATA_KEY = 'contractPrintData_v7'; 
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v11_firebase_storage'; 
+const PRINT_DATA_KEY = 'contractPrintData_v8_firebase_storage'; 
 
 
 export function saveProcessState(state: StoredProcessState) {
   try {
-    localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(state));
+    const stateToSave = { ...state };
+    // Ensure File objects are not stored in localStorage
+    // This should not be an issue anymore as we are storing URLs
+    localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(stateToSave));
   } catch (error: any) {
     console.error("Error saving process state to localStorage:", error);
     let description = "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio.";
     if (error.name === 'QuotaExceededError' || (error.message && error.message.toLowerCase().includes('quota'))) {
-      description = "O armazenamento local está cheio. Algumas imagens grandes podem não ter sido salvas. Tente limpar o cache do navegador ou prossiga com cuidado.";
+      description = "O armazenamento local está cheio. Algumas informações podem não ter sido salvas localmente. Tente limpar o cache do navegador ou prossiga com cuidado. As imagens já enviadas ao servidor estão seguras.";
     }
     toast({
       title: "Erro ao Salvar Progresso Localmente",
@@ -148,6 +153,8 @@ export function loadProcessState(): StoredProcessState {
 
 export function clearProcessState() {
   try {
+    // Note: Implement deletion of files from Firebase Storage here if needed when clearing state.
+    // For now, it just clears localStorage.
     localStorage.removeItem(PROCESS_STATE_KEY);
     localStorage.removeItem(PRINT_DATA_KEY);
   } catch (error) {
@@ -162,18 +169,18 @@ export interface PrintData {
   buyerType: BuyerType;
   selectedPlayer: string | null;
   internalTeamMemberInfo: BuyerInfo | null;
-  // PF Documents for printing
+
   rgAntigoFrenteUrl?: string | null;
   rgAntigoVersoUrl?: string | null;
   cnhAntigaFrenteUrl?: string | null;
   cnhAntigaVersoUrl?: string | null;
-  // PJ Documents
+  
   cartaoCnpjFileUrl?: string | null;
   docSocioFrenteUrl?: string | null;
   docSocioVersoUrl?: string | null;
-  // Common
+  
   comprovanteEnderecoUrl?: string | null;
-  signedContractPhotoUrl?: string | null;
+  // signedContractPhotoUrl is not typically part of pre-signed print data
 }
 
 
@@ -207,4 +214,3 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
-

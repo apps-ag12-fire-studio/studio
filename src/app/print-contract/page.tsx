@@ -19,14 +19,17 @@ export default function PrintContractPage() {
 
   useEffect(() => {
     const data = loadPrintData();
+    // Check if essential data for printing is present
     if (data && data.extractedData && data.buyerInfo && data.internalTeamMemberInfo) {
       setPrintData(data);
     } else {
       toast({
-        title: 'Erro ao Carregar Dados',
-        description: 'Dados do contrato ou informações essenciais não encontrados para impressão. Redirecionando...',
+        title: 'Erro ao Carregar Dados para Impressão',
+        description: 'Dados essenciais não encontrados. Verifique as etapas anteriores ou se o processo foi reiniciado. Redirecionando...',
         variant: 'destructive',
+        duration: 7000,
       });
+      // Redirect to a safe previous step, e.g., review page or initial data page
       router.replace('/processo/revisao-envio'); 
     }
     setIsLoading(false);
@@ -44,15 +47,21 @@ export default function PrintContractPage() {
   };
 
   const renderDocumentImage = (url: string | null | undefined, label: string) => {
-    if (!url) return null;
-    if (url.startsWith('data:application/pdf')) {
+    if (!url) return null; // If no URL, don't render anything
+    
+    // Check if the URL is a PDF by looking at the extension from the URL itself or common PDF data URI prefix
+    const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
+
+    if (isPdf) {
       return (
         <div className="mb-4 p-2 border border-dashed border-border text-center text-sm text-muted-foreground">
           <FilePenLine className="h-8 w-8 mx-auto mb-1 text-primary" />
-          {label} (PDF) - Conteúdo de PDFs não é exibido na pré-visualização, mas será incluído se o navegador suportar a impressão de data URIs de PDF.
+          {label} (PDF)
+          <p className="text-xs">Conteúdo de PDFs não é exibido na pré-visualização de impressão da página, mas será incluído na impressão se o navegador suportar.</p>
         </div>
       );
     }
+    // For images (assuming next/image can handle the URL, which now should be a Firebase downloadURL)
     return (
       <div className="mb-6 document-to-print" style={{ pageBreakInside: 'avoid' }}>
         <p className="font-semibold text-center text-muted-foreground mb-2 print:text-xs">{label}</p>
@@ -78,16 +87,17 @@ export default function PrintContractPage() {
   }
 
   if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) { 
+    // This state should ideally be caught by the useEffect redirect, but as a fallback:
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
           <CardHeader className="items-center p-8">
-            <CardTitle className="text-2xl text-destructive font-headline">Erro de Carregamento</CardTitle>
+            <CardTitle className="text-2xl text-destructive font-headline">Erro Crítico de Carregamento</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato. Verifique as etapas anteriores.</p>
-            <Button onClick={() => router.push('/processo/revisao-envio')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
-              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Revisão
+            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato para impressão. Verifique as etapas anteriores ou reinicie o processo.</p>
+            <Button onClick={() => router.push('/processo/dados-iniciais')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
+              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar ao Início
             </Button>
           </CardContent>
         </Card>
