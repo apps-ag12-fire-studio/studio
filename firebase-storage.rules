@@ -1,0 +1,29 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Permite uploads para fotos de contratos originais (antes da assinatura)
+    // O aplicativo salva em: original_contracts/<timestamp>-<filename>
+    match /original_contracts/{allPaths=**} {
+      allow read, write: if true; // Permite leitura e escrita para qualquer um NESTE CAMINHO
+    }
+
+    // Permite uploads para documentos do comprador
+    // O aplicativo salva em: buyer_documents/<docKey>/<timestamp>-<filename>
+    // Ex: buyer_documents/rgAntigoFrente/<timestamp>-<filename>
+    match /buyer_documents/{allPaths=**} {
+      allow read, write: if true; // Permite leitura e escrita para qualquer um NESTE CAMINHO
+    }
+
+    // Permite uploads para fotos de contratos assinados
+    // O aplicativo salva em: signed_contracts/<timestamp>-<filename>
+    match /signed_contracts/{allPaths=**} {
+      allow read, write: if true; // Permite leitura e escrita para qualquer um NESTE CAMINHO
+    }
+
+    // IMPORTANTE: Qualquer outro caminho não especificado acima será negado por padrão.
+    // Se você precisar de acesso a outros caminhos, adicione regras específicas para eles.
+  }
+}
