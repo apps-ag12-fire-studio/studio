@@ -9,6 +9,7 @@ service cloud.firestore {
     }
 
     // Adicione aqui regras para outras coleções, se necessário.
-    // Por padrão, todas as outras coleções serão negadas.
+    // Por padrão, todas as outras coleções serão negadas se não houver
+    // uma regra explícita permitindo o acesso.
   }
 }
