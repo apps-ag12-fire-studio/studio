@@ -27,7 +27,7 @@ export interface CompanyInfo {
   cnpj: string;
 }
 
-export type PfDocumentType = 'rgAntigo' | 'rgQrcode' | 'cnhAntiga' | 'cnhQrcode';
+export type PfDocumentType = 'rgAntigo' | 'cnhAntiga'; // Simplificado: removido rgQrcode e cnhQrcode
 
 // StoredProcessState holds data that is JSON serializable for localStorage
 export interface StoredProcessState {
@@ -41,13 +41,11 @@ export interface StoredProcessState {
   companyInfo: CompanyInfo | null; // For PJ
   internalTeamMemberInfo: BuyerInfo;
 
-  // Pessoa Física specific documents
+  // Pessoa Física specific documents - Simplificado
   rgAntigoFrente: DocumentFile | null;
   rgAntigoVerso: DocumentFile | null;
-  rgQrcodeDoc: DocumentFile | null; // Simplified from frente/verso
   cnhAntigaFrente: DocumentFile | null;
   cnhAntigaVerso: DocumentFile | null;
-  cnhQrcodeDoc: DocumentFile | null; // Simplified from frente/verso
   
   // Pessoa Jurídica specific documents
   cartaoCnpjFile: DocumentFile | null;
@@ -80,10 +78,8 @@ export const initialStoredProcessState: StoredProcessState = {
 
   rgAntigoFrente: null,
   rgAntigoVerso: null,
-  rgQrcodeDoc: null,
   cnhAntigaFrente: null,
   cnhAntigaVerso: null,
-  cnhQrcodeDoc: null,
 
   cartaoCnpjFile: null,
   docSocioFrente: null,
@@ -99,8 +95,8 @@ export const initialStoredProcessState: StoredProcessState = {
   signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v8'; // Incremented version
-const PRINT_DATA_KEY = 'contractPrintData_v5'; // Incremented version
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v9'; // Incremented version
+const PRINT_DATA_KEY = 'contractPrintData_v6'; // Incremented version
 
 
 export function saveProcessState(state: StoredProcessState) {
@@ -137,19 +133,9 @@ export function loadProcessState(): StoredProcessState {
         parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
       }
       
-      // Ensure new single QRCode doc fields are initialized if loading older state
-      if (parsedState.rgQrcodeDoc === undefined) parsedState.rgQrcodeDoc = null;
-      if (parsedState.cnhQrcodeDoc === undefined) parsedState.cnhQrcodeDoc = null;
-
-      // Clean up old multi-file QRCode fields if they exist from a previous version
-      const legacyRgQrcodeFrente = (parsedState as any).rgQrcodeFrente;
-      if (legacyRgQrcodeFrente !== undefined) delete (parsedState as any).rgQrcodeFrente;
-      const legacyRgQrcodeVerso = (parsedState as any).rgQrcodeVerso;
-      if (legacyRgQrcodeVerso !== undefined) delete (parsedState as any).rgQrcodeVerso;
-      const legacyCnhQrcodeFrente = (parsedState as any).cnhQrcodeFrente;
-      if (legacyCnhQrcodeFrente !== undefined) delete (parsedState as any).cnhQrcodeFrente;
-      const legacyCnhQrcodeVerso = (parsedState as any).cnhQrcodeVerso;
-      if (legacyCnhQrcodeVerso !== undefined) delete (parsedState as any).cnhQrcodeVerso;
+      // Clean up fields that were removed
+      if ((parsedState as any).rgQrcodeDoc !== undefined) delete (parsedState as any).rgQrcodeDoc;
+      if ((parsedState as any).cnhQrcodeDoc !== undefined) delete (parsedState as any).cnhQrcodeDoc;
       
       return parsedState;
     }
@@ -176,13 +162,11 @@ export interface PrintData {
   buyerType: BuyerType;
   selectedPlayer: string | null;
   internalTeamMemberInfo: BuyerInfo | null;
-  // PF Documents for printing
+  // PF Documents for printing - Simplificado
   rgAntigoFrenteUrl?: string | null;
   rgAntigoVersoUrl?: string | null;
-  rgQrcodeDocUrl?: string | null; // Simplified
   cnhAntigaFrenteUrl?: string | null;
   cnhAntigaVersoUrl?: string | null;
-  cnhQrcodeDocUrl?: string | null; // Simplified
   // PJ Documents
   cartaoCnpjFileUrl?: string | null;
   docSocioFrenteUrl?: string | null;
@@ -214,15 +198,9 @@ export function loadPrintData(): PrintData | null {
        parsedData.buyerType = parsedData.buyerType || 'pf';
        parsedData.companyInfo = parsedData.companyInfo || null;
        
-       // Ensure new QRCode doc URL fields are initialized
-       if (parsedData.rgQrcodeDocUrl === undefined) parsedData.rgQrcodeDocUrl = null;
-       if (parsedData.cnhQrcodeDocUrl === undefined) parsedData.cnhQrcodeDocUrl = null;
-
-       // Clean up old multi-file QRCode URL fields
-       if ((parsedData as any).rgQrcodeFrenteUrl !== undefined) delete (parsedData as any).rgQrcodeFrenteUrl;
-       if ((parsedData as any).rgQrcodeVersoUrl !== undefined) delete (parsedData as any).rgQrcodeVersoUrl;
-       if ((parsedData as any).cnhQrcodeFrenteUrl !== undefined) delete (parsedData as any).cnhQrcodeFrenteUrl;
-       if ((parsedData as any).cnhQrcodeVersoUrl !== undefined) delete (parsedData as any).cnhQrcodeVersoUrl;
+       // Clean up old QRCode URL fields if they exist from a previous version
+       if ((parsedData as any).rgQrcodeDocUrl !== undefined) delete (parsedData as any).rgQrcodeDocUrl;
+       if ((parsedData as any).cnhQrcodeDocUrl !== undefined) delete (parsedData as any).cnhQrcodeDocUrl;
 
       return parsedData;
     }
@@ -233,4 +211,3 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
-

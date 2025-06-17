@@ -18,7 +18,7 @@ import {
   CompanyInfo,
   DocumentFile,
   BuyerType,
-  PrintData // Import PrintData
+  PrintData 
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
@@ -42,10 +42,9 @@ const attemptToPreFillInfo = (
   if (processState.buyerType === 'pf') {
     const rgAntigoFrenteData = getAnalysisDataFromDocKey('rgAntigoFrente');
     const cnhAntigaFrenteData = getAnalysisDataFromDocKey('cnhAntigaFrente');
-    const rgQrcodeData = getAnalysisDataFromDocKey('rgQrcodeDoc');
-    const cnhQrcodeData = getAnalysisDataFromDocKey('cnhQrcodeDoc');
+    // QRCode docs removed, so no data from them
     
-    const docData = rgAntigoFrenteData || cnhAntigaFrenteData || rgQrcodeData || cnhQrcodeData;
+    const docData = rgAntigoFrenteData || cnhAntigaFrenteData;
 
     if (docData?.nomeCompleto && !newBuyerInfo.nome) newBuyerInfo.nome = docData.nomeCompleto;
     if (docData?.cpf && !newBuyerInfo.cpf) newBuyerInfo.cpf = docData.cpf;
@@ -166,10 +165,8 @@ export default function RevisaoEnvioPage() {
     if (currentState.buyerType === 'pf') {
         if (!isBuyerInfoComplete(currentState.buyerInfo)) return true;
         const hasRgAntigo = currentState.rgAntigoFrente && currentState.rgAntigoVerso;
-        const hasRgQrcode = currentState.rgQrcodeDoc;
         const hasCnhAntiga = currentState.cnhAntigaFrente && currentState.cnhAntigaVerso;
-        const hasCnhQrcode = currentState.cnhQrcodeDoc;
-        if (!(hasRgAntigo || hasRgQrcode || hasCnhAntiga || hasCnhQrcode) || !currentState.comprovanteEndereco) return true;
+        if (!(hasRgAntigo || hasCnhAntiga) || !currentState.comprovanteEndereco) return true; // Simplified check
     } else { // PJ
         if (!isCompanyInfoComplete(currentState.companyInfo)) return true;
         if (!isBuyerInfoComplete(currentState.buyerInfo)) return true; // Representative
@@ -206,10 +203,8 @@ export default function RevisaoEnvioPage() {
       internalTeamMemberInfo: finalProcessState.internalTeamMemberInfo,
       rgAntigoFrenteUrl: finalProcessState.rgAntigoFrente?.previewUrl,
       rgAntigoVersoUrl: finalProcessState.rgAntigoVerso?.previewUrl,
-      rgQrcodeDocUrl: finalProcessState.rgQrcodeDoc?.previewUrl,
       cnhAntigaFrenteUrl: finalProcessState.cnhAntigaFrente?.previewUrl,
       cnhAntigaVersoUrl: finalProcessState.cnhAntigaVerso?.previewUrl,
-      cnhQrcodeDocUrl: finalProcessState.cnhQrcodeDoc?.previewUrl,
       cartaoCnpjFileUrl: finalProcessState.cartaoCnpjFile?.previewUrl,
       docSocioFrenteUrl: finalProcessState.docSocioFrente?.previewUrl,
       docSocioVersoUrl: finalProcessState.docSocioVerso?.previewUrl,
@@ -411,4 +406,3 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-

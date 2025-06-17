@@ -257,10 +257,8 @@ export default function PrintContractPage() {
                 <>
                   {renderDocumentImage(printData.rgAntigoFrenteUrl, 'RG (Antigo) - Frente')}
                   {renderDocumentImage(printData.rgAntigoVersoUrl, 'RG (Antigo) - Verso')}
-                  {renderDocumentImage(printData.rgQrcodeDocUrl, 'RG (QRCode)')}
                   {renderDocumentImage(printData.cnhAntigaFrenteUrl, 'CNH (Antiga) - Frente')}
                   {renderDocumentImage(printData.cnhAntigaVersoUrl, 'CNH (Antiga) - Verso')}
-                  {renderDocumentImage(printData.cnhQrcodeDocUrl, 'CNH (QRCode)')}
                 </>
               )}
               {buyerType === 'pj' && (
@@ -292,4 +290,3 @@ export default function PrintContractPage() {
     </>
   );
 }
-

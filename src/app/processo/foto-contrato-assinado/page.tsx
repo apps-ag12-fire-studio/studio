@@ -139,10 +139,8 @@ export default function FotoContratoAssinadoPage() {
         // Documents (Storing Data URIs directly, be mindful of Firestore limits)
         rgAntigoFrente: mapDocumentFileToSave(processState.rgAntigoFrente),
         rgAntigoVerso: mapDocumentFileToSave(processState.rgAntigoVerso),
-        rgQrcodeDoc: mapDocumentFileToSave(processState.rgQrcodeDoc),
         cnhAntigaFrente: mapDocumentFileToSave(processState.cnhAntigaFrente),
         cnhAntigaVerso: mapDocumentFileToSave(processState.cnhAntigaVerso),
-        cnhQrcodeDoc: mapDocumentFileToSave(processState.cnhQrcodeDoc),
         cartaoCnpjFile: mapDocumentFileToSave(processState.cartaoCnpjFile),
         docSocioFrente: mapDocumentFileToSave(processState.docSocioFrente),
         docSocioVerso: mapDocumentFileToSave(processState.docSocioVerso),
@@ -174,10 +172,8 @@ export default function FotoContratoAssinadoPage() {
       const attachedDocs: string[] = [];
       if (processState.rgAntigoFrente?.name) attachedDocs.push(processState.rgAntigoFrente.name);
       if (processState.rgAntigoVerso?.name) attachedDocs.push(processState.rgAntigoVerso.name);
-      if (processState.rgQrcodeDoc?.name) attachedDocs.push(processState.rgQrcodeDoc.name);
       if (processState.cnhAntigaFrente?.name) attachedDocs.push(processState.cnhAntigaFrente.name);
       if (processState.cnhAntigaVerso?.name) attachedDocs.push(processState.cnhAntigaVerso.name);
-      if (processState.cnhQrcodeDoc?.name) attachedDocs.push(processState.cnhQrcodeDoc.name);
       if (processState.cartaoCnpjFile?.name) attachedDocs.push(processState.cartaoCnpjFile.name);
       if (processState.docSocioFrente?.name) attachedDocs.push(processState.docSocioFrente.name);
       if (processState.docSocioVerso?.name) attachedDocs.push(processState.docSocioVerso.name);
@@ -309,5 +305,3 @@ export default function FotoContratoAssinadoPage() {
     </>
   );
 }
-
-    
