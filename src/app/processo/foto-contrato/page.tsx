@@ -40,9 +40,10 @@ export default function FotoContratoPage() {
     const loadedState = loadProcessState();
     setProcessState(loadedState);
 
-     if (loadedState.contractPhotoName && !contractPhotoFile && loadedState.contractPhotoPreview) {
-       // Logic to potentially re-instantiate File object if needed, or rely on preview
-     }
+     // If a photo name exists in loaded state but no file, it means it was loaded from localStorage
+     // We don't need to re-instantiate a File object from data URI here,
+     // as contractPhotoFile is primarily for new uploads.
+     // The preview will come from processState.contractPhotoPreview (data URI).
   }, []);
 
 
@@ -50,33 +51,58 @@ export default function FotoContratoPage() {
     const file = event.target.files?.[0];
     if (file) {
       setContractPhotoFile(file); 
-      const preview = URL.createObjectURL(file);
-      setProcessState(prevState => ({
-        ...prevState,
-        contractPhotoPreview: preview,
-        contractPhotoName: file.name,
-        photoVerificationResult: null,
-        photoVerified: false,
-        extractedData: null, 
-      }));
+      try {
+        const dataUri = await fileToDataUri(file); // Convert to data URI
+        const newState = {
+          ...processState,
+          contractPhotoPreview: dataUri, // Store data URI
+          contractPhotoName: file.name,
+          photoVerificationResult: null,
+          photoVerified: false,
+          extractedData: null, 
+        };
+        setProcessState(newState);
+        saveProcessState(newState); // Attempt to save to localStorage immediately
+      } catch (error) {
+        console.error("Error converting file to Data URI:", error);
+        toast({ title: "Erro ao processar imagem", description: "Não foi possível carregar a imagem para pré-visualização.", variant: "destructive"});
+        // Reset relevant parts of state if conversion fails
+        const newState = {
+            ...processState,
+            contractPhotoPreview: null,
+            contractPhotoName: undefined,
+            photoVerificationResult: null,
+            photoVerified: false,
+            extractedData: null,
+        };
+        setProcessState(newState);
+        saveProcessState(newState);
+        if (contractPhotoInputRef.current) {
+          contractPhotoInputRef.current.value = ""; // Clear the file input
+        }
+      }
     }
   };
 
   const handleVerifyPhoto = async () => {
-    if (!contractPhotoFile) {
+    // Use processState.contractPhotoPreview (data URI) instead of relying on contractPhotoFile for verification
+    if (!processState.contractPhotoPreview) {
       toast({ title: "Verificação Necessária", description: "Por favor, carregue a foto do contrato.", variant: "destructive" });
       return;
     }
     setIsVerifyingPhoto(true);
     
     try {
-      const photoDataUri = await fileToDataUri(contractPhotoFile);
-      const result = await verifyContractPhoto({ photoDataUri });
-      setProcessState(prevState => ({
-        ...prevState,
+      // photoDataUri is already in processState.contractPhotoPreview
+      const result = await verifyContractPhoto({ photoDataUri: processState.contractPhotoPreview });
+      const newState = {
+        ...processState,
         photoVerificationResult: result,
         photoVerified: result.isCompleteAndClear,
-      }));
+      };
+      setProcessState(newState);
+      saveProcessState(newState);
+
       if (result.isCompleteAndClear) {
         toast({ 
           title: "Verificação da Foto Concluída!", 
@@ -88,11 +114,13 @@ export default function FotoContratoPage() {
       }
     } catch (error) {
       console.error("AI Verification Error:", error);
-      setProcessState(prevState => ({
-        ...prevState,
+      const newState = {
+        ...processState,
         photoVerificationResult: { isCompleteAndClear: false, reason: "Erro ao verificar. Tente novamente." },
         photoVerified: false,
-      }));
+      };
+      setProcessState(newState);
+      saveProcessState(newState);
       toast({ title: "Erro na Verificação", description: "Não foi possível concluir a verificação da foto. Tente novamente.", variant: "destructive" });
     } finally {
       setIsVerifyingPhoto(false);
@@ -100,24 +128,25 @@ export default function FotoContratoPage() {
   };
 
   const handleExtractContractData = async () => {
-    if (processState.contractSourceType === 'new' && (!contractPhotoFile || !processState.photoVerified)) {
+    if (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified)) {
       toast({ title: "Ação Requerida", description: "Carregue e verifique a foto do contrato antes da análise.", variant: "destructive" });
       return;
     }
-     if (processState.contractSourceType === 'new' && !contractPhotoFile) {
+     if (processState.contractSourceType === 'new' && !processState.contractPhotoPreview) { // Check for preview (data URI)
       toast({ title: "Foto não encontrada", description: "Carregue a foto do contrato para análise.", variant: "destructive" });
       return;
     }
 
     setIsExtractingData(true);
     try {
-      if (processState.contractSourceType === 'new' && contractPhotoFile) {
-         const photoDataUri = await fileToDataUri(contractPhotoFile);
-         const result = await extractContractData({ photoDataUri });
-         setProcessState(prevState => ({
-           ...prevState,
+      if (processState.contractSourceType === 'new' && processState.contractPhotoPreview) { // Use data URI from state
+         const result = await extractContractData({ photoDataUri: processState.contractPhotoPreview });
+         const newState = {
+           ...processState,
            extractedData: result,
-         }));
+         };
+         setProcessState(newState);
+         saveProcessState(newState);
          toast({ 
            title: "Análise do Contrato Concluída!", 
            description: "Dados extraídos do contrato com sucesso. Prossiga para anexar os documentos do comprador.", 
@@ -126,7 +155,9 @@ export default function FotoContratoPage() {
       }
     } catch (error) {
       console.error("AI Extraction Error:", error);
-      setProcessState(prevState => ({ ...prevState, extractedData: null })); 
+      const newState = { ...processState, extractedData: null };
+      setProcessState(newState); 
+      saveProcessState(newState);
       toast({ title: "Erro na Análise do Contrato", description: "Não foi possível extrair os dados. Verifique a imagem ou tente novamente.", variant: "destructive" });
     } finally {
       setIsExtractingData(false);
@@ -153,6 +184,7 @@ export default function FotoContratoPage() {
   const handleNext = () => {
     if (!validateStep()) return;
     setIsNavigatingNext(true);
+    // State is already saved by individual actions or load, but good practice to ensure it's current before nav
     saveProcessState({ ...processState, currentStep: "/processo/documentos" });
     toast({
       title: "Etapa 2 Concluída!",
@@ -163,18 +195,20 @@ export default function FotoContratoPage() {
   };
 
   const handleBack = () => {
-    saveProcessState(processState);
+    saveProcessState(processState); // Ensure current state (even if no new photo) is saved
     router.push("/processo/dados-iniciais");
   };
 
-  useEffect(() => {
-    const previewUrl = processState.contractPhotoPreview;
-    return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) { 
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [processState.contractPhotoPreview]);
+  // No need to revoke ObjectURL if we are consistently using data URIs in processState.contractPhotoPreview
+  // If contractPhotoPreview was a blob URL, then revoke would be needed.
+  // useEffect(() => {
+  //   const previewUrl = processState.contractPhotoPreview;
+  //   return () => {
+  //     if (previewUrl && previewUrl.startsWith('blob:')) { 
+  //       URL.revokeObjectURL(previewUrl);
+  //     }
+  //   };
+  // }, [processState.contractPhotoPreview]);
 
 
   const shouldShowPhotoUploadAndVerify = processState.contractSourceType === 'new';
@@ -340,5 +374,3 @@ export default function FotoContratoPage() {
     </>
   );
 }
-
-    

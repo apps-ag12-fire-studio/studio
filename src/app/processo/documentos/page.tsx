@@ -49,6 +49,7 @@ export default function DocumentosPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [analyzingDocKey, setAnalyzingDocKey] = useState<DocumentSlotKey | null>(null);
+  // localFiles stores File objects for newly selected files, not for those loaded from localStorage (data URIs)
   const [localFiles, setLocalFiles] = useState<Partial<Record<DocumentSlotKey, File | null>>>({});
   const [selectedPfDocType, setSelectedPfDocType] = useState<PfDocumentType | ''>('');
   const [isNavigatingNext, setIsNavigatingNext] = useState(false);
@@ -70,17 +71,19 @@ export default function DocumentosPage() {
     const inputElement = event.target; 
 
     if (file) {
-      setLocalFiles(prev => ({ ...prev, [docKey]: file }));
+      setLocalFiles(prev => ({ ...prev, [docKey]: file })); // Keep local file object for potential re-analysis if needed
       try {
-        const previewUrl = await fileToDataUri(file);
-        setProcessState(prevState => ({
-          ...prevState,
+        const dataUri = await fileToDataUri(file);
+        const newState = {
+          ...processState,
           [docKey]: {
             name: file.name,
-            previewUrl: previewUrl,
-            analysisResult: prevState[docKey]?.analysisResult 
+            previewUrl: dataUri, // Store data URI
+            analysisResult: processState[docKey]?.analysisResult // Preserve existing analysis if any
           } as DocumentFile
-        }));
+        };
+        setProcessState(newState);
+        saveProcessState(newState); // Attempt to save to localStorage immediately
       } catch (error) {
         console.error(`Error processing file for ${docKey}:`, error);
         toast({ 
@@ -88,51 +91,51 @@ export default function DocumentosPage() {
           description: `Não foi possível gerar a pré-visualização para ${file.name}. Por favor, tente novamente ou escolha outro arquivo.`, 
           variant: "destructive" 
         });
-        setProcessState(prevState => ({
-          ...prevState,
+        const newState = {
+          ...processState,
           [docKey]: null 
-        }));
+        };
+        setProcessState(newState);
+        saveProcessState(newState);
         setLocalFiles(prev => ({ ...prev, [docKey]: null }));
         if (inputElement) {
           inputElement.value = "";
         }
       }
     } else {
+      // If no file is selected (e.g., user cancels file dialog), clear the stored document for this key
       if (inputElement && inputElement.files && inputElement.files.length === 0) {
-         setProcessState(prevState => ({
-          ...prevState,
+         const newState = {
+          ...processState,
           [docKey]: null
-        }));
+        };
+        setProcessState(newState);
+        saveProcessState(newState);
         setLocalFiles(prev => ({ ...prev, [docKey]: null }));
       }
     }
   };
 
   const removeDocument = (docKey: DocumentSlotKey) => {
-    setProcessState(prevState => ({
-      ...prevState,
+    const newState = {
+      ...processState,
       [docKey]: null
-    }));
+    };
+    setProcessState(newState);
+    saveProcessState(newState);
     setLocalFiles(prev => ({...prev, [docKey]: null}));
+     // Also clear the corresponding file input element if it exists
+    const inputElement = document.getElementById(docKey) as HTMLInputElement | null;
+    if (inputElement) {
+        inputElement.value = "";
+    }
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
+    // Use processState[docKey].previewUrl (data URI) for analysis
     const currentDocInState = processState[docKey] as DocumentFile | null;
-    const localFile = localFiles[docKey];
-
-    let photoDataUri: string | undefined | null = currentDocInState?.previewUrl;
-    let docName = currentDocInState?.name;
-
-    if (!photoDataUri && localFile) {
-      try {
-        photoDataUri = await fileToDataUri(localFile);
-        docName = localFile.name; 
-      } catch (error) {
-        toast({ title: "Erro ao processar arquivo local", description: "Não foi possível ler o arquivo para análise.", variant: "destructive"});
-        setAnalyzingDocKey(null);
-        return;
-      }
-    }
+    const photoDataUri = currentDocInState?.previewUrl;
+    const docName = currentDocInState?.name;
     
     if (!photoDataUri) {
       toast({ title: "Arquivo não encontrado", description: "Carregue um arquivo para ser analisado.", variant: "destructive"});
@@ -144,17 +147,16 @@ export default function DocumentosPage() {
     try {
       const result = await extractBuyerDocumentData({ photoDataUri });
       
-      setProcessState(prevState => {
-        const baseDoc = prevState[docKey] as DocumentFile | null;
-        return {
-          ...prevState,
-          [docKey]: {
-            name: baseDoc?.name || docName, 
-            previewUrl: baseDoc?.previewUrl || photoDataUri, 
-            analysisResult: result,
-          } as DocumentFile, 
-        };
-      });
+      const newState = {
+        ...processState,
+        [docKey]: {
+          name: docName, 
+          previewUrl: photoDataUri, 
+          analysisResult: result,
+        } as DocumentFile, 
+      };
+      setProcessState(newState);
+      saveProcessState(newState);
 
       toast({ 
         title: `Análise de ${docName || docKey} Concluída!`, 
@@ -170,17 +172,16 @@ export default function DocumentosPage() {
          userFriendlyErrorMessage = "Falha ao analisar: A IA não conseguiu processar este documento. Tente uma imagem mais nítida, verifique os logs do Genkit ou se o documento é suportado.";
       }
 
-      setProcessState(prevState => {
-        const baseDoc = prevState[docKey] as DocumentFile | null;
-        return {
-          ...prevState,
-          [docKey]: {
-            name: baseDoc?.name || docName,
-            previewUrl: baseDoc?.previewUrl || photoDataUri,
-            analysisResult: { error: userFriendlyErrorMessage },
-          } as DocumentFile,
-        };
-      });
+      const newState = {
+        ...processState,
+        [docKey]: {
+          name: docName,
+          previewUrl: photoDataUri,
+          analysisResult: { error: userFriendlyErrorMessage },
+        } as DocumentFile,
+      };
+      setProcessState(newState);
+      saveProcessState(newState);
       toast({ 
         title: `Erro na Análise de ${docName || docKey}`, 
         description: userFriendlyErrorMessage,
@@ -200,10 +201,10 @@ export default function DocumentosPage() {
       let docIsValid = false;
       switch(selectedPfDocType) {
         case 'rgAntigo':
-          docIsValid = !!(processState.rgAntigoFrente?.name && processState.rgAntigoVerso?.name);
+          docIsValid = !!(processState.rgAntigoFrente?.previewUrl && processState.rgAntigoVerso?.previewUrl);
           break;
         case 'cnhAntiga':
-          docIsValid = !!(processState.cnhAntigaFrente?.name && processState.cnhAntigaVerso?.name);
+          docIsValid = !!(processState.cnhAntigaFrente?.previewUrl && processState.cnhAntigaVerso?.previewUrl);
           break;
       }
       if (!docIsValid) {
@@ -211,7 +212,7 @@ export default function DocumentosPage() {
         toast({ title: `Documentos Insuficientes (${docLabel})`, description: `Anexe frente e verso do ${docLabel}.`, variant: "destructive" });
         return false;
       }
-      if (!processState.comprovanteEndereco?.name) {
+      if (!processState.comprovanteEndereco?.previewUrl) {
         toast({ title: "Comprovante de Endereço Necessário", description: "Anexe um comprovante de endereço.", variant: "destructive" });
         return false;
       }
@@ -224,7 +225,7 @@ export default function DocumentosPage() {
         toast({ title: "Dados do Representante Incompletos", description: "Preencha Nome e CPF do representante legal.", variant: "destructive"});
         return false;
       }
-      if (!processState.cartaoCnpjFile?.name || !(processState.docSocioFrente?.name && processState.docSocioVerso?.name) || !processState.comprovanteEndereco?.name) {
+      if (!processState.cartaoCnpjFile?.previewUrl || !(processState.docSocioFrente?.previewUrl && processState.docSocioVerso?.previewUrl) || !processState.comprovanteEndereco?.previewUrl) {
          toast({ title: "Documentos Insuficientes (PJ)", description: `Anexe Cartão CNPJ, Documento do Sócio (frente e verso), e Comprovante de Endereço da empresa.`, variant: "destructive" });
         return false;
       }
@@ -251,18 +252,21 @@ export default function DocumentosPage() {
   };
 
   const handleBuyerTypeChange = (value: BuyerType) => {
-    setProcessState(prevState => ({
-      ...prevState,
+    const newState = {
+      ...processState,
       buyerType: value,
-      companyInfo: value === 'pj' ? (prevState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
-      rgAntigoFrente: value === 'pj' ? null : prevState.rgAntigoFrente,
-      rgAntigoVerso: value === 'pj' ? null : prevState.rgAntigoVerso,
-      cnhAntigaFrente: value === 'pj' ? null : prevState.cnhAntigaFrente,
-      cnhAntigaVerso: value === 'pj' ? null : prevState.cnhAntigaVerso,
-      cartaoCnpjFile: value === 'pf' ? null : prevState.cartaoCnpjFile,
-      docSocioFrente: value === 'pf' ? null : prevState.docSocioFrente,
-      docSocioVerso: value === 'pf' ? null : prevState.docSocioVerso,
-    }));
+      companyInfo: value === 'pj' ? (processState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
+      // Clear PF docs if switching to PJ, and vice-versa for PJ docs
+      rgAntigoFrente: value === 'pj' ? null : processState.rgAntigoFrente,
+      rgAntigoVerso: value === 'pj' ? null : processState.rgAntigoVerso,
+      cnhAntigaFrente: value === 'pj' ? null : processState.cnhAntigaFrente,
+      cnhAntigaVerso: value === 'pj' ? null : processState.cnhAntigaVerso,
+      cartaoCnpjFile: value === 'pf' ? null : processState.cartaoCnpjFile,
+      docSocioFrente: value === 'pf' ? null : processState.docSocioFrente,
+      docSocioVerso: value === 'pf' ? null : processState.docSocioVerso,
+    };
+    setProcessState(newState);
+    saveProcessState(newState);
     if (value === 'pj') {
       setSelectedPfDocType(''); 
     }
@@ -270,54 +274,56 @@ export default function DocumentosPage() {
 
   const handlePfDocTypeChange = (value: PfDocumentType) => {
     setSelectedPfDocType(value);
-    setProcessState(prevState => {
-      const newState = {...prevState};
-      const allPfDocKeys: (keyof StoredProcessState)[] = [
-        'rgAntigoFrente', 'rgAntigoVerso',
-        'cnhAntigaFrente', 'cnhAntigaVerso',
-      ];
-      const localFilesToClear: Partial<Record<DocumentSlotKey, null>> = {};
+    const newState = {...processState};
+    const allPfDocKeys: (keyof StoredProcessState)[] = [
+      'rgAntigoFrente', 'rgAntigoVerso',
+      'cnhAntigaFrente', 'cnhAntigaVerso',
+    ];
+    const localFilesToClear: Partial<Record<DocumentSlotKey, null>> = {};
 
-      allPfDocKeys.forEach(key => {
-        let shouldClear = true;
-        if (value === 'rgAntigo' && (key === 'rgAntigoFrente' || key === 'rgAntigoVerso')) shouldClear = false;
-        else if (value === 'cnhAntiga' && (key === 'cnhAntigaFrente' || key === 'cnhAntigaVerso')) shouldClear = false;
-        
-        if (shouldClear) {
-          newState[key] = null;
-          localFilesToClear[key as DocumentSlotKey] = null;
-        }
-      });
-      setLocalFiles(prevLocals => ({...prevLocals, ...localFilesToClear}));
-      return newState;
+    allPfDocKeys.forEach(key => {
+      let shouldClear = true;
+      if (value === 'rgAntigo' && (key === 'rgAntigoFrente' || key === 'rgAntigoVerso')) shouldClear = false;
+      else if (value === 'cnhAntiga' && (key === 'cnhAntigaFrente' || key === 'cnhAntigaVerso')) shouldClear = false;
+      
+      if (shouldClear) {
+        newState[key] = null;
+        localFilesToClear[key as DocumentSlotKey] = null;
+      }
     });
+    setProcessState(newState);
+    saveProcessState(newState);
+    setLocalFiles(prevLocals => ({...prevLocals, ...localFilesToClear}));
   };
   
   const handleCompanyInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
-    setProcessState(prevState => ({
-      ...prevState,
+    const newState = {
+      ...processState,
       companyInfo: {
-        ...(prevState.companyInfo as CompanyInfo), 
+        ...(processState.companyInfo as CompanyInfo), 
         [field]: e.target.value,
       }
-    }));
+    };
+    setProcessState(newState);
+    saveProcessState(newState);
   };
   
   const handleBuyerInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
-    setProcessState(prevState => ({
-      ...prevState,
+    const newState = {
+      ...processState,
       buyerInfo: {
-        ...(prevState.buyerInfo as BuyerInfo),
+        ...(processState.buyerInfo as BuyerInfo),
         [field]: e.target.value,
       }
-    }));
+    };
+    setProcessState(newState);
+    saveProcessState(newState);
   };
 
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isAnalyzing = analyzingDocKey === docKey;
-    const localFileSelected = localFiles[docKey]; 
-    const displayDocName = currentDoc?.name || localFileSelected?.name;
+    const displayDocName = currentDoc?.name;
     const displayPreviewUrl = currentDoc?.previewUrl; 
     const isPdf = displayDocName?.toLowerCase().endsWith('.pdf');
 
@@ -350,7 +356,7 @@ export default function DocumentosPage() {
                 <Button 
                   type="button" variant="outline" size="sm" 
                   onClick={() => handleAnalyzeDocument(docKey)}
-                  disabled={isAnalyzing || (!displayPreviewUrl && !localFileSelected)} 
+                  disabled={isAnalyzing || (!displayPreviewUrl)} 
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
                   {isAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
@@ -426,13 +432,13 @@ export default function DocumentosPage() {
             onValueChange={(val) => handleBuyerTypeChange(val as BuyerType)}
             className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-4"
           >
-            <div className="flex items-center space-x-2 p-2 sm:p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
+            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
               <RadioGroupItem value="pf" id="type-pf" className="border-primary/50 text-primary focus:ring-primary"/>
-              <Label htmlFor="type-pf" className="font-medium text-base sm:text-lg cursor-pointer flex items-center"><UserCircle className="mr-2 h-5 w-5"/>Pessoa Física</Label>
+              <Label htmlFor="type-pf" className="font-medium text-base cursor-pointer flex items-center"><UserCircle className="mr-2 h-5 w-5"/>Pessoa Física</Label>
             </div>
-            <div className="flex items-center space-x-2 p-2 sm:p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
+            <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30">
               <RadioGroupItem value="pj" id="type-pj" className="border-primary/50 text-primary focus:ring-primary"/>
-              <Label htmlFor="type-pj" className="font-medium text-base sm:text-lg cursor-pointer flex items-center"><Building className="mr-2 h-5 w-5"/>Pessoa Jurídica</Label>
+              <Label htmlFor="type-pj" className="font-medium text-base cursor-pointer flex items-center"><Building className="mr-2 h-5 w-5"/>Pessoa Jurídica</Label>
             </div>
           </RadioGroup>
         </CardContent>
@@ -495,9 +501,9 @@ export default function DocumentosPage() {
                 className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"
               >
                 {pfDocOptions.map(opt => (
-                  <div key={opt.value} className="flex items-center space-x-2 p-2 sm:p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
+                  <div key={opt.value} className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
                     <RadioGroupItem value={opt.value} id={`doc-${opt.value}`} className="border-primary/50 text-primary focus:ring-primary"/>
-                    <Label htmlFor={`doc-${opt.value}`} className="font-medium text-base sm:text-lg cursor-pointer flex items-center">
+                    <Label htmlFor={`doc-${opt.value}`} className="font-medium text-base cursor-pointer flex items-center">
                       <opt.icon className="mr-2 h-5 w-5 flex-shrink-0"/>
                       <span className="whitespace-normal break-words">{opt.label}</span>
                     </Label>
@@ -539,5 +545,3 @@ export default function DocumentosPage() {
     </>
   );
 }
-
-    

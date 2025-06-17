@@ -48,7 +48,7 @@ export default function FotoContratoAssinadoPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
-  const [signedContractPhotoFile, setSignedContractPhotoFile] = useState<File | null>(null);
+  const [signedContractPhotoFile, setSignedContractPhotoFile] = useState<File | null>(null); // Keep for new uploads
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -77,20 +77,27 @@ export default function FotoContratoAssinadoPage() {
     if (file) {
       setSignedContractPhotoFile(file); 
       try {
-        const preview = await fileToDataUri(file); 
-        setProcessState(prevState => ({
-          ...prevState,
-          signedContractPhotoPreview: preview,
+        const dataUri = await fileToDataUri(file); 
+        const newState = {
+          ...processState,
+          signedContractPhotoPreview: dataUri, // Store data URI
           signedContractPhotoName: file.name,
-        }));
+        };
+        setProcessState(newState);
+        saveProcessState(newState); // Attempt to save to localStorage immediately
       } catch (error) {
         console.error("Error creating data URI for preview:", error);
         toast({ title: "Erro ao Carregar Imagem", description: "Não foi possível gerar a pré-visualização.", variant: "destructive"});
-        setProcessState(prevState => ({
-          ...prevState,
+        const newState = {
+          ...processState,
           signedContractPhotoPreview: null, 
           signedContractPhotoName: undefined,
-        }));
+        };
+        setProcessState(newState);
+        saveProcessState(newState);
+        if (photoInputRef.current) {
+            photoInputRef.current.value = "";
+        }
       }
     }
   };
@@ -212,14 +219,15 @@ export default function FotoContratoAssinadoPage() {
     router.push("/print-contract"); 
   };
   
-  useEffect(() => {
-    const previewUrl = processState.signedContractPhotoPreview;
-    return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) { 
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [processState.signedContractPhotoPreview]);
+  // No need to revoke ObjectURL if we are consistently using data URIs in processState.signedContractPhotoPreview
+  // useEffect(() => {
+  //   const previewUrl = processState.signedContractPhotoPreview;
+  //   return () => {
+  //     if (previewUrl && previewUrl.startsWith('blob:')) { 
+  //       URL.revokeObjectURL(previewUrl);
+  //     }
+  //   };
+  // }, [processState.signedContractPhotoPreview]);
 
   if (isLoading) {
     return (

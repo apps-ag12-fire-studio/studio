@@ -27,7 +27,7 @@ export interface CompanyInfo {
   cnpj: string;
 }
 
-export type PfDocumentType = 'rgAntigo' | 'cnhAntiga'; // Simplificado: removido rgQrcode e cnhQrcode
+export type PfDocumentType = 'rgAntigo' | 'cnhAntiga';
 
 // StoredProcessState holds data that is JSON serializable for localStorage
 export interface StoredProcessState {
@@ -41,7 +41,7 @@ export interface StoredProcessState {
   companyInfo: CompanyInfo | null; // For PJ
   internalTeamMemberInfo: BuyerInfo;
 
-  // Pessoa Física specific documents - Simplificado
+  // Pessoa Física specific documents
   rgAntigoFrente: DocumentFile | null;
   rgAntigoVerso: DocumentFile | null;
   cnhAntigaFrente: DocumentFile | null;
@@ -95,18 +95,22 @@ export const initialStoredProcessState: StoredProcessState = {
   signedContractPhotoName: undefined,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v9'; // Incremented version
-const PRINT_DATA_KEY = 'contractPrintData_v6'; // Incremented version
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v10'; // Incremented version
+const PRINT_DATA_KEY = 'contractPrintData_v7'; // Incremented version
 
 
 export function saveProcessState(state: StoredProcessState) {
   try {
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(state));
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error saving process state to localStorage:", error);
+    let description = "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio.";
+    if (error.name === 'QuotaExceededError') {
+      description = "O armazenamento local está cheio. Algumas imagens grandes podem não ter sido salvas. Tente limpar o cache do navegador ou prossiga com cuidado.";
+    }
     toast({
-      title: "Erro ao Salvar Progresso",
-      description: "Não foi possível salvar os dados atuais. Isso pode ocorrer se o armazenamento estiver cheio.",
+      title: "Erro ao Salvar Progresso Localmente",
+      description: description,
       variant: "destructive",
       duration: 10000, 
     });
@@ -133,10 +137,6 @@ export function loadProcessState(): StoredProcessState {
         parsedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
       }
       
-      // Clean up fields that were removed
-      if ((parsedState as any).rgQrcodeDoc !== undefined) delete (parsedState as any).rgQrcodeDoc;
-      if ((parsedState as any).cnhQrcodeDoc !== undefined) delete (parsedState as any).cnhQrcodeDoc;
-      
       return parsedState;
     }
   } catch (error) {
@@ -162,7 +162,7 @@ export interface PrintData {
   buyerType: BuyerType;
   selectedPlayer: string | null;
   internalTeamMemberInfo: BuyerInfo | null;
-  // PF Documents for printing - Simplificado
+  // PF Documents for printing
   rgAntigoFrenteUrl?: string | null;
   rgAntigoVersoUrl?: string | null;
   cnhAntigaFrenteUrl?: string | null;
@@ -198,10 +198,6 @@ export function loadPrintData(): PrintData | null {
        parsedData.buyerType = parsedData.buyerType || 'pf';
        parsedData.companyInfo = parsedData.companyInfo || null;
        
-       // Clean up old QRCode URL fields if they exist from a previous version
-       if ((parsedData as any).rgQrcodeDocUrl !== undefined) delete (parsedData as any).rgQrcodeDocUrl;
-       if ((parsedData as any).cnhQrcodeDocUrl !== undefined) delete (parsedData as any).cnhQrcodeDocUrl;
-
       return parsedData;
     }
   } catch (error)
