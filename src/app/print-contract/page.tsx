@@ -174,14 +174,20 @@ export default function PrintContractPage() {
   }
   
   const extractedDataMissing = !currentProcessState.extractedData || Object.keys(currentProcessState.extractedData).length === 0 || !Object.values(currentProcessState.extractedData).some(v => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : String(v).trim() !== ''));
-  const internalTeamMemberInfoMissing = !currentProcessState.internalTeamMemberInfo || !currentProcessState.internalTeamMemberInfo.nome || !currentProcessState.internalTeamMemberInfo.cpf || !currentProcessState.internalTeamMemberInfo.email || !currentProcessState.internalTeamMemberInfo.telefone; // cargo is optional for this check as it might not be critical for printing.
+  const internalTeamMemberInfoMissing = 
+    !currentProcessState.internalTeamMemberInfo || 
+    !currentProcessState.internalTeamMemberInfo.nome || 
+    !currentProcessState.internalTeamMemberInfo.cpf || 
+    !currentProcessState.internalTeamMemberInfo.email || 
+    !currentProcessState.internalTeamMemberInfo.telefone ||
+    !currentProcessState.internalTeamMemberInfo.cargo; // Added cargo check
   const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
 
   if (extractedDataMissing || internalTeamMemberInfoMissing || buyerInfoMissing || companyInfoMissingForPJ) {
     let missingPartsDescriptionList = [];
     if (extractedDataMissing) missingPartsDescriptionList.push("Dados do Contrato");
-    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (Nome, CPF, Email, Telefone)");
+    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (Nome, CPF, Email, Telefone, Cargo)"); // Updated text
     if (buyerInfoMissing) missingPartsDescriptionList.push("Informações do Comprador/Representante (Nome, CPF, Email, Telefone)");
     if (companyInfoMissingForPJ) missingPartsDescriptionList.push("Informações da Empresa (PJ - Razão Social, CNPJ)");
     
@@ -190,7 +196,7 @@ export default function PrintContractPage() {
     console.error(
         '[PrintContractPage] Essential data for printing missing. \nDescription:', descriptionText,
         '\nProcess ID:', currentProcessState.processId,
-        '\nFlags:', JSON.stringify({ extractedDataMissing, internalTeamMemberInfoMissing, buyerInfoMissing, companyInfoMissingForPJ }),
+        `\nFlags: extractedDataMissing=${extractedDataMissing}, internalTeamMemberInfoMissing=${internalTeamMemberInfoMissing}, buyerInfoMissing=${buyerInfoMissing}, companyInfoMissingForPJ=${companyInfoMissingForPJ}`,
         '\nRelevant State Parts (stringified for clarity):', JSON.stringify({
             processId: currentProcessState.processId,
             buyerType: currentProcessState.buyerType,
@@ -214,7 +220,7 @@ export default function PrintContractPage() {
             <p className="text-muted-foreground mb-2">Os seguintes dados essenciais não foram encontrados para gerar o contrato:</p>
             <ul className="list-disc list-inside text-left text-muted-foreground mb-4 text-sm inline-block">
                 {extractedDataMissing && <li>Dados do Contrato</li>}
-                {internalTeamMemberInfoMissing && <li>Informações do Responsável Interno</li>}
+                {internalTeamMemberInfoMissing && <li>Informações do Responsável Interno (incluindo Cargo)</li>}
                 {buyerInfoMissing && <li>Informações do Comprador/Representante</li>}
                 {companyInfoMissingForPJ && <li>Informações da Empresa (PJ)</li>}
             </ul>
@@ -416,5 +422,7 @@ export default function PrintContractPage() {
     </>
   );
 }
+
+    
 
     
