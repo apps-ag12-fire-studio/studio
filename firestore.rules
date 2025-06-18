@@ -1,21 +1,54 @@
+// Regras para o Cloud Firestore
+// Estas regras são permissivas para fins de desenvolvimento.
+// Para produção, você DEVE restringir o acesso com base na autenticação do usuário
+// e na lógica de negócios.
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite leitura e escrita na coleção de contratos em progresso.
-    // Para produção, restrinja o acesso para que usuários só possam acessar seus próprios dados
-    // ou com base em outras lógicas de autorização.
+
+    // Regras para a coleção 'inProgressContracts'
+    // Documentos nesta coleção têm IDs que correspondem a 'processId'.
+    // Exemplo de caminho: /inProgressContracts/someProcessId123
     match /inProgressContracts/{processId} {
-      allow read, write: if true; // AVISO: Permissivo para desenvolvimento.
-                                // TODO: Restringir para produção (ex: if request.auth.uid != null && resource.data.userId == request.auth.uid)
+      // PERMISSÃO DE DESENVOLVIMENTO: Permite leitura e escrita para qualquer um.
+      // ATENÇÃO: Em produção, restrinja quem pode ler ou escrever estes documentos.
+      // Por exemplo, você pode querer permitir que apenas um usuário autenticado
+      // que iniciou o processo (se você tiver essa lógica) possa modificar seu
+      // próprio 'inProgressContract'.
+      // Exemplo (requer autenticação): allow read, write: if request.auth != null;
+      // Exemplo mais granular (se 'processId' estivesse ligado a um 'userId'):
+      //   function isOwner(userId) {
+      //     return request.auth != null && request.auth.uid == userId;
+      //   }
+      //   allow read, write: if isOwner(resource.data.ownerId); // Supondo que você tenha um campo ownerId
+      allow read, write: if true;
     }
 
-    // Permite leitura e escrita na coleção de contratos submetidos.
-    // Para produção, considere restringir 'write' a funções de backend ou usuários administrativos,
-    // e 'read' com base nas permissões do usuário.
+    // Regras para a coleção 'submittedContracts'
+    // Documentos nesta coleção são criados quando um processo é finalizado.
+    // Exemplo de caminho: /submittedContracts/someUniqueDocId
     match /submittedContracts/{submissionId} {
-      allow read, write: if true; // AVISO: Permissivo para desenvolvimento.
-                                 // TODO: Restringir para produção.
+      // PERMISSÃO DE DESENVOLVIMENTO: Permite leitura e escrita para qualquer um.
+      // ATENÇÃO: Em produção:
+      // - 'create': Geralmente permitido se o usuário está autenticado e os dados são válidos.
+      // - 'read': Pode ser restrito a administradores ou ao usuário que submeteu.
+      // - 'update', 'delete': Geralmente restrito a administradores.
+      // Exemplo (requer autenticação para criar): allow create: if request.auth != null;
+      // Exemplo (permitir leitura apenas para admins, se você tiver um campo 'roles' no perfil do usuário):
+      //   function isAdmin() {
+      //     return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+      //   }
+      //   allow read: if isAdmin();
+      allow read, write: if true;
     }
+
+    // Adicione regras para outras coleções se você as tiver (ex: 'users').
+    // Exemplo para uma coleção 'users':
+    // match /users/{userId} {
+    //   allow read: if request.auth != null;
+    //   allow write: if request.auth != null && request.auth.uid == userId;
+    // }
   }
 }

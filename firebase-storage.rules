@@ -1,23 +1,48 @@
-
 rules_version = '2';
+
+// Regras para o Firebase Storage
+// Estas regras são permissivas para fins de desenvolvimento.
+// Para produção, você DEVE restringir o acesso com base na autenticação do usuário
+// e na lógica de negócios (por exemplo, apenas o usuário proprietário do 'processId'
+// pode ler/escrever em sua respectiva pasta 'user-{processId}').
+
 service firebase.storage {
-  match /b/{bucket}/o {
-    // Permite acesso a arquivos dentro de pastas de usuários/processos.
-    // O primeiro segmento do caminho será algo como "user-processId123" ou "user-unknown_process".
-    // O segundo segmento 'category' será "original_contracts", "docs", ou "signed_contracts".
-    // 'allPaths=**' captura o restante do caminho, incluindo subpastas de documentos e o nome do arquivo.
-    //
-    // Exemplos de caminhos que esta regra cobrirá:
+  match /b/{bucket}/o { // {bucket} é o nome do seu bucket de armazenamento
+
+    // Regra principal para todos os arquivos do aplicativo.
+    // Esta regra corresponde a caminhos como:
     // - user-someProcessId/original_contracts/arquivo.jpg
     // - user-someProcessId/docs/rgFrente/arquivo.jpg
-    // - user-unknown_process/signed_contracts/arquivo.jpg
+    // - user-someProcessId/docs/comprovanteEndereco/arquivo.pdf
+    // - user-unknown_process/signed_contracts/arquivo.jpg (se processId for nulo/desconhecido)
+    //
+    // Detalhes dos wildcards:
+    // - {userProcessFolder}: Captura o primeiro segmento do caminho, que esperamos
+    //   ser no formato "user-XXXXX" (ex: "user-processId123", "user-unknown_process").
+    // - {category}: Captura o segundo segmento, que representa a categoria do
+    //   documento (ex: "original_contracts", "docs", "signed_contracts").
+    // - {allPaths=**}: Captura recursivamente todos os segmentos restantes do caminho,
+    //   incluindo subpastas e o nome do arquivo final.
     match /{userProcessFolder}/{category}/{allPaths=**} {
-      allow read, write: if true; // Para desenvolvimento. Restrinja para produção!
+      // PERMISSÃO DE DESENVOLVIMENTO: Permite leitura e escrita para qualquer um.
+      // ATENÇÃO: Em produção, substitua 'if true;' por regras de autenticação
+      // e autorização adequadas.
+      // Exemplo (requer autenticação): allow read, write: if request.auth != null;
+      // Exemplo mais granular (requer que o nome da pasta corresponda ao UID do usuário,
+      // se 'userProcessFolder' fosse o UID do usuário, o que não é o nosso caso aqui,
+      // mas ilustra o conceito):
+      //   match /users/{userId}/{allPaths=**} {
+      //     allow read, write: if request.auth != null && request.auth.uid == userId;
+      //   }
+      // No nosso caso, a lógica de autorização provavelmente envolveria verificar
+      // se o usuário autenticado tem permissão para acessar o 'processId'
+      // contido em 'userProcessFolder', o que exigiria metadados ou consulta ao Firestore.
+      allow read, write: if true;
     }
 
-    // Regras antigas (opcional, para compatibilidade se arquivos já existirem nesses caminhos)
-    // Se você tiver certeza de que não há arquivos nos caminhos antigos ou não precisa mais deles,
-    // pode remover estas regras comentadas para manter as regras mais limpas.
+    // Se você tiver arquivos em caminhos mais antigos que não se encaixam na estrutura acima,
+    // você pode adicionar regras específicas para eles ou migrá-los.
+    // Exemplo de regras antigas que foram comentadas:
     // match /original_contracts/{allPaths=**} { allow read, write: if true; }
     // match /buyer_documents/{allPaths=**} { allow read, write: if true; }
     // match /signed_contracts/{allPaths=**} { allow read, write: if true; }
