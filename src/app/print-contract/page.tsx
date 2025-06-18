@@ -20,16 +20,18 @@ export default function PrintContractPage() {
     const fetchData = async () => {
       setIsLoading(true);
       const data = await loadProcessState();
+      console.log('[PrintContractPage] Loaded processState:', JSON.parse(JSON.stringify(data)));
+
       if (data && data.processId && data.extractedData && data.buyerInfo && data.internalTeamMemberInfo) {
         setCurrentProcessState(data);
       } else {
         toast({
           title: 'Erro ao Carregar Dados para Impressão',
-          description: 'Dados essenciais não encontrados. Verifique as etapas anteriores ou se o processo foi reiniciado. Redirecionando...',
+          description: 'Dados essenciais não encontrados (processId, extractedData, buyerInfo, ou internalTeamMemberInfo). Verifique as etapas anteriores ou se o processo foi reiniciado. Redirecionando...',
           variant: 'destructive',
           duration: 7000,
         });
-        router.replace('/processo/revisao-envio');
+        // router.replace('/processo/revisao-envio'); // Temporarily commented out to see logs
       }
       setIsLoading(false);
     };
@@ -91,6 +93,15 @@ export default function PrintContractPage() {
   }
 
   if (!currentProcessState || !currentProcessState.processId || !currentProcessState.extractedData || !currentProcessState.buyerInfo || !currentProcessState.internalTeamMemberInfo) {
+    // This block will now likely be hit if the toast was shown, due to router.replace being commented out
+     console.error('[PrintContractPage] Critical data missing for printing:', {
+        hasProcessState: !!currentProcessState,
+        processId: currentProcessState?.processId,
+        hasExtractedData: !!currentProcessState?.extractedData,
+        hasBuyerInfo: !!currentProcessState?.buyerInfo,
+        hasInternalTeamMemberInfo: !!currentProcessState?.internalTeamMemberInfo,
+        fullState: currentProcessState
+    });
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
@@ -98,7 +109,7 @@ export default function PrintContractPage() {
             <CardTitle className="text-2xl text-destructive font-headline">Erro Crítico de Carregamento</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato para impressão. Verifique as etapas anteriores ou reinicie o processo.</p>
+            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato para impressão. Verifique as etapas anteriores ou reinicie o processo. Verifique o console para mais detalhes.</p>
             <Button onClick={() => router.push('/processo/dados-iniciais')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
               <ArrowLeft className="mr-2 h-5 w-5" /> Voltar ao Início
             </Button>
