@@ -7,15 +7,42 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon, QrCode } from 'lucide-react';
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from '@/lib/process-store';
+
+// Componente para o rodapé de impressão personalizado
+const PrintFooter = ({ processId }: { processId: string | null }) => {
+  if (!processId) return null;
+
+  const verificationBaseUrl = "https://contratofacil.app/verify"; // Use seu domínio real aqui
+  const verificationUrl = `${verificationBaseUrl}?id=${processId}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(verificationUrl)}`;
+
+  return (
+    <div className="custom-print-footer print-only">
+      <div className="verification-text">
+        <p>Para verificar a autenticidade deste documento, acesse:</p>
+        <p className="font-semibold">{verificationUrl}</p>
+      </div>
+      <Image 
+        src={qrCodeUrl} 
+        alt={`QR Code para verificação do Processo ID ${processId}`} 
+        width={70} 
+        height={70}
+        className="qr-code-image"
+        unoptimized // Para evitar otimização do Next/Image em URLs externas de API
+      />
+    </div>
+  );
+};
+
 
 export default function PrintContractPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [currentProcessState, setCurrentProcessState] = useState<StoredProcessState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPrinting, setIsPrinting] = useState(false); // New state for print loading
+  const [isPrinting, setIsPrinting] = useState(false); 
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,7 +64,6 @@ export default function PrintContractPage() {
     fetchData();
   }, []); 
 
-  // Effect to handle print events
   useEffect(() => {
     const handleAfterPrint = () => {
       setIsPrinting(false);
@@ -51,7 +77,6 @@ export default function PrintContractPage() {
 
   const handleInitiatePrint = () => {
     setIsPrinting(true);
-    // Allow state to update and render loader before blocking with window.print()
     requestAnimationFrame(() => {
       try {
         window.print();
@@ -62,11 +87,8 @@ export default function PrintContractPage() {
             description: "Não foi possível abrir a caixa de diálogo de impressão.",
             variant: "destructive"
         });
-        setIsPrinting(false); // Reset if window.print() itself throws an error
+        setIsPrinting(false); 
       }
-      // Note: setIsPrinting(false) will be called by the 'afterprint' event listener.
-      // If 'afterprint' is unreliable on some browsers, a timeout could be a fallback here,
-      // but 'afterprint' is generally the preferred method.
     });
   };
 
@@ -158,7 +180,7 @@ export default function PrintContractPage() {
     !currentProcessState.internalTeamMemberInfo.cpf || 
     !currentProcessState.internalTeamMemberInfo.email || 
     !currentProcessState.internalTeamMemberInfo.telefone ||
-    !currentProcessState.internalTeamMemberInfo.cargo; // Added cargo check
+    !currentProcessState.internalTeamMemberInfo.cargo; 
   const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
 
@@ -217,7 +239,7 @@ export default function PrintContractPage() {
     );
   }
   
-  const { extractedData, buyerInfo, internalTeamMemberInfo, companyInfo, buyerType, selectedPlayer } = currentProcessState; 
+  const { extractedData, buyerInfo, internalTeamMemberInfo, companyInfo, buyerType, selectedPlayer, processId } = currentProcessState; 
 
   const nomesDasPartesArray = Array.isArray(extractedData?.nomesDasPartes)
     ? extractedData.nomesDasPartes
@@ -233,8 +255,8 @@ export default function PrintContractPage() {
                        "PABLO MARÇAL (ou empresa representante oficial)";
 
   const vendedorDocumento = documentosDasPartesArray.find((doc, index) => {
-    const nomeParte = nomesDasPartesArray[index] ? String(nomesDasPartesArray[index]).toUpperCase() : "";
-    return nomeParte.includes("VENDEDOR") || (selectedPlayer && nomeParte.includes(selectedPlayer.toUpperCase()));
+    const nomeParteCorrigido = Array.isArray(nomesDasPartesArray) && nomesDasPartesArray[index] ? String(nomesDasPartesArray[index]).toUpperCase() : "";
+    return nomeParteCorrigido.includes("VENDEDOR") || (selectedPlayer && nomeParteCorrigido.includes(selectedPlayer.toUpperCase()));
   }) || "[CNPJ DA EMPRESA VENDEDORA]";
 
 
@@ -363,6 +385,7 @@ export default function PrintContractPage() {
                 </div>
               </div>
             </CardContent>
+            <PrintFooter processId={processId} />
           </Card>
 
           <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
@@ -389,6 +412,7 @@ export default function PrintContractPage() {
               )}
               {renderDocumentImage(currentProcessState.comprovanteEndereco?.previewUrl, buyerType === 'pf' ? 'Comprovante de Endereço Pessoal' : 'Comprovante de Endereço da Empresa')}
             </CardContent>
+             <PrintFooter processId={processId} />
           </Card>
 
           <div className="mt-8 w-full max-w-3xl flex flex-col sm:flex-row gap-4 print-hidden">
@@ -421,5 +445,7 @@ export default function PrintContractPage() {
     </>
   );
 }
+
+    
 
     
