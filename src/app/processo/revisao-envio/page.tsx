@@ -23,12 +23,11 @@ import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, U
 
 
 const attemptToPreFillInfo = (
-  fullProcessState: StoredProcessState, // Changed to accept the full state for document access
+  fullProcessState: StoredProcessState, 
   currentBuyer: BuyerInfo,
   currentCompany: CompanyInfo | null
 ): { buyerInfo: BuyerInfo, companyInfo: CompanyInfo | null } => {
 
-  // Start with copies of the current info, so we don't mutate the arguments directly
   let newBuyerInfo: BuyerInfo = { ...currentBuyer };
   let newCompanyInfo: CompanyInfo | null = currentCompany ? { ...currentCompany } : (
     fullProcessState.buyerType === 'pj' ? { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } : null
@@ -42,7 +41,6 @@ const attemptToPreFillInfo = (
     return null;
   };
 
-  // --- Pre-fill Buyer Information (PF or PJ Representative) ---
   if (!newBuyerInfo.nome) {
     const rgData = getAnalysisDataFromDocKey('rgAntigoFrente');
     const cnhData = getAnalysisDataFromDocKey('cnhAntigaFrente');
@@ -55,18 +53,14 @@ const attemptToPreFillInfo = (
     const socioData = getAnalysisDataFromDocKey('docSocioFrente');
     newBuyerInfo.cpf = rgData?.cpf || cnhData?.cpf || socioData?.cpf || newBuyerInfo.cpf;
   }
-  // Email and Telefone are not typically extracted reliably by this AI flow, so we don't pre-fill them from document analysis.
 
-  // --- Pre-fill Company Information (PJ only) ---
   if (fullProcessState.buyerType === 'pj' && newCompanyInfo) {
     const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile');
     if (cartaoCnpjData) {
       if (!newCompanyInfo.razaoSocial && cartaoCnpjData.nomeCompleto) {
-        // Assuming nomeCompleto from Cartao CNPJ analysis might be the company name
         newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto;
       }
       if (!newCompanyInfo.cnpj) {
-        // Heuristic: AI might extract CNPJ into CPF or RG field from a generic document analysis
         const potentialCnpjFromCpf = cartaoCnpjData.cpf?.replace(/\D/g,'');
         if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14) {
           newCompanyInfo.cnpj = cartaoCnpjData.cpf!;
@@ -80,7 +74,6 @@ const attemptToPreFillInfo = (
     }
   }
   
-  // --- Pre-fill from Contract Data (if buyer/company name still empty) ---
   const contractData = fullProcessState.extractedData;
   if (contractData?.nomesDasPartes) {
     for (let i = 0; i < contractData.nomesDasPartes.length; i++) {
@@ -298,8 +291,7 @@ export default function RevisaoEnvioPage() {
   };
 
   const isPrintDisabled = useCallback(() => {
-    // return getMissingFieldsList(processState).length > 0; // Temporarily re-enabled
-    return false; // Keep this disabled for testing focus on specific data points
+    return false; 
   }, []);
 
   const showPendingChecks = () => {
@@ -335,7 +327,7 @@ export default function RevisaoEnvioPage() {
   const handlePrepareForPrint = async () => {
     setIsPreparingPrint(true);
     const stateToSave: StoredProcessState = {
-      ...processState, // This already contains the latest buyerInfo and companyInfo due to setProcessState in handlers
+      ...processState, 
       currentStep: "/print-contract"
     };
 
@@ -353,7 +345,6 @@ export default function RevisaoEnvioPage() {
     setIsNavigating(true);
     const stateToSave: StoredProcessState = {
         ...processState,
-        // buyerInfo and companyInfo are already up-to-date in processState
     };
     await saveProcessState(stateToSave); 
     router.push("/processo/documentos");
@@ -362,7 +353,6 @@ export default function RevisaoEnvioPage() {
   useEffect(() => {
     return () => {
       if (!isNavigating && !isPreparingPrint) {
-        // buyerInfo and companyInfo are already kept up-to-date in processState by input handlers
         saveProcessState(processState);
       }
     };
@@ -474,7 +464,7 @@ export default function RevisaoEnvioPage() {
             <>
               <div className="space-y-1">
                 <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Responsável Interno</h3>
-                <p className="text-foreground/80"><strong>Nome:</strong> {processState.internalTeamMemberInfo.nome}</p>
+                <p className="text-foreground/80"><strong>Nome:</strong> {processState.internalTeamMemberInfo.nome || 'Não informado'}</p>
                 <p className="text-foreground/80"><strong>CPF:</strong> {processState.internalTeamMemberInfo.cpf || 'Não informado'}</p>
                  <p className="text-foreground/80"><strong>Telefone:</strong> {processState.internalTeamMemberInfo.telefone || 'Não informado'}</p>
                 <p className="text-foreground/80"><strong>E-mail:</strong> {processState.internalTeamMemberInfo.email || 'Não informado'}</p>
@@ -583,4 +573,5 @@ export default function RevisaoEnvioPage() {
 
 
     
+
 

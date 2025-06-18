@@ -116,6 +116,8 @@ export function setActiveProcessId(id: string) {
   if (typeof window !== 'undefined') {
     console.log(`[ProcessStore] Setting active process ID: ${id}`);
     localStorage.setItem(ACTIVE_PROCESS_ID_KEY, id);
+    // Dispatch a custom event so other components (like FooterWrapper) can react
+    window.dispatchEvent(new CustomEvent('activeProcessIdChanged', { detail: id }));
   }
 }
 
@@ -123,6 +125,7 @@ function clearActiveProcessId() {
   if (typeof window !== 'undefined') {
     console.log("[ProcessStore] Clearing active process ID.");
     localStorage.removeItem(ACTIVE_PROCESS_ID_KEY);
+    window.dispatchEvent(new CustomEvent('activeProcessIdChanged', { detail: null }));
   }
 }
 
@@ -231,12 +234,12 @@ export async function saveProcessState(state: StoredProcessState | undefined | n
 
     if (cleanedStateForStorage.processId) {
       if (cleanedStateForStorage.processId !== activeIdFromStorage) {
-        setActiveProcessId(cleanedStateForStorage.processId);
+        setActiveProcessId(cleanedStateForStorage.processId); // This will dispatch 'activeProcessIdChanged'
       }
       await storeStateInFirestore(cleanedStateForStorage); 
     } else {
       if (activeIdFromStorage) {
-        clearActiveProcessId();
+        clearActiveProcessId(); // This will dispatch 'activeProcessIdChanged'
       }
     }
   } catch (error: any) {
@@ -342,7 +345,7 @@ export async function loadProcessState(): Promise<StoredProcessState> {
       } else if (!activeId && lsProcessId) {
         sourceOfTruthLog += `No activeId, but LocalStorage has process ${lsProcessId}. Resuming this LS process. `;
         mergedState = { ...localStorageParsed };
-        setActiveProcessId(lsProcessId);
+        setActiveProcessId(lsProcessId); // This will dispatch 'activeProcessIdChanged'
       } else if (activeId && lsProcessId && lsProcessId !== activeId) {
         sourceOfTruthLog += `LocalStorage has data for ${lsProcessId}, but active is ${activeId}. LS data ignored for this load. `;
       } else if (!lsProcessId && activeId) {
@@ -385,16 +388,17 @@ export async function loadProcessState(): Promise<StoredProcessState> {
 
 
   if (finalState.processId) {
-    if (getActiveProcessId() !== finalState.processId) {
+    const activeIdInStorage = getActiveProcessId();
+    if (activeIdInStorage !== finalState.processId) {
         console.log(`[ProcessStore LOAD] Updating activeProcessId in localStorage to match finalState.processId: ${finalState.processId}`);
-        setActiveProcessId(finalState.processId);
+        setActiveProcessId(finalState.processId); // This will dispatch 'activeProcessIdChanged'
     }
     console.log("[ProcessStore LOAD] Saving final merged state back to localStorage (PROCESS_STATE_KEY).");
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(finalState));
   } else {
      console.log("[ProcessStore LOAD] Final state has no processId. Clearing PROCESS_STATE_KEY and activeProcessId from localStorage. Resetting to initial state.");
      localStorage.removeItem(PROCESS_STATE_KEY);
-     clearActiveProcessId();
+     clearActiveProcessId(); // This will dispatch 'activeProcessIdChanged'
      finalState = ensureAllKeysPresent(initialStoredProcessState);
      sourceOfTruthLog += `Final state had no processId, reset to initial. `;
   }
@@ -415,7 +419,7 @@ export async function loadProcessState(): Promise<StoredProcessState> {
 export function clearProcessState() {
   try {
     localStorage.removeItem(PROCESS_STATE_KEY);
-    clearActiveProcessId();
+    clearActiveProcessId(); // This will dispatch 'activeProcessIdChanged'
     console.log("[ProcessStore ClearState] Local process state and activeProcessId cleared.");
   } catch (error) {
     console.error("[ProcessStore ClearState] Error clearing process state from localStorage:", error);
@@ -485,4 +489,5 @@ export function loadPrintData(): PrintData | null {
     
 
     
+
 
