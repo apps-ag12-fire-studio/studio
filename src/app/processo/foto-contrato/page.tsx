@@ -10,17 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState } from "@/lib/process-store";
+import { 
+    StoredProcessState, 
+    loadProcessState, 
+    saveProcessState, 
+    initialStoredProcessState,
+    addUploadedFileToFirestore // Import new function
+} from "@/lib/process-store";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckCircle2, ScanText } from "lucide-react";
 import { storage } from "@/lib/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
-const generateUniqueFileName = (file: File, folderPrefix: string) => {
+const generateUniqueFileName = (file: File, processId: string) => { // Updated parameters
   const timestamp = new Date().getTime();
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  return `${folderPrefix}/${timestamp}-${saneFilename}`;
+  // New path structure as per request: processos/{processoId}/{timestamped_unique_filename}
+  // Assuming this photo is for the "original contract"
+  return `processos/${processId}/${timestamp}-original-${saneFilename}`;
 };
 
 export default function FotoContratoPage() {
@@ -49,7 +57,7 @@ export default function FotoContratoPage() {
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
-    if (file) {
+    if (file && processState.processId) { // Ensure processId exists
       setIsUploadingContractPhoto(true);
       setContractPhotoUploadProgress(0);
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
@@ -58,11 +66,13 @@ export default function FotoContratoPage() {
         try {
           const oldPhotoRef = storageRef(storage, processState.contractPhotoStoragePath);
           await deleteObject(oldPhotoRef);
+          // Note: Deleting from Firestore 'arquivos' array on re-upload is complex. New uploads will add.
         } catch (deleteError) {
+          console.warn("Could not delete old contract photo from storage:", deleteError)
         }
       }
-      const baseFolder = `user-${processState.processId || 'unknown_process'}/original_contracts`;
-      const filePath = generateUniqueFileName(file, baseFolder);
+      
+      const filePath = generateUniqueFileName(file, processState.processId); // Updated path
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
 
@@ -70,23 +80,14 @@ export default function FotoContratoPage() {
         (snapshot: UploadTaskSnapshot) => {
           const { bytesTransferred, totalBytes } = snapshot;
           let calculatedProgress = 0;
-          if (totalBytes > 0) {
-            calculatedProgress = (bytesTransferred / totalBytes) * 100;
-          }
+          if (totalBytes > 0) calculatedProgress = (bytesTransferred / totalBytes) * 100;
           setContractPhotoUploadProgress(Math.round(calculatedProgress));
         },
         (error: FirebaseStorageError) => {
-          toast({
-            title: "Erro no Upload",
-            description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`,
-            variant: "destructive",
-            duration: 7000
-          });
+          toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`, variant: "destructive", duration: 7000 });
           setIsUploadingContractPhoto(false);
           setContractPhotoUploadProgress(null);
-          if (contractPhotoInputRef.current) {
-            contractPhotoInputRef.current.value = "";
-          }
+          if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
           const newState = {...processState, contractPhotoPreview: null, contractPhotoName: undefined, contractPhotoStoragePath: null, photoVerified: false, photoVerificationResult: null, extractedData: null};
           setProcessState(newState);
           saveProcessState(newState);
@@ -94,6 +95,11 @@ export default function FotoContratoPage() {
         async () => {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            // Add to 'arquivos' array in Firestore
+            if(processState.processId) {
+                await addUploadedFileToFirestore(processState.processId, file, downloadURL, filePath);
+            }
+
             const newState = {
               ...processState,
               contractPhotoPreview: downloadURL,
@@ -101,30 +107,31 @@ export default function FotoContratoPage() {
               contractPhotoStoragePath: filePath,
               photoVerificationResult: null,
               photoVerified: false,
-              extractedData: null,
+              extractedData: null, // Reset extracted data if new photo is uploaded
             };
             setProcessState(newState);
-            saveProcessState(newState);
-            toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+            await saveProcessState(newState); // Save updated local state
+            toast({ title: "Upload Concluído!", description: `${file.name} enviado e registrado.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
+            toast({ title: "Erro Pós-Upload", description: `Falha ao processar o arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
             setContractPhotoUploadProgress(null);
              const newState = {...processState, contractPhotoPreview: null, contractPhotoName: file.name, contractPhotoStoragePath: filePath, photoVerified: false, photoVerificationResult: null, extractedData: null};
             setProcessState(newState);
-            saveProcessState(newState);
+            await saveProcessState(newState);
             if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
           } finally {
             setIsUploadingContractPhoto(false);
           }
         }
       );
+    } else if (!processState.processId) {
+        toast({ title: "Erro de Sessão", description: "ID do processo não encontrado. Não é possível fazer upload.", variant: "destructive"});
+        if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
     } else {
-       if (contractPhotoInputRef.current) {
-          contractPhotoInputRef.current.value = "";
-      }
+       if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
       const newState = {...processState, contractPhotoPreview: null, contractPhotoName: undefined, contractPhotoStoragePath: null, photoVerified: false, photoVerificationResult: null, extractedData: null};
       setProcessState(newState);
-      saveProcessState(newState);
+      saveProcessState(newState); // Save state if file is cleared
     }
   };
 
@@ -138,7 +145,7 @@ export default function FotoContratoPage() {
       const result = await verifyContractPhoto({ photoDataUri: processState.contractPhotoPreview });
       const newState = { ...processState, photoVerificationResult: result, photoVerified: result.isCompleteAndClear };
       setProcessState(newState);
-      saveProcessState(newState);
+      await saveProcessState(newState);
       if (result.isCompleteAndClear) {
         toast({ title: "Verificação da Foto Concluída!", description: "A imagem do contrato é nítida e completa.", className: "bg-secondary text-secondary-foreground border-secondary" });
       } else {
@@ -147,7 +154,7 @@ export default function FotoContratoPage() {
     } catch (error: any) {
       const newState = { ...processState, photoVerificationResult: { isCompleteAndClear: false, reason: `Erro ao verificar com IA: ${error.message}` }, photoVerified: false };
       setProcessState(newState);
-      saveProcessState(newState);
+      await saveProcessState(newState);
       toast({ title: "Erro na Verificação com IA", description: `Não foi possível concluir a verificação da foto. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsVerifyingPhoto(false);
@@ -169,13 +176,13 @@ export default function FotoContratoPage() {
          const result = await extractContractData({ photoDataUri: processState.contractPhotoPreview });
          const newState = { ...processState, extractedData: result };
          setProcessState(newState);
-         saveProcessState(newState);
+         await saveProcessState(newState);
          toast({ title: "Análise do Contrato Concluída!", description: "Dados extraídos do contrato com sucesso.", className: "bg-secondary text-secondary-foreground border-secondary" });
       }
     } catch (error: any) {
       const newState = { ...processState, extractedData: null }; 
       setProcessState(newState);
-      saveProcessState(newState);
+      await saveProcessState(newState);
       toast({ title: "Erro na Análise do Contrato", description: `Não foi possível extrair os dados com IA. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsExtractingData(false);
@@ -198,29 +205,42 @@ export default function FotoContratoPage() {
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateStep()) return;
     setIsNavigating(true);
     const newState = { ...processState, currentStep: "/processo/documentos" };
-    saveProcessState(newState);
-    setProcessState(newState);
+    await saveProcessState(newState);
+    setProcessState(newState); // Update local state after save
     toast({ title: "Etapa 2 Concluída!", description: "Contrato processado. Carregando próxima etapa...", className: "bg-green-600 text-primary-foreground border-green-700" });
     router.push("/processo/documentos");
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     setIsNavigating(true);
-    saveProcessState(processState); 
+    await saveProcessState(processState); 
     router.push("/processo/dados-iniciais");
   };
 
-  useEffect(() => { 
-    return () => {
-      if (!isNavigating) { 
-        saveProcessState(processState);
+  // Effect for saving state on unmount or when processState changes and user is not navigating
+  useEffect(() => {
+    const currentProcessStateForEffect = processState;
+    const saveOnUnmountOrChange = async () => {
+      if (!isNavigating && !isStateLoading && !isUploadingContractPhoto && !isVerifyingPhoto && !isExtractingData) {
+        await saveProcessState(currentProcessStateForEffect);
       }
     };
-  }, [processState, isNavigating]);
+    
+    const timerId = setTimeout(() => {
+        saveOnUnmountOrChange();
+    }, 1000);
+
+    return () => {
+      clearTimeout(timerId);
+      if (!isNavigating) {
+        saveOnUnmountOrChange();
+      }
+    };
+  }, [processState, isNavigating, isStateLoading, isUploadingContractPhoto, isVerifyingPhoto, isExtractingData]);
 
   if (isStateLoading) {
     return (
@@ -390,7 +410,7 @@ export default function FotoContratoPage() {
           }
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          {isNavigating && !globalDisableCondition ? (
+          {isNavigating && !globalDisableCondition ? ( // Show loader only if navigating AND not otherwise disabled
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Aguarde...
@@ -405,3 +425,4 @@ export default function FotoContratoPage() {
     </>
   );
 }
+

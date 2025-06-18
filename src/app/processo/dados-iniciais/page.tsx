@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from "@/lib/process-store";
-import { ArrowRight, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon, Loader2 } from "lucide-react";
+import { ArrowRight, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon, Loader2, Briefcase } from "lucide-react"; // Added Briefcase
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 
 const players = [
@@ -97,8 +97,8 @@ export default function DadosIniciaisPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
-  const [isLoading, setIsLoading] = useState(false); // For page navigation
-  const [isStateLoading, setIsStateLoading] = useState(true); // For initial state load
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isStateLoading, setIsStateLoading] = useState(true); 
 
   useEffect(() => {
     const loadInitialState = async () => {
@@ -140,7 +140,7 @@ export default function DadosIniciaisPage() {
       ...processState,
       selectedPlayer: playerName,
       extractedData: null, 
-      selectedContractTemplateName: null, // Reset template when player changes
+      selectedContractTemplateName: null, 
     };
     setProcessState(newState);
   };
@@ -164,18 +164,13 @@ export default function DadosIniciaisPage() {
       selectedContractTemplateName: template.displayName,
     };
     setProcessState(newState);
-    saveProcessState(newState); 
-    toast({ 
-      title: "Modelo Carregado com Sucesso!", 
-      description: `O modelo "${template.displayName}" para ${processState.selectedPlayer} foi carregado.`, 
-      className: "bg-secondary text-secondary-foreground border-secondary" 
-    });
+    // No need to save here, will be saved on "Next"
   };
   
   const validateStep = () => {
     const { internalTeamMemberInfo } = processState;
-    if (!internalTeamMemberInfo.nome || !internalTeamMemberInfo.cpf || !internalTeamMemberInfo.telefone || !internalTeamMemberInfo.email) {
-      toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Responsável Interno'.", variant: "destructive" });
+    if (!internalTeamMemberInfo.nome || !internalTeamMemberInfo.cpf || !internalTeamMemberInfo.telefone || !internalTeamMemberInfo.email || !internalTeamMemberInfo.cargo) { // Added cargo check
+      toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Responsável Interno', incluindo o Cargo.", variant: "destructive" });
       return false;
     }
     if (processState.contractSourceType === 'existing') {
@@ -198,27 +193,38 @@ export default function DadosIniciaisPage() {
     const nextPath = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/documentos";
     const updatedState = { ...processState, currentStep: nextPath };
     
-    await saveProcessState(updatedState); 
+    await saveProcessState(updatedState); // This now saves to Firestore 'processos' collection
     setProcessState(updatedState); 
 
     toast({
       title: "Etapa 1 Concluída!",
-      description: "Dados iniciais validados. Carregando próxima etapa...",
+      description: "Dados iniciais validados e salvos. Carregando próxima etapa...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push(nextPath);
+    // setIsLoading(false); // Not strictly needed if navigating away
   };
 
-  useEffect(() => {
-    const currentProcessState = processState; // Capture current state for cleanup
-    return () => {
-      // Only save if not navigating away intentionally by "handleNext" or "handlePlayerSelect", etc.
-      // This is a simplified check; more robust handling might be needed if there are other ways to unmount.
-      if (!isLoading) { 
-         saveProcessState(currentProcessState);
+  // Effect for saving state on unmount or when processState changes and user is not navigating
+   useEffect(() => {
+    const currentProcessStateForEffect = processState;
+    const saveOnUnmount = async () => {
+      if (!isLoading && !isStateLoading) { // Only save if not actively loading/navigating
+        await saveProcessState(currentProcessStateForEffect);
       }
     };
-  }, [processState, isLoading]);
+
+    // Save when component unmounts (e.g. browser refresh/close)
+    // window.addEventListener('beforeunload', saveOnUnmount); // This can be problematic and block navigation
+
+    return () => {
+      // window.removeEventListener('beforeunload', saveOnUnmount);
+      // Call save on unmount, but ensure it's not during an intentional navigation by handleNext
+      if (!isLoading) { // isLoading is true during handleNext's processing
+          saveOnUnmount();
+      }
+    };
+  }, [processState, isLoading, isStateLoading]);
 
 
   if (isStateLoading) {
@@ -294,6 +300,12 @@ export default function DadosIniciaisPage() {
           <div>
             <Label htmlFor="internal-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
             <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo?.email || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="email.interno@empresa.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="email"/>
+          </div>
+          <div>
+            <Label htmlFor="internal-cargo" className="text-foreground/90 text-sm uppercase tracking-wider flex items-center">
+              <Briefcase className="mr-2 h-4 w-4" /> Cargo
+            </Label>
+            <Input id="internal-cargo" value={processState.internalTeamMemberInfo?.cargo || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cargo')} placeholder="Cargo do responsável (ex: Vendedor, Gerente)" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="organization-title"/>
           </div>
         </CardContent>
       </Card>

@@ -20,17 +20,19 @@ import {
   BuyerType,
   CompanyInfo,
   BuyerInfo,
-  PfDocumentType
+  PfDocumentType,
+  addUploadedFileToFirestore // Import new function
 } from "@/lib/process-store";
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
 import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
 import { storage } from "@/lib/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
-const generateUniqueFileName = (file: File, docType: string, folderPrefix: string) => {
+const generateUniqueFileName = (file: File, processId: string) => { // Removed docType, folderPrefix
   const timestamp = new Date().getTime();
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  return `${folderPrefix}/${docType}/${timestamp}-${saneFilename}`;
+  // New path structure as per request: processos/{processoId}/{timestamped_unique_filename}
+  return `processos/${processId}/${timestamp}-${saneFilename}`;
 };
 
 type DocumentSlotKey = Extract<keyof StoredProcessState,
@@ -81,7 +83,7 @@ export default function DocumentosPage() {
     const file = event.target.files?.[0];
     const inputElement = event.target;
 
-    if (file) {
+    if (file && processState.processId) { // Ensure processId exists
       setUploadingDocKey(docKey);
       setUploadProgress(prev => ({ ...prev, [docKey]: 0 }));
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
@@ -91,12 +93,14 @@ export default function DocumentosPage() {
         try {
           const oldFileRef = storageRef(storage, currentDoc.storagePath);
           await deleteObject(oldFileRef);
+          // Note: Deleting from 'arquivos' array in Firestore upon re-upload of the same slot is complex
+          // and might lead to data loss if not handled carefully. For now, new uploads will add to the array.
         } catch (deleteError) {
           console.warn(`[${docKey}] Could not delete old file from Firebase Storage:`, deleteError);
         }
       }
-      const baseFolder = `user-${processState.processId || 'unknown_process'}/docs`;
-      const filePath = generateUniqueFileName(file, docKey, baseFolder);
+      
+      const filePath = generateUniqueFileName(file, processState.processId); // Updated path generation
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
 
@@ -104,19 +108,12 @@ export default function DocumentosPage() {
         (snapshot: UploadTaskSnapshot) => {
           const { bytesTransferred, totalBytes } = snapshot;
           let calculatedProgress = 0;
-          if (totalBytes > 0) {
-            calculatedProgress = (bytesTransferred / totalBytes) * 100;
-          }
+          if (totalBytes > 0) calculatedProgress = (bytesTransferred / totalBytes) * 100;
           setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(calculatedProgress) }));
         },
         (error: FirebaseStorageError) => {
           console.error(`[${docKey}] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
-          toast({
-            title: "Erro no Upload",
-            description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`,
-            variant: "destructive",
-            duration: 7000
-          });
+          toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`, variant: "destructive", duration: 7000 });
           setUploadingDocKey(null);
           setUploadProgress(prev => ({ ...prev, [docKey]: null }));
           const newState = { ...processState, [docKey]: null };
@@ -127,36 +124,44 @@ export default function DocumentosPage() {
         async () => {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            // Add to 'arquivos' array in Firestore
+            if (processState.processId) {
+                await addUploadedFileToFirestore(processState.processId, file, downloadURL, filePath);
+            }
+
             const newState = {
               ...processState,
               [docKey]: {
                 name: file.name,
-                previewUrl: downloadURL,
-                storagePath: filePath,
+                previewUrl: downloadURL, // Still keep for UI preview
+                storagePath: filePath,    // Still keep for UI management
                 analysisResult: null
               } as DocumentFile
             };
             setProcessState(newState);
-            saveProcessState(newState);
-            toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+            await saveProcessState(newState); // Save updated local state (with preview URLs)
+            toast({ title: "Upload Concluído!", description: `${file.name} enviado e registrado.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
-            console.error(`[${docKey}] Error getting download URL for ${file.name}:`, error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
+            console.error(`[${docKey}] Error getting download URL or saving to Firestore for ${file.name}:`, error);
+            toast({ title: "Erro Pós-Upload", description: `Falha ao processar o arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
             setUploadProgress(prev => ({ ...prev, [docKey]: null }));
              const newState = { ...processState, [docKey]: {
                 name: (processState[docKey] as DocumentFile)?.name || file.name,
                 previewUrl: null,
-                storagePath: filePath,
+                storagePath: filePath, // It was uploaded, path exists
                 analysisResult: null
               } as DocumentFile };
             setProcessState(newState);
-            saveProcessState(newState);
+            await saveProcessState(newState);
             if (inputElement) inputElement.value = "";
           } finally {
             setUploadingDocKey(null);
           }
         }
       );
+    } else if (!processState.processId) {
+        toast({ title: "Erro de Sessão", description: "ID do processo não encontrado. Não é possível fazer upload.", variant: "destructive"});
+        if (inputElement) inputElement.value = "";
     } else {
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc && inputElement && inputElement.files && inputElement.files.length === 0) {
@@ -171,10 +176,12 @@ export default function DocumentosPage() {
       try {
         const fileToDeleteRef = storageRef(storage, currentDoc.storagePath);
         await deleteObject(fileToDeleteRef);
-        toast({ title: "Arquivo Removido", description: `${currentDoc.name} removido do servidor.`, className: "bg-orange-500 text-white border-orange-600" });
+        toast({ title: "Arquivo Removido do Storage", description: `${currentDoc.name} removido do servidor.`, className: "bg-orange-500 text-white border-orange-600" });
+        // Note: Removing the specific entry from Firestore's 'arquivos' array is complex here.
+        // The array keeps a history. If a file is removed from a slot and re-uploaded, it becomes a new entry.
       } catch (error: any) {
         console.error(`[${docKey}] Error deleting file ${currentDoc.storagePath} from Firebase Storage:`, error);
-        toast({ title: "Erro ao Remover Arquivo", description: `Não foi possível remover ${currentDoc.name} do servidor. (Erro: ${error.message}) Ele será removido apenas da listagem local.`, variant: "destructive"});
+        toast({ title: "Erro ao Remover Arquivo do Storage", description: `Não foi possível remover ${currentDoc.name} do servidor. (Erro: ${error.message})`, variant: "destructive"});
       }
     }
 
@@ -184,7 +191,7 @@ export default function DocumentosPage() {
     }
     setUploadProgress(prev => ({...prev, [docKey]: null}));
     setProcessState(newState);
-    saveProcessState(newState);
+    await saveProcessState(newState);
 
     const inputElement = fileInputRefs.current[docKey];
     if (inputElement) {
@@ -215,7 +222,7 @@ export default function DocumentosPage() {
         } as DocumentFile,
       };
       setProcessState(newState);
-      saveProcessState(newState);
+      await saveProcessState(newState);
 
       toast({
         title: `Análise de ${docName || docKey} Concluída!`,
@@ -240,7 +247,7 @@ export default function DocumentosPage() {
         } as DocumentFile,
       };
       setProcessState(newState);
-      saveProcessState(newState);
+      await saveProcessState(newState);
       toast({
         title: `Erro na Análise de ${docName || docKey}`,
         description: userFriendlyErrorMessage,
@@ -292,19 +299,19 @@ export default function DocumentosPage() {
     return true;
   }, [processState, selectedPfDocType, toast]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateStep()) return;
     setIsNavigating(true);
     const newState = { ...processState, currentStep: "/processo/revisao-envio" };
-    saveProcessState(newState);
-    setProcessState(newState);
+    await saveProcessState(newState);
+    setProcessState(newState); // Update local state after save
     toast({ title: "Etapa 3 Concluída!", description: "Documentos e informações salvos.", className: "bg-green-600 text-primary-foreground border-green-700" });
     router.push("/processo/revisao-envio");
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     setIsNavigating(true);
-    saveProcessState(processState);
+    await saveProcessState(processState);
     const prevStep = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/dados-iniciais";
     router.push(prevStep);
   };
@@ -342,7 +349,7 @@ export default function DocumentosPage() {
       else if (value === 'cnhAntiga' && (key === 'cnhAntigaFrente' || key === 'cnhAntigaVerso')) shouldClear = false;
 
       if (shouldClear && newState[key]) {
-        newState[key] = null;
+        newState[key] = null; // Clear data from other PF doc types
       }
     });
     setProcessState(newState);
@@ -363,20 +370,37 @@ export default function DocumentosPage() {
     const newState = {
       ...processState,
       buyerInfo: {
-        ...(processState.buyerInfo!),
+        ...(processState.buyerInfo!), // buyerInfo should always exist
         [field]: e.target.value,
       }
     };
     setProcessState(newState);
   };
 
+  // Effect for saving state on unmount or when processState changes and user is not navigating
   useEffect(() => {
+    const currentProcessStateForEffect = processState; // Capture current state
+    const saveOnUnmountOrChange = async () => {
+        if (!isNavigating && !isStateLoading && !uploadingDocKey && !analyzingDocKey) {
+            await saveProcessState(currentProcessStateForEffect);
+        }
+    };
+    
+    // Debounced save or save on significant changes
+    const timerId = setTimeout(() => {
+        saveOnUnmountOrChange();
+    }, 1000); // Save after 1 sec of inactivity, or adjust as needed
+
     return () => {
-      if (!isNavigating) {
-        saveProcessState(processState);
+      clearTimeout(timerId);
+      // Ensure last state is saved if unmounting during navigation or loading
+      if (isNavigating || isStateLoading) {
+          // No, this would be wrong, saveProcessState is called *before* navigation for handleNext/handleBack
+      } else {
+          saveOnUnmountOrChange(); // Save if unmounting for other reasons
       }
     };
-  }, [processState, isNavigating]);
+  }, [processState, isNavigating, isStateLoading, uploadingDocKey, analyzingDocKey]);
 
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
@@ -687,7 +711,7 @@ export default function DocumentosPage() {
           disabled={globalDisableCondition}
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          {isNavigating && !globalDisableCondition ? (
+          {isNavigating && !globalDisableCondition ? ( // Show loader only if navigating AND not otherwise disabled
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Aguarde...
