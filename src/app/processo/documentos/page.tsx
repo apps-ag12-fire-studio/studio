@@ -387,6 +387,57 @@ export default function DocumentosPage() {
     const displayPreviewUrl = currentDoc?.previewUrl;
     const isPdf = displayDocName?.toLowerCase().endsWith('.pdf') || displayPreviewUrl?.startsWith('data:application/pdf') || currentDoc?.storagePath?.toLowerCase().endsWith('.pdf');
 
+    const elementsToRender: React.ReactNode[] = [];
+    if (currentDoc?.analysisResult && !(currentDoc.analysisResult as any).error && !isCurrentlyUploadingThisSlot) {
+      const analysisData = currentDoc.analysisResult as ExtractBuyerDocumentDataOutput;
+      const MAX_TOTAL_CHARS = 700;
+      let accumulatedChars = 0;
+
+      const fieldsToShow = [
+        { label: "Nome", value: analysisData.nomeCompleto },
+        { label: "CPF", value: analysisData.cpf },
+        { label: "Data Nasc.", value: analysisData.dataNascimento },
+        { label: "Mãe", value: analysisData.nomeMae },
+        { label: "RG", value: analysisData.rg },
+        { label: "Logradouro", value: analysisData.logradouro },
+        { label: "Bairro", value: analysisData.bairro },
+        { label: "Cidade", value: analysisData.cidade },
+        { label: "Estado", value: analysisData.estado },
+        { label: "CEP", value: analysisData.cep },
+      ];
+
+      for (const field of fieldsToShow) {
+        if (field.value) {
+          const fieldString = `${field.label}: ${field.value}\n`; 
+          if (accumulatedChars + fieldString.length > MAX_TOTAL_CHARS && accumulatedChars > 0) {
+            elementsToRender.push(
+              <p key="truncation-message" className="text-muted-foreground italic break-all">
+                ... (mais dados extraídos, exibição limitada)
+              </p>
+            );
+            break; 
+          }
+          elementsToRender.push(
+            <p key={field.label} className="break-all">
+              <strong>{field.label}:</strong> {field.value}
+            </p>
+          );
+          accumulatedChars += fieldString.length;
+
+          if (accumulatedChars >= MAX_TOTAL_CHARS) {
+            if (elementsToRender.length < fieldsToShow.filter(f => f.value).length) {
+                 elementsToRender.push(
+                    <p key="truncation-message-after-fill" className="text-muted-foreground italic break-all">
+                    ... (mais dados podem ter sido omitidos)
+                    </p>
+                );
+            }
+            break;
+          }
+        }
+      }
+    }
+
 
     return (
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
@@ -444,13 +495,13 @@ export default function DocumentosPage() {
         {currentDoc?.analysisResult && !isCurrentlyUploadingThisSlot && (
            <div className="mt-2 p-3 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-x-auto">
             <p className="font-semibold text-primary/80">Dados Extraídos por IA:</p>
-            {(currentDoc.analysisResult as any).error ? <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p> : <>
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto && <p className="break-all"><strong>Nome:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeCompleto}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf && <p className="break-all"><strong>CPF:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).cpf}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento && <p className="break-all"><strong>Nasc.:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).dataNascimento}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae && <p className="break-all"><strong>Mãe:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).nomeMae}</p>}
-              {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg && <p className="break-all"><strong>RG:</strong> {(currentDoc.analysisResult as ExtractBuyerDocumentDataOutput).rg}</p>}
-            </>}
+            {(currentDoc.analysisResult as any).error ? (
+                <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p>
+            ) : (
+              <>
+                {elementsToRender}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -631,3 +682,4 @@ export default function DocumentosPage() {
     </>
   );
 }
+
