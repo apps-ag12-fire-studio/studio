@@ -122,11 +122,11 @@ const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolea
 const getMissingFieldsList = (state: StoredProcessState): string[] => {
   const missingFields: string[] = [];
 
-  if (!state.internalTeamMemberInfo?.nome) missingFields.push("Nome do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
-  if (!state.internalTeamMemberInfo?.cpf) missingFields.push("CPF do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
-  if (!state.internalTeamMemberInfo?.telefone) missingFields.push("Telefone do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
-  if (!state.internalTeamMemberInfo?.email) missingFields.push("E-mail do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
-  if (!state.internalTeamMemberInfo?.cargo) missingFields.push("Cargo do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
+  if (!state.internalTeamMemberInfo?.nome) missingFields.push("Nome do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
+  if (!state.internalTeamMemberInfo?.cpf) missingFields.push("CPF do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
+  if (!state.internalTeamMemberInfo?.telefone) missingFields.push("Telefone do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
+  if (!state.internalTeamMemberInfo?.email) missingFields.push("E-mail do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
+  if (!state.internalTeamMemberInfo?.cargo) missingFields.push("Cargo do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
 
 
   if (state.contractSourceType === 'existing') {
@@ -161,10 +161,10 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
     }
   } else { // PJ
     if (!state.companyInfo?.razaoSocial) {
-      missingFields.push("Razão Social da empresa (Etapa 3 ou editar ✏️ aqui).");
+      missingFields.push("Razão Social da empresa (Etapa 3 ou edite ✏️ na Revisão).");
     }
     if (!state.companyInfo?.cnpj) {
-      missingFields.push("CNPJ da empresa (Etapa 3 ou editar ✏️ aqui).");
+      missingFields.push("CNPJ da empresa (Etapa 3 ou edite ✏️ na Revisão).");
     }
 
     if (!state.cartaoCnpjFile?.previewUrl) {
@@ -179,16 +179,16 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
   }
 
   if (!state.buyerInfo?.nome) {
-    missingFields.push("Nome do comprador/representante (Etapa 3 ou editar ✏️ aqui).");
+    missingFields.push("Nome do comprador/representante (Etapa 3 ou edite ✏️ na Revisão).");
   }
   if (!state.buyerInfo?.cpf) {
-    missingFields.push("CPF do comprador/representante (Etapa 3 ou editar ✏️ aqui).");
+    missingFields.push("CPF do comprador/representante (Etapa 3 ou edite ✏️ na Revisão).");
   }
   if (!state.buyerInfo?.telefone) {
-    missingFields.push("Telefone do comprador/representante (Editar ✏️ aqui).");
+    missingFields.push("Telefone do comprador/representante (Edite ✏️ na Revisão).");
   }
   if (!state.buyerInfo?.email) {
-    missingFields.push("E-mail do comprador/representante (Editar ✏️ aqui).");
+    missingFields.push("E-mail do comprador/representante (Edite ✏️ na Revisão).");
   }
   return missingFields;
 };
@@ -628,7 +628,7 @@ export default function RevisaoEnvioPage() {
         </CardFooter>
       </Card>
 
-      <div className="flex justify-start mt-8">
+      <div className="flex justify-center sm:justify-start mt-8">
         <Button
           onClick={handleBack}
           variant="outline"
@@ -670,3 +670,4 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
