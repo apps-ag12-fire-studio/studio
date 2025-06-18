@@ -10,67 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react';
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from '@/lib/process-store';
 
-const printGlobalStyles = `
-  @media print {
-    body {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      background: white !important;
-    }
-    .print-hidden {
-      display: none !important;
-      visibility: hidden !important;
-    }
-    .printable-area {
-      position: absolute !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 100% !important;
-      min-height: 100% !important;
-      height: auto !important;
-      margin: 0 !important;
-      padding: 0.5in !important;
-      background-color: white !important;
-      color: black !important;
-      box-shadow: none !important;
-      border: none !important;
-      font-size: 11pt !important;
-    }
-    .printable-area * {
-      visibility: visible !important;
-      color: black !important;
-      background-color: transparent !important;
-      box-shadow: none !important;
-      text-shadow: none !important;
-    }
-    .printable-area .contract-text-content {
-      font-size: 10pt !important;
-      line-height: 1.4 !important;
-    }
-    .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6 {
-      color: black !important;
-    }
-    .printable-area .text-primary {
-       color: black !important;
-    }
-     .printable-area .text-muted-foreground {
-       color: #444 !important;
-     }
-    html, body {
-      height: auto !important;
-      overflow: visible !important;
-      background: white !important;
-    }
-    .document-to-print {
-      page-break-before: always !important;
-    }
-    .no-page-break-after {
-      page-break-after: avoid !important;
-    }
-  }
-`;
+// printGlobalStyles string has been removed from here and its content moved to globals.css
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -121,22 +61,30 @@ export default function PrintContractPage() {
 
     if (isPdf) {
       return (
-        <div className="mb-4 p-2 border border-dashed border-border text-center text-sm text-muted-foreground">
+        <div className="mb-4 p-2 border border-dashed border-border text-center text-sm text-muted-foreground print:mb-2">
           <FilePenLine className="h-8 w-8 mx-auto mb-1 text-primary" />
           {label} (PDF)
-          <p className="text-xs">Conteúdo de PDFs não é exibido na pré-visualização de impressão da página, mas será incluído na impressão se o navegador suportar.</p>
+          <p className="text-xs print:hidden">Conteúdo de PDFs não é exibido na pré-visualização de impressão da página, mas será incluído na impressão se o navegador suportar.</p>
         </div>
       );
     }
     return (
-      <div className="mb-6 document-to-print" style={{ pageBreakInside: 'avoid' }}>
-        <p className="font-semibold text-center text-muted-foreground mb-2 print:text-xs">{label}</p>
-        <div className="relative w-full aspect-[7/10] mx-auto border border-border/50 rounded overflow-hidden bg-muted/10 print:aspect-auto print:h-[calc(100vh/2.2)] print:w-auto print:max-w-full print:border-none print:shadow-none">
-          <Image src={url} alt={label} layout="fill" objectFit="contain" />
+      <div className="mb-6 document-to-print print:mb-4" style={{ pageBreakInside: 'avoid' }}>
+        <p className="font-semibold text-center text-muted-foreground mb-2 print:text-sm print:mb-1">{label}</p>
+        <div className="print:w-[6.5in] print:mx-auto"> {/* Constrain width on print for better layout */}
+          <Image
+            src={url}
+            alt={label}
+            width={800} // Provide a base width for optimal quality source
+            height={1120} // Provide a base height (e.g. 800 * 1.4 for A4-ish aspect)
+            objectFit="contain"
+            className="w-full h-auto max-w-full block rounded-md border border-border/30 print:border-gray-400 print:shadow-none" // Scales down, ensures it's a block
+          />
         </div>
       </div>
     );
   };
+
 
   if (isLoading) {
     return (
@@ -180,7 +128,7 @@ export default function PrintContractPage() {
     !currentProcessState.internalTeamMemberInfo.cpf || 
     !currentProcessState.internalTeamMemberInfo.email || 
     !currentProcessState.internalTeamMemberInfo.telefone ||
-    !currentProcessState.internalTeamMemberInfo.cargo;
+    !currentProcessState.internalTeamMemberInfo.cargo; // Added cargo check
   const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
 
@@ -196,7 +144,7 @@ export default function PrintContractPage() {
     console.error(
         '[PrintContractPage] Essential data for printing missing. \nDescription:', descriptionText,
         '\nProcess ID:', currentProcessState.processId,
-        '\nFlags:', { extractedDataMissing, internalTeamMemberInfoMissing, buyerInfoMissing, companyInfoMissingForPJ },
+        '\nFlags:', JSON.stringify({ extractedDataMissing, internalTeamMemberInfoMissing, buyerInfoMissing, companyInfoMissingForPJ }), // Log flags directly
         '\nRelevant State Parts (stringified for clarity):', JSON.stringify({
             processId: currentProcessState.processId,
             buyerType: currentProcessState.buyerType,
@@ -287,7 +235,7 @@ export default function PrintContractPage() {
 
   return (
     <>
-      <style jsx global>{printGlobalStyles}</style>
+      {/* <style jsx global>{printGlobalStyles}</style>  Removed: styles moved to globals.css */}
       <header className="text-center py-8 print-hidden">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
@@ -305,7 +253,7 @@ export default function PrintContractPage() {
               <h1 className="text-3xl font-headline text-primary text-glow-gold">Pré-visualização do Contrato e Documentos</h1>
               <p className="text-muted-foreground mt-2">Este conjunto está pronto para impressão. Após imprimir e assinar, anexe a foto do contrato assinado.</p>
           </div>
-          <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area no-page-break-after">
+          <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area"> {/* Removed no-page-break-after, will be handled by globals.css logic */}
             <CardHeader className="border-b border-border/50 pb-4 p-6">
               <CardTitle className="text-xl sm:text-2xl font-headline text-primary text-center uppercase tracking-wider">
                 Contrato de Compra de Produto Digital
@@ -432,3 +380,6 @@ export default function PrintContractPage() {
     </>
   );
 }
+
+
+    

@@ -119,10 +119,18 @@ body {
 
 @media print {
   body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    margin: 0;
-    padding: 0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important; /* Ensure default text is black */
+    font-size: 10pt !important; /* Smaller base font for print */
+  }
+
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
     background: white !important;
   }
 
@@ -132,46 +140,124 @@ body {
   }
 
   .printable-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important; 
-    min-height: 100% !important;
+    position: static !important; /* Changed from absolute to static for normal flow */
+    width: auto !important; /* Let content determine width, or set to page width like 7in */
+    min-height: 0 !important; /* Reset min-height */
     height: auto !important; 
-    margin: 0 !important;
-    padding: 0.5in !important; 
+    margin: 0 0 0.5in 0 !important; /* Bottom margin for spacing between areas */
+    padding: 0.25in !important; /* Reduced padding */
     background-color: white !important;
     color: black !important;
     box-shadow: none !important;
-    border: none !important;
-    font-size: 11pt; 
+    border: 1px solid #ccc !important; /* Light border for visual separation */
+    font-size: 10pt !important;
+    page-break-inside: avoid !important; /* Try to keep content of a card together */
   }
 
+  /* Apply page break before the second (and subsequent) main printable area */
+  .printable-area + .printable-area {
+    page-break-before: always !important;
+  }
+  
   .printable-area * {
     visibility: visible !important;
     color: black !important;
     background-color: transparent !important;
     box-shadow: none !important;
     text-shadow: none !important;
+    border-color: #666 !important; /* Make borders visible */
   }
 
   .printable-area .contract-text-content {
-    font-size: 10pt !important;
-    line-height: 1.4 !important;
+    font-size: 9pt !important; /* Slightly smaller for contract text */
+    line-height: 1.3 !important;
   }
-  .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6 {
+  .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6,
+  .printable-area .card-title { /* Target CardTitle component specifically */
     color: black !important;
+    font-size: 12pt !important; /* Example: Adjust title font size for print */
+    margin-bottom: 0.2in !important;
+  }
+  .printable-area .card-description {
+    font-size: 9pt !important;
+    color: #333 !important;
   }
   .printable-area .text-primary {
      color: black !important; 
   }
-   .printable-area .text-muted-foreground {
+  .printable-area .text-muted-foreground {
      color: #444 !important; 
-   }
-  
-  html, body {
+     font-size: 9pt !important;
+  }
+  .printable-area .font-headline { /* Ensure headline font is still styled, but maybe less emphasized */
+    font-family: 'Inter', sans-serif !important; /* Or a standard serif like 'Times New Roman' */
+  }
+  .printable-area .border-border, .printable-area .border-border\/50, .printable-area .border-border\/30 {
+      border-color: #aaa !important; /* Lighter border for print */
+  }
+  .printable-area .pl-4 {
+    padding-left: 0.2in !important;
+  }
+  .printable-area .p-6, .printable-area .p-8, .printable-area .sm\:p-8 {
+    padding: 0.25in !important;
+  }
+  .printable-area .card-header {
+    padding-bottom: 0.2in !important;
+    border-bottom-width: 1px !important;
+  }
+  .printable-area .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.15in !important; 
+  }
+  .printable-area .space-y-10 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.3in !important;
+  }
+  .printable-area hr {
+    margin-top: 0.2in !important;
+    margin-bottom: 0.2in !important;
+    border-color: #ccc !important;
+  }
+
+  /* Document image specific styles */
+  .document-to-print {
+    page-break-inside: avoid !important; /* Try to keep whole block together */
+    margin-bottom: 0.3in !important; /* Spacing after each document image block */
+  }
+  .document-to-print .print\:w-\[6\.5in\] { /* Wrapper div for image */
+      width: 6.5in !important; /* Typical printable width on A4/Letter */
+      margin-left: auto !important;
+      margin-right: auto !important;
+  }
+  .document-to-print img {
+    max-width: 100% !important;
     height: auto !important;
-    overflow: visible !important;
-    background: white !important;
+    display: block !important;
+    border: 1px solid #bbb !important; /* Light border around images */
+    box-shadow: none !important;
+  }
+  .document-to-print .print\:text-sm {
+      font-size: 9pt !important;
+  }
+  .document-to-print .print\:mb-1 {
+      margin-bottom: 0.1in !important;
+  }
+  .document-to-print .print\:mb-2 {
+      margin-bottom: 0.15in !important;
+  }
+   .document-to-print .print\:mb-4 {
+      margin-bottom: 0.3in !important;
+  }
+
+  /* Ensure PDF placeholders are not overly large */
+  .printable-area div[class*="border-dashed"] { /* Targeting PDF placeholder */
+      padding: 0.2in !important;
+      font-size: 9pt !important;
+  }
+  .printable-area div[class*="border-dashed"] svg {
+      height: 1.5rem !important;
+      width: 1.5rem !important;
+      margin-bottom: 0.1in !important;
   }
 }
+
+
+    
