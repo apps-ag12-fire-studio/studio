@@ -14,6 +14,7 @@ export interface BuyerInfo {
   telefone: string;
   email: string;
   cargo?: string;
+  dataHora?: string; // Added for internalTeamMemberInfo if needed for root field
 }
 
 export type BuyerType = 'pf' | 'pj';
@@ -187,7 +188,7 @@ async function storeStateInFirestore(state: StoredProcessState): Promise<void> {
         responsavelInterno?: BuyerInfo;
         status?: string;
         criadoEm?: Timestamp;
-        arquivos?: FieldValue;
+        // 'arquivos' array is managed by addUploadedFileToFirestore
     } = {
       clientState: cleanedClientState,
       lastUpdated: Timestamp.now(),
@@ -197,6 +198,7 @@ async function storeStateInFirestore(state: StoredProcessState): Promise<void> {
     if (!docSnap.exists()) {
       dataToStore.responsavelInterno = {
         nome: state.internalTeamMemberInfo.nome || '',
+        cpf: state.internalTeamMemberInfo.cpf || '',
         email: state.internalTeamMemberInfo.email || '',
         telefone: state.internalTeamMemberInfo.telefone || '',
         cargo: state.internalTeamMemberInfo.cargo || '',
@@ -204,11 +206,13 @@ async function storeStateInFirestore(state: StoredProcessState): Promise<void> {
       };
       dataToStore.status = "em_progresso";
       dataToStore.criadoEm = Timestamp.now();
-      dataToStore.arquivos = [];
+      // Initialize arquivos array if document is new
+      await setDoc(docRef, { ...dataToStore, arquivos: [] });
+      console.log(`[ProcessStore Firestore SAVE] New process document created and state saved to Firestore 'processos/${state.processId}'.`);
+    } else {
+      await setDoc(docRef, dataToStore, { merge: true });
+      console.log(`[ProcessStore Firestore SAVE] Process state updated in Firestore 'processos/${state.processId}'.`);
     }
-
-    await setDoc(docRef, dataToStore, { merge: true });
-    console.log(`[ProcessStore Firestore SAVE] Process state saved to Firestore 'processos/${state.processId}'.`);
   } catch (error) {
     console.error("[ProcessStore Firestore SAVE] Error saving state to Firestore for processId:", state.processId, error);
     toast({
@@ -272,7 +276,7 @@ export async function saveProcessState(state: StoredProcessState | undefined | n
     if (!cleanedStateForLocalStorage) {
         console.error("[ProcessStore SAVE] Cleaned state for localStorage became null. Removing from localStorage and clearing active ID.");
         localStorage.removeItem(PROCESS_STATE_KEY);
-        if (stateToSave.processId) { // If the original state had an ID, it might be the active one
+        if (stateToSave.processId) { 
             clearActiveProcessId();
         }
         return;
@@ -317,24 +321,40 @@ async function loadStateFromFirestore(processId: string): Promise<Partial<Stored
       const firestoreDocData = docSnap.data();
       const loadedClientState = (firestoreDocData.clientState || {}) as Partial<StoredProcessState>;
       
-      const mergedForClient: Partial<StoredProcessState> = {
-          ...initialStoredProcessState, 
-          ...loadedClientState, 
-          processId: processId, 
+      // Start with initial state, then layer Firestore's clientState over it.
+      const stateFromClientState: Partial<StoredProcessState> = {
+          ...initialStoredProcessState, // Base defaults
+          ...loadedClientState,         // Data from clientState field
+          processId: processId,         // Ensure processId from doc is used
+      };
+      
+      if (firestoreDocData.lastUpdated) {
+        stateFromClientState.lastUpdated = firestoreDocData.lastUpdated;
+      }
+      
+      // Ensure internalTeamMemberInfo, buyerInfo, and companyInfo are correctly derived from clientState
+      // or defaults if not present in clientState.
+      stateFromClientState.internalTeamMemberInfo = {
+          ...initialStoredProcessState.internalTeamMemberInfo,
+          ...(loadedClientState.internalTeamMemberInfo || {})
       };
 
-      if (firestoreDocData.lastUpdated) {
-        mergedForClient.lastUpdated = firestoreDocData.lastUpdated;
-      }
-      if (firestoreDocData.responsavelInterno) {
-        mergedForClient.internalTeamMemberInfo = {
-            ...initialStoredProcessState.internalTeamMemberInfo,
-            ...(loadedClientState.internalTeamMemberInfo || {}), 
-            ...firestoreDocData.responsavelInterno, 
-        };
-      }
-      console.log(`[ProcessStore Firestore LOAD] State loaded from Firestore 'processos/${processId}'.`);
-      return mergedForClient;
+      stateFromClientState.buyerInfo = {
+           ...initialStoredProcessState.buyerInfo,
+           ...(loadedClientState.buyerInfo || {})
+      };
+
+      if (stateFromClientState.buyerType === 'pj') {
+           stateFromClientState.companyInfo = {
+               ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }),
+               ...(loadedClientState.companyInfo || {})
+           };
+       } else {
+           stateFromClientState.companyInfo = null;
+       }
+
+      console.log(`[ProcessStore Firestore LOAD] State loaded from Firestore 'processos/${processId}'. InternalTeamMemberInfo from clientState:`, JSON.stringify(stateFromClientState.internalTeamMemberInfo));
+      return stateFromClientState;
     } else {
       console.log(`[ProcessStore Firestore LOAD] No document found in Firestore for 'processos/${processId}'.`);
       return null;
@@ -455,8 +475,8 @@ export async function loadProcessState(): Promise<StoredProcessState> {
   }
   
   console.log(`[ProcessStore LOAD] Source of Truth log: ${sourceOfTruthLog}`);
-  console.log("[ProcessStore LOAD] Final loaded state being returned (processId, currentStep):", 
-    finalState ? { processId: finalState.processId, currentStep: finalState.currentStep } : String(finalState)
+  console.log("[ProcessStore LOAD] Final loaded state being returned (processId, currentStep, internalTeamMemberInfo.nome):", 
+    finalState ? { processId: finalState.processId, currentStep: finalState.currentStep, internalNome: finalState.internalTeamMemberInfo.nome } : String(finalState)
   );
   return finalState;
 }
@@ -497,7 +517,7 @@ export function savePrintData(data: PrintData) {
     const cleanedData = cleanUndefinedValues(data);
     if (!cleanedData) {
         console.error("[SavePrintData] Cleaned print data became null. Aborting save.");
-        localStorage.removeItem(PRINT_DATA_KEY); // Remove if data becomes null
+        localStorage.removeItem(PRINT_DATA_KEY); 
         return;
     }
     localStorage.setItem(PRINT_DATA_KEY, JSON.stringify(cleanedData));
