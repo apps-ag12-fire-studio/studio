@@ -2,7 +2,6 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-
     // Permite acesso a arquivos dentro de pastas de usuários/processos.
     // O primeiro segmento do caminho será algo como "user-processId123" ou "user-unknown_process".
     // O segundo segmento 'category' será "original_contracts", "docs", ou "signed_contracts".

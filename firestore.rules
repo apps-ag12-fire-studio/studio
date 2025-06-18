@@ -1,21 +1,21 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Permite que qualquer pessoa leia e escreva na coleção 'submittedContracts'
-    // IMPORTANTE: Para produção, restrinja essas regras!
-    match /submittedContracts/{document=**} {
-      allow read, write: if true;
-    }
-
-    // Regras para processos em andamento
-    // Permite leitura e escrita para qualquer um NESTE CAMINHO
-    // IMPORTANTE: Para produção, restrinja essas regras (ex: if request.auth.uid == resource.data.userId)!
+    // Permite leitura e escrita na coleção de contratos em progresso.
+    // Para produção, restrinja o acesso para que usuários só possam acessar seus próprios dados
+    // ou com base em outras lógicas de autorização.
     match /inProgressContracts/{processId} {
-      allow read, write: if true;
+      allow read, write: if true; // AVISO: Permissivo para desenvolvimento.
+                                // TODO: Restringir para produção (ex: if request.auth.uid != null && resource.data.userId == request.auth.uid)
     }
 
-    // Adicione aqui regras para outras coleções, se necessário.
-    // Por padrão, todas as outras coleções serão negadas.
+    // Permite leitura e escrita na coleção de contratos submetidos.
+    // Para produção, considere restringir 'write' a funções de backend ou usuários administrativos,
+    // e 'read' com base nas permissões do usuário.
+    match /submittedContracts/{submissionId} {
+      allow read, write: if true; // AVISO: Permissivo para desenvolvimento.
+                                 // TODO: Restringir para produção.
+    }
   }
 }
