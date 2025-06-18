@@ -470,6 +470,19 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
+          {!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo) && (
+            <>
+              <div className="space-y-1">
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Responsável Interno</h3>
+                <p className="text-foreground/80"><strong>Nome:</strong> {processState.internalTeamMemberInfo.nome}</p>
+                <p className="text-foreground/80"><strong>CPF:</strong> {processState.internalTeamMemberInfo.cpf || 'Não informado'}</p>
+                 <p className="text-foreground/80"><strong>Telefone:</strong> {processState.internalTeamMemberInfo.telefone || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>E-mail:</strong> {processState.internalTeamMemberInfo.email || 'Não informado'}</p>
+              </div>
+              <hr className="border-border/30"/>
+            </>
+          )}
+
           {processState.buyerType === 'pj' && processState.companyInfo && ( 
             <>
               <div className="space-y-1">
@@ -490,19 +503,6 @@ export default function RevisaoEnvioPage() {
             <p className="text-foreground/80"><strong>E-mail:</strong> {processState.buyerInfo.email || 'Não informado'}</p>
           </div>
           <hr className="border-border/30"/>
-
-          {!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo) && (
-            <>
-              <div className="space-y-1">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Responsável Interno</h3>
-                <p className="text-foreground/80"><strong>Nome:</strong> {processState.internalTeamMemberInfo.nome}</p>
-                <p className="text-foreground/80"><strong>CPF:</strong> {processState.internalTeamMemberInfo.cpf || 'Não informado'}</p>
-                 <p className="text-foreground/80"><strong>Telefone:</strong> {processState.internalTeamMemberInfo.telefone || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>E-mail:</strong> {processState.internalTeamMemberInfo.email || 'Não informado'}</p>
-              </div>
-              <hr className="border-border/30"/>
-            </>
-          )}
 
           {processState.contractSourceType === 'new' && processState.contractPhotoName && (
             <>
