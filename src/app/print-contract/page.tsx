@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react';
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from '@/lib/process-store';
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from '@/lib/process-store';
 
 const printGlobalStyles = `
   @media print {
@@ -36,7 +36,7 @@ const printGlobalStyles = `
       color: black !important;
       box-shadow: none !important;
       border: none !important;
-      font-size: 11pt !important; /* Added !important */
+      font-size: 11pt !important;
     }
     .printable-area * {
       visibility: visible !important;
@@ -81,62 +81,25 @@ export default function PrintContractPage() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      console.log("[PrintContractPage] Attempting to load process state...");
-      const data = await loadProcessState();
-      // Use JSON.stringify for robust logging of the potentially complex 'data' object
-      console.log('[PrintContractPage] Loaded processState by loadProcessState():', data ? JSON.parse(JSON.stringify(data)) : data);
-
-      if (!data || !data.processId) { // Check for processId first
-        console.error('[PrintContractPage] CRITICAL: processId is missing from loaded state. Redirecting.', data ? JSON.parse(JSON.stringify(data)) : data);
-        toast({
-          title: 'Erro de Sessão',
-          description: 'Não foi possível encontrar os dados do processo atual. Por favor, inicie novamente.',
-          variant: 'destructive',
-          duration: 7000,
-        });
-        router.replace('/processo/dados-iniciais'); // Redirect if no processId
-        setIsLoading(false);
-        return;
-      }
-
-      // Now check other critical fields only if processId is present
-      const isExtractedDataMissing = !data.extractedData || (typeof data.extractedData === 'object' && Object.keys(data.extractedData).length === 0 && !(data.extractedData instanceof Array && data.extractedData.length > 0) );
-      const isBuyerInfoMissing = !data.buyerInfo || Object.values(data.buyerInfo).every(val => val === '' || val === null || val === undefined);
-      const isInternalTeamMemberInfoMissing = !data.internalTeamMemberInfo || Object.values(data.internalTeamMemberInfo).every(val => val === '' || val === null || val === undefined);
-
-      if (!isExtractedDataMissing && !isBuyerInfoMissing && !isInternalTeamMemberInfoMissing) {
-        setCurrentProcessState(data);
-      } else {
-        let missingPartsDescription = [];
-        if (isExtractedDataMissing) missingPartsDescription.push("Dados Extraídos do Contrato (extractedData)");
-        if (isBuyerInfoMissing) missingPartsDescription.push("Informações do Comprador (buyerInfo)");
-        if (isInternalTeamMemberInfoMissing) missingPartsDescription.push("Informações do Responsável Interno (internalTeamMemberInfo)");
-        
-        const description = `Dados essenciais para impressão não encontrados: ${missingPartsDescription.join('; ')}. Verifique as etapas anteriores ou se o processo foi reiniciado.`;
-        
-        console.error('[PrintContractPage] Essential data for printing (other than processId) missing. Description:', description, 'Full data object:', data ? JSON.parse(JSON.stringify(data)) : 'data_is_null_or_undefined');
-
-        toast({
-          title: 'Erro ao Carregar Dados para Impressão',
-          description: description,
-          variant: 'destructive',
-          duration: 10000,
-        });
-        // Consider redirecting to revisao-envio if processId is present but other data is missing
-        // router.replace('/processo/revisao-envio');
-      }
-      setIsLoading(false);
+      console.log("[PrintContractPage] Attempting to load process state via loadProcessState()...");
+      const loadedData = await loadProcessState();
+      // Log the state as soon as it's loaded, using stringify for a snapshot
+      console.log('[PrintContractPage] Data received from loadProcessState():', loadedData ? JSON.parse(JSON.stringify(loadedData)) : loadedData);
+      
+      setCurrentProcessState(loadedData); // Set state immediately
+      setIsLoading(false); // Set loading false after state is set
     };
     fetchData();
-  }, [router, toast]);
+  }, []); // Dependencies are minimal, fetchData runs once on mount
 
   const handleProceedToSignedUpload = async () => {
-    const stateToUpdate = currentProcessState ? { ...currentProcessState } : await loadProcessState(); // Fallback, though currentProcessState should be set
-    if (!stateToUpdate || !stateToUpdate.processId) { // Added null check for stateToUpdate
+    // Use currentProcessState which should be up-to-date
+    if (!currentProcessState || !currentProcessState.processId) {
         toast({ title: "Erro de Processo", description: "ID do processo não encontrado. Não é possível prosseguir.", variant: "destructive" });
         return;
     }
-    saveProcessState({ ...stateToUpdate, currentStep: "/processo/foto-contrato-assinado" });
+    // Ensure state is saved before navigation
+    await saveProcessState({ ...currentProcessState, currentStep: "/processo/foto-contrato-assinado" });
     toast({
       title: "Impressão (Simulada) Concluída!",
       description: "Prossiga para anexar a foto do contrato assinado.",
@@ -147,9 +110,7 @@ export default function PrintContractPage() {
 
   const renderDocumentImage = (url: string | null | undefined, label: string) => {
     if (!url) return null;
-
     const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf') || url.includes('application%2Fpdf');
-
 
     if (isPdf) {
       return (
@@ -183,30 +144,24 @@ export default function PrintContractPage() {
     );
   }
 
-  // This block is reached if isLoading is false.
-  // If currentProcessState is null at this point (e.g., due to redirect logic in useEffect),
-  // this condition will catch it.
-  if (!currentProcessState || !currentProcessState.processId || !currentProcessState.extractedData || !currentProcessState.buyerInfo || !currentProcessState.internalTeamMemberInfo) {
-     console.error('[PrintContractPage] Critical data missing for printing. Current state at render:', {
-        hasProcessState: !!currentProcessState,
-        processId: currentProcessState?.processId,
-        hasExtractedData: !!currentProcessState?.extractedData && Object.keys(currentProcessState.extractedData).length > 0,
-        hasBuyerInfo: !!currentProcessState?.buyerInfo && Object.values(currentProcessState.buyerInfo).some(v => !!v),
-        hasInternalTeamMemberInfo: !!currentProcessState?.internalTeamMemberInfo && Object.values(currentProcessState.internalTeamMemberInfo).some(v => !!v),
-        fullStateForDebugging: currentProcessState ? JSON.parse(JSON.stringify(currentProcessState)) : null
-    });
-    // The redirect in useEffect should handle cases where processId is missing.
-    // This UI is a fallback if other data (extractedData, buyerInfo, etc.) is missing *despite* having a processId.
+  // All checks are now based on currentProcessState, after useEffect has run and set it.
+  if (!currentProcessState || !currentProcessState.processId) {
+    // This console.error is for debugging if the process ID itself is missing
+    console.error(
+        '[PrintContractPage] Render Check Error: currentProcessState is null or processId is missing. State:', 
+        currentProcessState ? JSON.parse(JSON.stringify(currentProcessState)) : String(currentProcessState)
+    );
+    // UI for critical session error
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
           <CardHeader className="items-center p-8">
-            <CardTitle className="text-2xl text-destructive font-headline">Erro ao Carregar Dados</CardTitle>
+            <CardTitle className="text-2xl text-destructive font-headline">Erro Crítico de Sessão</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-6">Não foi possível carregar todos os dados do contrato para impressão. Verifique as etapas anteriores ou reinicie o processo. Detalhes podem estar no console.</p>
-            <Button onClick={() => router.push('/processo/dados-iniciais')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
-              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar ao Início
+            <p className="text-muted-foreground mb-6">Não foi possível encontrar os dados do processo atual (ID ausente). Por favor, inicie o processo novamente.</p>
+            <Button onClick={() => router.push('/')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
+              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para o Início
             </Button>
           </CardContent>
         </Card>
@@ -214,7 +169,61 @@ export default function PrintContractPage() {
     );
   }
 
-  const { extractedData, buyerInfo, companyInfo, buyerType, selectedPlayer, internalTeamMemberInfo } = currentProcessState;
+  // processId is present, now check other critical fields from currentProcessState
+  const { extractedData, buyerInfo, internalTeamMemberInfo } = currentProcessState;
+  const isExtractedDataMissing = !extractedData || (typeof extractedData === 'object' && Object.keys(extractedData).length === 0 && !(extractedData instanceof Array && extractedData.length > 0));
+  const isBuyerInfoMissing = !buyerInfo || Object.values(buyerInfo).every(val => val === '' || val === null || val === undefined);
+  const isInternalTeamMemberInfoMissing = !internalTeamMemberInfo || Object.values(internalTeamMemberInfo).every(val => val === '' || val === null || val === undefined);
+
+  if (isExtractedDataMissing || isBuyerInfoMissing || isInternalTeamMemberInfoMissing) {
+    let missingPartsDescriptionList = [];
+    if (isExtractedDataMissing) missingPartsDescriptionList.push("Dados Extraídos do Contrato (extractedData)");
+    if (isBuyerInfoMissing) missingPartsDescriptionList.push("Informações do Comprador (buyerInfo)");
+    if (isInternalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (internalTeamMemberInfo)");
+    const descriptionText = `Dados essenciais para impressão não encontrados: ${missingPartsDescriptionList.join('; ')}. Verifique as etapas anteriores ou se o processo foi reiniciado.`;
+
+    // This console.error corresponds to the one mentioned by the user.
+    // It logs the state at the point of render when these specific fields are missing.
+    console.error(
+        '[PrintContractPage] Render Check Error: Essential data (other than processId) missing. Description:', 
+        descriptionText, 
+        'Full currentProcessState object:', 
+        currentProcessState ? JSON.parse(JSON.stringify(currentProcessState)) : "currentProcessState_is_null"
+    );
+    // A toast might have been shown by a previous step or by loadProcessState if it detected issues.
+    // If not, you could add one here:
+    // toast({ title: 'Erro ao Carregar Dados para Impressão', description: descriptionText, variant: 'destructive', duration: 10000 });
+    
+    return (
+       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
+        <Card className="w-full max-w-lg shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
+          <CardHeader className="items-center p-8">
+            <CardTitle className="text-2xl text-destructive font-headline text-center">Erro ao Carregar Dados para Impressão</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center pb-8 px-8">
+            <p className="text-muted-foreground mb-2">Os seguintes dados essenciais não foram encontrados para gerar o contrato:</p>
+            <ul className="list-disc list-inside text-left text-muted-foreground mb-4 text-sm inline-block">
+                {isExtractedDataMissing && <li>Dados do Contrato</li>}
+                {isBuyerInfoMissing && <li>Informações do Comprador</li>}
+                {isInternalTeamMemberInfoMissing && <li>Informações do Responsável Interno</li>}
+            </ul>
+            <p className="text-muted-foreground mb-6">Por favor, volte e verifique se todas as informações foram preenchidas e salvas corretamente nas etapas anteriores. Se o problema persistir, tente reiniciar o processo.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button onClick={() => router.push('/processo/revisao-envio')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
+                    <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Revisão
+                </Button>
+                <Button onClick={() => router.push('/')} variant="outline" className="border-destructive/80 text-destructive hover:bg-destructive/10 text-base py-3 rounded-lg">
+                     Voltar para o Início
+                </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // All checks passed, render the page content
+  const { companyInfo, buyerType, selectedPlayer } = currentProcessState; // Destructure remaining needed fields
 
   const vendedorNome = selectedPlayer ||
                        extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR")) ||
