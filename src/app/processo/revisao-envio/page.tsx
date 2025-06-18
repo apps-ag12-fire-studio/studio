@@ -24,7 +24,7 @@ import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dia
 
 
 const attemptToPreFillInfo = (
-  fullProcessState: StoredProcessState, 
+  fullProcessState: StoredProcessState,
   currentBuyer: BuyerInfo,
   currentCompany: CompanyInfo | null
 ): { buyerInfo: BuyerInfo, companyInfo: CompanyInfo | null } => {
@@ -74,7 +74,7 @@ const attemptToPreFillInfo = (
       }
     }
   }
-  
+
   const contractData = fullProcessState.extractedData;
   if (contractData?.nomesDasPartes) {
     for (let i = 0; i < contractData.nomesDasPartes.length; i++) {
@@ -199,7 +199,7 @@ export default function RevisaoEnvioPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [isStateLoading, setIsStateLoading] = useState(true);
-  
+
   const [currentBuyerInfo, setCurrentBuyerInfo] = useState<BuyerInfo>({ ...initialStoredProcessState.buyerInfo });
   const [currentCompanyInfo, setCurrentCompanyInfo] = useState<CompanyInfo | null>(null);
   const [currentInternalTeamMemberInfo, setCurrentInternalTeamMemberInfo] = useState<BuyerInfo>({ ...initialStoredProcessState.internalTeamMemberInfo });
@@ -226,16 +226,16 @@ export default function RevisaoEnvioPage() {
           variant: "destructive",
           duration: 7000,
         });
-        router.replace('/'); 
+        router.replace('/');
         return;
       }
-      
-      let tempBuyerInfo = loadedProcessState.buyerInfo 
-          ? { ...loadedProcessState.buyerInfo } 
+
+      let tempBuyerInfo = loadedProcessState.buyerInfo
+          ? { ...loadedProcessState.buyerInfo }
           : { ...initialStoredProcessState.buyerInfo };
       let tempCompanyInfo = loadedProcessState.buyerType === 'pj'
-        ? (loadedProcessState.companyInfo 
-            ? { ...loadedProcessState.companyInfo } 
+        ? (loadedProcessState.companyInfo
+            ? { ...loadedProcessState.companyInfo }
             : { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) })
         : null;
       let tempInternalTeamMemberInfo = loadedProcessState.internalTeamMemberInfo
@@ -248,13 +248,13 @@ export default function RevisaoEnvioPage() {
         tempBuyerInfo,
         tempCompanyInfo
       );
-      
+
       const buyerActuallyChanged = JSON.stringify(preFilledBuyer) !== JSON.stringify(tempBuyerInfo);
       const companyActuallyChanged = loadedProcessState.buyerType === 'pj' && JSON.stringify(preFilledCompany) !== JSON.stringify(tempCompanyInfo);
 
       if (buyerActuallyChanged) tempBuyerInfo = preFilledBuyer;
       if (companyActuallyChanged && loadedProcessState.buyerType === 'pj') tempCompanyInfo = preFilledCompany;
-      
+
       setCurrentBuyerInfo(tempBuyerInfo);
       setCurrentCompanyInfo(tempCompanyInfo);
       setCurrentInternalTeamMemberInfo(tempInternalTeamMemberInfo);
@@ -266,73 +266,60 @@ export default function RevisaoEnvioPage() {
         companyInfo: tempCompanyInfo,
         internalTeamMemberInfo: tempInternalTeamMemberInfo,
       }));
-      
+
       setIsStateLoading(false);
     };
     loadInitialData();
   }, [router, toast]);
 
-  const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
-    const { value } = e.target;
-    const newInfo = { ...(currentBuyerInfo || initialStoredProcessState.buyerInfo), [field]: value };
-    setCurrentBuyerInfo(newInfo);
-    setProcessState(currentMainState => ({
-      ...currentMainState,
-      buyerInfo: newInfo
-    }));
-  };
 
-  const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
-    if (processState.buyerType === 'pj') {
-      const { value } = e.target;
-      const newInfo = currentCompanyInfo ? { ...currentCompanyInfo, [field]: value } : { razaoSocial: '', nomeFantasia: '', cnpj: '', [field]: value };
-      setCurrentCompanyInfo(newInfo);
-      setProcessState(currentMainState => ({
-        ...currentMainState,
-        companyInfo: newInfo
-      }));
-    }
-  };
-  
-  const handleInternalTeamMemberInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
-    const { value } = e.target;
-    const newInfo = { ...(currentInternalTeamMemberInfo || initialStoredProcessState.internalTeamMemberInfo), [field]: value };
-    setCurrentInternalTeamMemberInfo(newInfo);
-    setProcessState(currentMainState => ({
-        ...currentMainState,
-        internalTeamMemberInfo: newInfo,
-    }));
-  };
-
-  const handleSaveResponsavel = (updatedData: Record<string, string>) => {
+  const handleSaveResponsavel = async (updatedData: Record<string, string>) => {
     const newInternalInfo = {
-        ...processState.internalTeamMemberInfo,
+        ...currentInternalTeamMemberInfo, // Use current state for dialog as base
         ...updatedData,
     } as BuyerInfo;
-    setCurrentInternalTeamMemberInfo(newInternalInfo);
-    setProcessState(prev => ({ ...prev, internalTeamMemberInfo: newInternalInfo }));
-    toast({ title: "Responsável Interno Atualizado", description: "Informações salvas localmente." });
+    setCurrentInternalTeamMemberInfo(newInternalInfo); // Update UI state for dialog
+
+    const updatedFullProcessState = {
+        ...processState,
+        internalTeamMemberInfo: newInternalInfo,
+    };
+    setProcessState(updatedFullProcessState); // Update main process state
+    await saveProcessState(updatedFullProcessState); // Save to Firestore
+    toast({ title: "Responsável Interno Atualizado", description: "Informações salvas e sincronizadas com o servidor." });
   };
 
-  const handleSaveComprador = (updatedData: Record<string, string>) => {
+  const handleSaveComprador = async (updatedData: Record<string, string>) => {
     const newBuyerInfo = {
-        ...currentBuyerInfo,
+        ...currentBuyerInfo, // Use current state for dialog as base
         ...updatedData,
     } as BuyerInfo;
-    setCurrentBuyerInfo(newBuyerInfo);
-    setProcessState(prev => ({ ...prev, buyerInfo: newBuyerInfo }));
-    toast({ title: "Dados do Comprador Atualizados", description: "Informações salvas localmente." });
+    setCurrentBuyerInfo(newBuyerInfo); // Update UI state for dialog
+
+    const updatedFullProcessState = {
+        ...processState,
+        buyerInfo: newBuyerInfo,
+    };
+    setProcessState(updatedFullProcessState); // Update main process state
+    await saveProcessState(updatedFullProcessState); // Save to Firestore
+    toast({ title: "Dados do Comprador Atualizados", description: "Informações salvas e sincronizadas com o servidor." });
   };
 
-  const handleSaveEmpresa = (updatedData: Record<string, string>) => {
+  const handleSaveEmpresa = async (updatedData: Record<string, string>) => {
     if (processState.buyerType === 'pj') {
         const newCompanyInfo = {
-            ...(currentCompanyInfo || initialStoredProcessState.companyInfo!),
+            ...(currentCompanyInfo || initialStoredProcessState.companyInfo!), // Use current state for dialog as base
             ...updatedData,
         } as CompanyInfo;
-        setCurrentCompanyInfo(newCompanyInfo);
-        setProcessState(prev => ({ ...prev, companyInfo: newCompanyInfo }));
-        toast({ title: "Dados da Empresa Atualizados", description: "Informações salvas localmente." });
+        setCurrentCompanyInfo(newCompanyInfo); // Update UI state for dialog
+
+        const updatedFullProcessState = {
+            ...processState,
+            companyInfo: newCompanyInfo,
+        };
+        setProcessState(updatedFullProcessState); // Update main process state
+        await saveProcessState(updatedFullProcessState); // Save to Firestore
+        toast({ title: "Dados da Empresa Atualizados", description: "Informações salvas e sincronizadas com o servidor." });
     }
   };
 
@@ -359,7 +346,7 @@ export default function RevisaoEnvioPage() {
 
 
   const isPrintDisabled = useCallback(() => {
-    return false; 
+    return false;
   }, []);
 
   const showPendingChecks = () => {
@@ -379,7 +366,7 @@ export default function RevisaoEnvioPage() {
           </div>
         ),
         variant: "destructive",
-        duration: 20000, 
+        duration: 20000,
       });
     } else {
       toast({
@@ -395,16 +382,16 @@ export default function RevisaoEnvioPage() {
   const handlePrepareForPrint = async () => {
     setIsPreparingPrint(true);
     const stateToSave: StoredProcessState = {
-      ...processState, 
+      ...processState,
       currentStep: "/print-contract"
     };
 
     console.log('[RevisaoEnvioPage] State being saved before navigating to print:', JSON.parse(JSON.stringify(stateToSave)));
     console.log('[RevisaoEnvioPage] stateToSave.extractedData:', stateToSave.extractedData ? JSON.parse(JSON.stringify(stateToSave.extractedData)) : 'null');
     console.log('[RevisaoEnvioPage] stateToSave.internalTeamMemberInfo:', stateToSave.internalTeamMemberInfo ? JSON.parse(JSON.stringify(stateToSave.internalTeamMemberInfo)) : 'null');
-    
+
     await saveProcessState(stateToSave);
-    
+
     toast({ title: "Etapa 4 Concluída!", description: "Informações salvas. Carregando contrato para impressão...", className: "bg-green-600 text-primary-foreground border-green-700"});
     router.push('/print-contract');
   };
@@ -412,23 +399,31 @@ export default function RevisaoEnvioPage() {
   const handleBack = async () => {
     setIsNavigating(true);
     const stateToSave: StoredProcessState = {
-        ...processState, 
+        ...processState,
     };
-    await saveProcessState(stateToSave); 
+    await saveProcessState(stateToSave);
     router.push("/processo/documentos");
   };
 
   useEffect(() => {
     const currentProcessStateForEffect = processState;
+    // This effect still handles debounced/unmount saves for general state changes
+    // not covered by direct dialog saves.
     const saveDebounced = setTimeout(async () => {
         if (!isNavigating && !isPreparingPrint && !isStateLoading) {
-            await saveProcessState(currentProcessStateForEffect);
+            // Avoid double-saving if a dialog save just happened
+            // This check might need refinement if race conditions occur
+             if (JSON.stringify(currentProcessStateForEffect) !== localStorage.getItem("contratoFacilProcessState_v14_robust_parse")) {
+                await saveProcessState(currentProcessStateForEffect);
+             }
         }
-    }, 1000); 
+    }, 1200); // Slightly increased delay
 
     return () => {
       clearTimeout(saveDebounced);
+      // Potentially save on unmount if not navigating, though explicit saves are preferred
       if (!isNavigating && !isPreparingPrint && !isStateLoading) {
+         // saveProcessState(currentProcessStateForEffect); // Consider if really needed here
       }
     };
   }, [processState, isNavigating, isPreparingPrint, isStateLoading]);
@@ -523,7 +518,7 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
-          {processState.internalTeamMemberInfo && (
+          {currentInternalTeamMemberInfo && (
             <>
              <div className="space-y-1">
                 <div className="flex items-center justify-between">
@@ -541,8 +536,8 @@ export default function RevisaoEnvioPage() {
               <hr className="border-border/30"/>
             </>
           )}
-          
-          {processState.buyerType === 'pj' && ( 
+
+          {processState.buyerType === 'pj' && currentCompanyInfo && (
             <>
               <div className="space-y-1">
                  <div className="flex items-center justify-between">
@@ -556,15 +551,17 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
-          <div className="space-y-1">
-             <div className="flex items-center justify-between">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"}</h3>
+          {currentBuyerInfo && (
+            <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"}</h3>
+              </div>
+              <p className="text-foreground/80"><strong>Nome:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
+              <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
+              <p className="text-foreground/80"><strong>Telefone:</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
+              <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
             </div>
-            <p className="text-foreground/80"><strong>Nome:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>Telefone:</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
-          </div>
+          )}
           <hr className="border-border/30"/>
 
 
@@ -672,6 +669,3 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-    
-
-    
