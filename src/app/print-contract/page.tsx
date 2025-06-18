@@ -8,7 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react';
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState } from '@/lib/process-store';
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from '@/lib/process-store';
+
+const printGlobalStyles = `
+  @media print {
+    .document-to-print {
+      page-break-before: always !important;
+    }
+    .no-page-break-after {
+      page-break-after: avoid !important;
+    }
+  }
+`;
 
 export default function PrintContractPage() {
   const router = useRouter();
@@ -19,19 +30,41 @@ export default function PrintContractPage() {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      console.log("[PrintContractPage] Attempting to load process state...");
       const data = await loadProcessState();
-      console.log('[PrintContractPage] Loaded processState by loadProcessState():', data ? JSON.parse(JSON.stringify(data)) : null);
+      console.log('[PrintContractPage] Loaded processState by loadProcessState():', data ? JSON.parse(JSON.stringify(data)) : 'data_is_null_or_undefined');
+      
+      if (data) {
+        console.log('[PrintContractPage] Value of data.extractedData:', data.extractedData ? JSON.parse(JSON.stringify(data.extractedData)) : data.extractedData);
+        console.log('[PrintContractPage] Value of data.buyerInfo:', data.buyerInfo ? JSON.parse(JSON.stringify(data.buyerInfo)) : data.buyerInfo);
+        console.log('[PrintContractPage] Value of data.internalTeamMemberInfo:', data.internalTeamMemberInfo ? JSON.parse(JSON.stringify(data.internalTeamMemberInfo)) : data.internalTeamMemberInfo);
+        console.log('[PrintContractPage] Value of data.processId:', data.processId);
+      }
 
-      if (data && data.processId && data.extractedData && data.buyerInfo && data.internalTeamMemberInfo) {
+      const isExtractedDataMissing = !data || !data.extractedData || (typeof data.extractedData === 'object' && Object.keys(data.extractedData).length === 0 && !(data.extractedData instanceof Array && data.extractedData.length > 0) );
+      const isBuyerInfoMissing = !data || !data.buyerInfo || Object.values(data.buyerInfo).every(val => val === '' || val === null || val === undefined);
+      const isInternalTeamMemberInfoMissing = !data || !data.internalTeamMemberInfo || Object.values(data.internalTeamMemberInfo).every(val => val === '' || val === null || val === undefined);
+
+      if (data && data.processId && !isExtractedDataMissing && !isBuyerInfoMissing && !isInternalTeamMemberInfoMissing) {
         setCurrentProcessState(data);
       } else {
+        let missingPartsDescription = [];
+        if (!data || !data.processId) missingPartsDescription.push("ID do Processo (processId)");
+        if (isExtractedDataMissing) missingPartsDescription.push("Dados Extraídos do Contrato (extractedData)");
+        if (isBuyerInfoMissing) missingPartsDescription.push("Informações do Comprador (buyerInfo)");
+        if (isInternalTeamMemberInfoMissing) missingPartsDescription.push("Informações do Responsável Interno (internalTeamMemberInfo)");
+        
+        const description = `Dados essenciais não encontrados. Detalhes: ${missingPartsDescription.length > 0 ? missingPartsDescription.join('; ') + '.' : 'Verifique os dados.'} (Debug: processId: ${data?.processId || 'N/A'}, extractedData: ${isExtractedDataMissing ? 'faltando' : 'presente'}, buyerInfo: ${isBuyerInfoMissing ? 'faltando' : 'presente'}, internalTeamMemberInfo: ${isInternalTeamMemberInfoMissing ? 'faltando' : 'presente'}). Verifique as etapas anteriores ou se o processo foi reiniciado.`;
+        
+        console.error('[PrintContractPage] Toasting error due to missing data. Description:', description, 'Full data object:', data ? JSON.parse(JSON.stringify(data)) : 'data_is_null_or_undefined');
+
         toast({
           title: 'Erro ao Carregar Dados para Impressão',
-          description: `Dados essenciais não encontrados (processId: ${data?.processId}, extractedData: ${!!data?.extractedData}, buyerInfo: ${!!data?.buyerInfo}, internalTeamMemberInfo: ${!!data?.internalTeamMemberInfo}). Verifique as etapas anteriores ou se o processo foi reiniciado.`,
+          description: description,
           variant: 'destructive',
           duration: 10000,
         });
-        // router.replace('/processo/revisao-envio'); // Temporarily commented for debugging
+        // router.replace('/processo/revisao-envio'); // Manter comentado para depuração
       }
       setIsLoading(false);
     };
@@ -95,10 +128,10 @@ export default function PrintContractPage() {
      console.error('[PrintContractPage] Critical data missing for printing. Current state at render:', {
         hasProcessState: !!currentProcessState,
         processId: currentProcessState?.processId,
-        hasExtractedData: !!currentProcessState?.extractedData,
-        hasBuyerInfo: !!currentProcessState?.buyerInfo,
-        hasInternalTeamMemberInfo: !!currentProcessState?.internalTeamMemberInfo,
-        fullStateForDebugging: currentProcessState // Log the entire problematic state
+        hasExtractedData: !!currentProcessState?.extractedData && Object.keys(currentProcessState.extractedData).length > 0,
+        hasBuyerInfo: !!currentProcessState?.buyerInfo && Object.values(currentProcessState.buyerInfo).some(v => !!v),
+        hasInternalTeamMemberInfo: !!currentProcessState?.internalTeamMemberInfo && Object.values(currentProcessState.internalTeamMemberInfo).some(v => !!v),
+        fullStateForDebugging: currentProcessState ? JSON.parse(JSON.stringify(currentProcessState)) : null
     });
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
@@ -155,16 +188,7 @@ export default function PrintContractPage() {
 
   return (
     <>
-      <style jsx global>{`
-        @media print {
-          .document-to-print {
-            page-break-before: always !important;
-          }
-          .no-page-break-after {
-            page-break-after: avoid !important;
-          }
-        }
-      `}</style>
+      <style jsx global>{printGlobalStyles}</style>
       <header className="text-center py-8 print-hidden">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
           Contrato Fácil
