@@ -214,6 +214,7 @@ export default function FotoContratoAssinadoPage() {
         internalName: finalStateForSubmission.internalTeamMemberInfo?.nome,
         playerName: finalStateForSubmission.selectedPlayer,
         contractObjectName: finalStateForSubmission.extractedData?.objetoDoContrato,
+        contractValue: finalStateForSubmission.extractedData?.valorPrincipal, // Added contract value
       };
       if (typeof window !== 'undefined') {
         localStorage.setItem('contratoFacilConfirmationDetails', JSON.stringify(confirmationDetails));

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Home, User, Briefcase, Award, MessageSquareText } from "lucide-react"; 
+import { CheckCircle2, Home, User, Briefcase, Award, MessageSquareText, DollarSign, Link2, QrCode } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -13,6 +13,7 @@ interface ConfirmationDetails {
   internalName: string | null;
   playerName: string | null;
   contractObjectName: string | null;
+  contractValue: string | null; // Added contract value
 }
 
 export default function ConfirmationPage() {
@@ -25,27 +26,28 @@ export default function ConfirmationPage() {
         try {
           const parsedDetails = JSON.parse(detailsString);
           setDetails(parsedDetails);
-          // It's generally better to remove the item after use to prevent stale data
-          // localStorage.removeItem('contratoFacilConfirmationDetails'); 
+          // localStorage.removeItem('contratoFacilConfirmationDetails'); // Consider removing after use
         } catch (error) {
           console.error("Error parsing confirmation details from localStorage:", error);
-          localStorage.removeItem('contratoFacilConfirmationDetails'); // Clean up on error
+          localStorage.removeItem('contratoFacilConfirmationDetails'); 
         }
       }
     }
   }, []);
 
   const handleShareViaWhatsApp = () => {
-    if (!details) return;
+    if (!details || !details.processId) return;
 
-    const { processId, buyerName, internalName, playerName, contractObjectName } = details;
+    const { processId, buyerName, internalName, playerName, contractObjectName, contractValue } = details;
     
     let message = `🎉 Contrato Fácil: Processo Concluído! 🎉\n\n`;
-    if (processId) {
-      message += `*ID do Processo:* ${processId}\n`;
-    }
+    message += `*ID do Processo:* ${processId}\n`;
+    
     if (contractObjectName) {
       message += `*Contrato:* ${contractObjectName}\n`;
+    }
+    if (contractValue) {
+      message += `*Valor:* ${contractValue}\n`;
     }
     if (buyerName) {
       message += `*Comprador:* ${buyerName}\n`;
@@ -56,6 +58,14 @@ export default function ConfirmationPage() {
     if (internalName) {
       message += `*Responsável Interno:* ${internalName}\n`;
     }
+    
+    const verificationBaseUrl = "https://contratofacil.app/verify"; // Replace with your actual domain
+    const verificationUrl = `${verificationBaseUrl}?id=${processId}`;
+    const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}`;
+
+    message += `\n*Link de Validação:* ${verificationUrl}\n`;
+    message += `*QR Code para Validação:* ${qrCodeImageUrl}\n`; // WhatsApp usually unfurls image links
+
     message += `\nDocumentos submetidos com sucesso através da plataforma Contrato Fácil!`;
 
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -81,6 +91,12 @@ export default function ConfirmationPage() {
             <div className="text-left text-sm text-foreground/70 bg-muted/20 p-4 rounded-lg border border-border/30 space-y-2">
               {details.processId && <p><strong>ID do Processo:</strong> {details.processId}</p>}
               {details.contractObjectName && <p><strong>Objeto do Contrato:</strong> {details.contractObjectName}</p>}
+              {details.contractValue && (
+                <div className="flex items-center">
+                  <DollarSign className="mr-2 h-4 w-4 text-primary/80" />
+                  <p><strong>Valor do Contrato:</strong> {details.contractValue}</p>
+                </div>
+              )}
               <div className="flex items-center">
                 <User className="mr-2 h-4 w-4 text-primary/80" />
                 <p><strong>Comprador:</strong> {details.buyerName || "N/A"}</p>
@@ -106,7 +122,7 @@ export default function ConfirmationPage() {
                 Iniciar Novo Processo
               </Link>
             </Button>
-            {details && (
+            {details && details.processId && (
               <Button 
                 onClick={handleShareViaWhatsApp}
                 variant="outline" 
@@ -122,3 +138,4 @@ export default function ConfirmationPage() {
     </div>
   );
 }
+
