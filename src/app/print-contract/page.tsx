@@ -17,7 +17,8 @@ const PrintFooter = ({ processId }: { processId: string | null }) => {
 
   const verificationBaseUrl = "https://contratofacil.app/verify"; 
   const verificationUrl = `${verificationBaseUrl}?id=${processId}`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(verificationUrl)}`;
+  // QR code size will be controlled by CSS for print, but for the API a reasonable size is good.
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(verificationUrl)}`;
 
   return (
     <div className="custom-print-footer print-only">
@@ -28,8 +29,8 @@ const PrintFooter = ({ processId }: { processId: string | null }) => {
       <Image 
         src={qrCodeUrl} 
         alt={`QR Code para verificação do Processo ID ${processId}`} 
-        width={70} 
-        height={70}
+        width={80} // This width/height is for the <Image> component, actual print size via CSS
+        height={80}
         className="qr-code-image"
         unoptimized 
       />
@@ -52,11 +53,12 @@ export default function PrintContractPage() {
     const fetchDataAndUpdateSignatureDate = async () => {
       setIsLoading(true);
       let loadedData = await loadProcessState();
+      let newSigningString = ""; // Initialize to ensure it's always defined
       
       if (loadedData?.extractedData) {
         const today = new Date().toLocaleDateString('pt-BR');
         let currentSigningString = loadedData.extractedData.localEDataAssinatura || "";
-        let newSigningString = currentSigningString; // Default to current if no changes needed
+        newSigningString = currentSigningString; // Default to current if no changes needed
         let locationPartForToast = "[Local Padrão]"; // Default for toast
 
         const datePlaceholderRegex = /\[Data.*?\]|Data Atual/i;
@@ -96,7 +98,7 @@ export default function PrintContractPage() {
             toast({
                 title: "Local e Data da Assinatura",
                 description: `Data atualizada para ${today}. O local ("${locationPartForToast}") é baseado no modelo do contrato. A cidade e estado não são preenchidos automaticamente por geolocalização nesta versão.`,
-                duration: 10000, // Longer duration for this important info
+                duration: 10000, 
             });
             localStorage.setItem('geolocationToastShownForPrintContractPage', 'true');
           }
@@ -110,8 +112,7 @@ export default function PrintContractPage() {
 
       setCurrentProcessState(loadedData); 
       
-      // If loadedData was modified (e.g., date update), save it back.
-      if (loadedData && newSigningString !== currentSigningString && loadedData.processId) {
+      if (loadedData && newSigningString && newSigningString !== (loadedData.extractedData?.localEDataAssinatura || "") && loadedData.processId) {
         await saveProcessState(loadedData);
       }
 
@@ -226,7 +227,7 @@ export default function PrintContractPage() {
           alt={label}
           width={800} 
           height={1120} 
-          className="w-full h-auto max-w-full block rounded-md border border-border/30 object-contain" // Changed objectFit to className
+          className="w-full h-auto max-w-full block rounded-md border border-border/30 object-contain" 
         />
       </div>
     );
