@@ -118,43 +118,35 @@ const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolea
   });
 };
 
-const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo'] | undefined): boolean => {
-  if (!data) return true;
-  // Cargo is optional for "empty" check if we want the section to show
-  return !data.nome && !data.cpf && !data.telefone && !data.email;
-};
-
 
 const getMissingFieldsList = (state: StoredProcessState): string[] => {
   const missingFields: string[] = [];
 
-  if (isInternalTeamMemberInfoEmpty(state.internalTeamMemberInfo)) { // Check for essential fields
-    if (!state.internalTeamMemberInfo?.nome) missingFields.push("Nome do Responsável Interno - Etapa 1.");
-    if (!state.internalTeamMemberInfo?.cpf) missingFields.push("CPF do Responsável Interno - Etapa 1.");
-    if (!state.internalTeamMemberInfo?.telefone) missingFields.push("Telefone do Responsável Interno - Etapa 1.");
-    if (!state.internalTeamMemberInfo?.email) missingFields.push("E-mail do Responsável Interno - Etapa 1.");
-    // Cargo is optional, not a blocker for printing
-  }
+  if (!state.internalTeamMemberInfo?.nome) missingFields.push("Nome do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
+  if (!state.internalTeamMemberInfo?.cpf) missingFields.push("CPF do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
+  if (!state.internalTeamMemberInfo?.telefone) missingFields.push("Telefone do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
+  if (!state.internalTeamMemberInfo?.email) missingFields.push("E-mail do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
+  if (!state.internalTeamMemberInfo?.cargo) missingFields.push("Cargo do Responsável Interno (Etapa 1 ou editar ✏️ aqui).");
 
 
   if (state.contractSourceType === 'existing') {
     if (!state.selectedPlayer) {
-      missingFields.push("Player (Expert) não selecionado - Etapa 1: Dados Iniciais.");
+      missingFields.push("Player (Expert) não selecionado (Etapa 1: Dados Iniciais).");
     }
     if (!state.extractedData || isExtractedDataEmpty(state.extractedData)) {
-      missingFields.push("Modelo de contrato não carregado para o Player - Etapa 1: Dados Iniciais.");
+      missingFields.push("Modelo de contrato não carregado para o Player (Etapa 1: Dados Iniciais).");
     }
   }
 
   if (state.contractSourceType === 'new') {
     if (!state.contractPhotoPreview) {
-      missingFields.push("Foto do contrato original não carregada - Etapa 2: Foto do Contrato.");
+      missingFields.push("Foto do contrato original não carregada (Etapa 2: Foto do Contrato).");
     } else if (!state.photoVerified) {
-      missingFields.push("Foto do contrato original não verificada pela IA - Etapa 2: Foto do Contrato.");
+      missingFields.push("Foto do contrato original não verificada pela IA (Etapa 2: Foto do Contrato).");
     }
 
     if (state.photoVerified && (!state.extractedData || isExtractedDataEmpty(state.extractedData))) {
-      missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação - Etapa 2: Foto do Contrato.");
+      missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação (Etapa 2: Foto do Contrato).");
     }
   }
 
@@ -162,41 +154,41 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
     const hasRgAntigo = state.rgAntigoFrente?.previewUrl && state.rgAntigoVerso?.previewUrl;
     const hasCnhAntiga = state.cnhAntigaFrente?.previewUrl && state.cnhAntigaVerso?.previewUrl;
     if (!(hasRgAntigo || hasCnhAntiga)) {
-      missingFields.push("Documento pessoal (RG Antigo ou CNH Antiga - frente e verso) não anexado - Etapa 3: Documentos.");
+      missingFields.push("Documento pessoal (RG Antigo ou CNH Antiga - frente e verso) não anexado (Etapa 3: Documentos).");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço pessoal não anexado - Etapa 3: Documentos.");
+      missingFields.push("Comprovante de endereço pessoal não anexado (Etapa 3: Documentos).");
     }
   } else { // PJ
     if (!state.companyInfo?.razaoSocial) {
-      missingFields.push("Razão Social da empresa não informada - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
+      missingFields.push("Razão Social da empresa (Etapa 3 ou editar ✏️ aqui).");
     }
     if (!state.companyInfo?.cnpj) {
-      missingFields.push("CNPJ da empresa não informado - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
+      missingFields.push("CNPJ da empresa (Etapa 3 ou editar ✏️ aqui).");
     }
 
     if (!state.cartaoCnpjFile?.previewUrl) {
-      missingFields.push("Cartão CNPJ não anexado - Etapa 3: Documentos.");
+      missingFields.push("Cartão CNPJ não anexado (Etapa 3: Documentos).");
     }
     if (!(state.docSocioFrente?.previewUrl && state.docSocioVerso?.previewUrl)) {
-      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado - Etapa 3: Documentos.");
+      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado (Etapa 3: Documentos).");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço da empresa não anexado - Etapa 3: Documentos.");
+      missingFields.push("Comprovante de endereço da empresa não anexado (Etapa 3: Documentos).");
     }
   }
 
   if (!state.buyerInfo?.nome) {
-    missingFields.push("Nome do comprador/representante não informado - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
+    missingFields.push("Nome do comprador/representante (Etapa 3 ou editar ✏️ aqui).");
   }
   if (!state.buyerInfo?.cpf) {
-    missingFields.push("CPF do comprador/representante não informado - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
+    missingFields.push("CPF do comprador/representante (Etapa 3 ou editar ✏️ aqui).");
   }
   if (!state.buyerInfo?.telefone) {
-    missingFields.push("Telefone do comprador/representante não informado - Preencha/edite aqui (Etapa 4).");
+    missingFields.push("Telefone do comprador/representante (Editar ✏️ aqui).");
   }
   if (!state.buyerInfo?.email) {
-    missingFields.push("E-mail do comprador/representante não informado - Preencha/edite aqui (Etapa 4).");
+    missingFields.push("E-mail do comprador/representante (Editar ✏️ aqui).");
   }
   return missingFields;
 };
@@ -208,7 +200,6 @@ export default function RevisaoEnvioPage() {
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [isStateLoading, setIsStateLoading] = useState(true);
   
-  // Local copies for direct binding to forms, which then update processState
   const [currentBuyerInfo, setCurrentBuyerInfo] = useState<BuyerInfo>({ ...initialStoredProcessState.buyerInfo });
   const [currentCompanyInfo, setCurrentCompanyInfo] = useState<CompanyInfo | null>(null);
   const [currentInternalTeamMemberInfo, setCurrentInternalTeamMemberInfo] = useState<BuyerInfo>({ ...initialStoredProcessState.internalTeamMemberInfo });
@@ -217,7 +208,6 @@ export default function RevisaoEnvioPage() {
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // Dialog states
   const [isEditResponsavelOpen, setIsEditResponsavelOpen] = useState(false);
   const [isEditCompradorOpen, setIsEditCompradorOpen] = useState(false);
   const [isEditEmpresaOpen, setIsEditEmpresaOpen] = useState(false);
@@ -314,7 +304,6 @@ export default function RevisaoEnvioPage() {
     }));
   };
 
-  // Save handlers for dialogs
   const handleSaveResponsavel = (updatedData: Record<string, string>) => {
     const newInternalInfo = {
         ...processState.internalTeamMemberInfo,
@@ -348,24 +337,24 @@ export default function RevisaoEnvioPage() {
   };
 
   const responsavelFields: FieldConfig[] = [
-    { id: 'nome', label: 'Nome Completo', value: currentInternalTeamMemberInfo.nome, type: 'text' },
-    { id: 'cpf', label: 'CPF', value: currentInternalTeamMemberInfo.cpf, type: 'text' },
-    { id: 'telefone', label: 'Telefone', value: currentInternalTeamMemberInfo.telefone, type: 'tel' },
-    { id: 'email', label: 'E-mail', value: currentInternalTeamMemberInfo.email, type: 'email' },
-    { id: 'cargo', label: 'Cargo', value: currentInternalTeamMemberInfo.cargo || '', type: 'text' },
+    { id: 'nome', label: 'Nome Completo', value: currentInternalTeamMemberInfo.nome, type: 'text', required: true },
+    { id: 'cpf', label: 'CPF', value: currentInternalTeamMemberInfo.cpf, type: 'text', required: true },
+    { id: 'telefone', label: 'Telefone', value: currentInternalTeamMemberInfo.telefone, type: 'tel', required: true },
+    { id: 'email', label: 'E-mail', value: currentInternalTeamMemberInfo.email, type: 'email', required: true },
+    { id: 'cargo', label: 'Cargo', value: currentInternalTeamMemberInfo.cargo || '', type: 'text', required: true },
   ];
 
   const compradorFields: FieldConfig[] = [
-    { id: 'nome', label: 'Nome Completo', value: currentBuyerInfo.nome, type: 'text' },
-    { id: 'cpf', label: 'CPF', value: currentBuyerInfo.cpf, type: 'text' },
-    { id: 'telefone', label: 'Telefone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel' },
-    { id: 'email', label: 'E-mail', value: currentBuyerInfo.email, type: 'email' },
+    { id: 'nome', label: 'Nome Completo', value: currentBuyerInfo.nome, type: 'text', required: true },
+    { id: 'cpf', label: 'CPF', value: currentBuyerInfo.cpf, type: 'text', required: true },
+    { id: 'telefone', label: 'Telefone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel', required: true },
+    { id: 'email', label: 'E-mail', value: currentBuyerInfo.email, type: 'email', required: true },
   ];
 
   const empresaFields: FieldConfig[] = currentCompanyInfo ? [
-    { id: 'razaoSocial', label: 'Razão Social', value: currentCompanyInfo.razaoSocial, type: 'text' },
+    { id: 'razaoSocial', label: 'Razão Social', value: currentCompanyInfo.razaoSocial, type: 'text', required: true },
     { id: 'nomeFantasia', label: 'Nome Fantasia (Opcional)', value: currentCompanyInfo.nomeFantasia || '', type: 'text' },
-    { id: 'cnpj', label: 'CNPJ', value: currentCompanyInfo.cnpj, type: 'text' },
+    { id: 'cnpj', label: 'CNPJ', value: currentCompanyInfo.cnpj, type: 'text', required: true },
   ] : [];
 
 
@@ -378,10 +367,10 @@ export default function RevisaoEnvioPage() {
 
     if (missingFields.length > 0) {
       toast({
-        title: "Dados Incompletos para Impressão",
+        title: "Pendências Encontradas",
         description: (
           <div className="max-h-60 overflow-y-auto">
-            <p className="mb-2 font-semibold">Por favor, verifique e complete os seguintes itens. Use o botão "Voltar" ou os ícones de edição para navegar/corrigir:</p>
+            <p className="mb-2 font-semibold">Por favor, corrija os itens abaixo. Use os botões de edição (✏️) nesta página ou o botão 'Voltar' para as etapas anteriores:</p>
             <ul className="list-disc list-inside space-y-1 text-sm">
               {missingFields.map((field, index) => (
                 <li key={index}>{field}</li>
@@ -390,7 +379,7 @@ export default function RevisaoEnvioPage() {
           </div>
         ),
         variant: "destructive",
-        duration: 20000,
+        duration: 20000, 
       });
     } else {
       toast({
@@ -423,25 +412,23 @@ export default function RevisaoEnvioPage() {
   const handleBack = async () => {
     setIsNavigating(true);
     const stateToSave: StoredProcessState = {
-        ...processState, // This already has the latest from setCurrentBuyerInfo etc.
+        ...processState, 
     };
     await saveProcessState(stateToSave); 
     router.push("/processo/documentos");
   };
 
-  // Save entire processState whenever it changes significantly, or on unmount.
   useEffect(() => {
     const currentProcessStateForEffect = processState;
     const saveDebounced = setTimeout(async () => {
         if (!isNavigating && !isPreparingPrint && !isStateLoading) {
             await saveProcessState(currentProcessStateForEffect);
         }
-    }, 1000); // Debounce for 1 second
+    }, 1000); 
 
     return () => {
       clearTimeout(saveDebounced);
       if (!isNavigating && !isPreparingPrint && !isStateLoading) {
-        // saveProcessState(currentProcessStateForEffect); // Save immediately on unmount if not navigating
       }
     };
   }, [processState, isNavigating, isPreparingPrint, isStateLoading]);
@@ -555,13 +542,11 @@ export default function RevisaoEnvioPage() {
             </>
           )}
           
-          {/* Company Info displayed here if PJ, now uses currentCompanyInfo for direct display */}
           {processState.buyerType === 'pj' && ( 
             <>
               <div className="space-y-1">
                  <div className="flex items-center justify-between">
                     <h3 className="flex items-center text-lg font-semibold text-primary/90"><Building className="mr-2 h-5 w-5" />Dados da Empresa</h3>
-                    {/* Edit button for company info already exists above, this is display only */}
                 </div>
                 <p className="text-foreground/80"><strong>Razão Social:</strong> {currentCompanyInfo?.razaoSocial || 'Não informado'}</p>
                 <p className="text-foreground/80"><strong>Nome Fantasia:</strong> {currentCompanyInfo?.nomeFantasia || 'Não informado'}</p>
@@ -571,11 +556,9 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
-          {/* Buyer/Representative info displayed here, uses currentBuyerInfo */}
           <div className="space-y-1">
              <div className="flex items-center justify-between">
                 <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"}</h3>
-                 {/* Edit button for buyer/rep info already exists above, this is display only */}
             </div>
             <p className="text-foreground/80"><strong>Nome:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
             <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
@@ -658,7 +641,6 @@ export default function RevisaoEnvioPage() {
         </Button>
       </div>
 
-      {/* Dialogs for Editing */}
       <EditInfoDialog
         isOpen={isEditResponsavelOpen}
         setIsOpen={setIsEditResponsavelOpen}
@@ -690,4 +672,6 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+    
+
     
