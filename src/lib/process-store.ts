@@ -176,7 +176,7 @@ async function storeStateInFirestore(state: StoredProcessState): Promise<void> {
         return;
     }
     await setDoc(docRef, stateToStore, { merge: true });
-    console.log(`[ProcessStore Firestore SAVE] Process state saved to Firestore: ${state.processId}`, JSON.parse(JSON.stringify(stateToStore)));
+    console.log(`[ProcessStore Firestore SAVE] Process state saved to Firestore: ${state.processId}. Includes extractedData: ${!!stateToStore.extractedData}, internalTeamMemberInfo: ${!!stateToStore.internalTeamMemberInfo}`);
   } catch (error) {
     console.error("[ProcessStore Firestore SAVE] Error saving state to Firestore for processId:", state.processId, error);
     toast({
@@ -188,36 +188,7 @@ async function storeStateInFirestore(state: StoredProcessState): Promise<void> {
   }
 }
 
-async function loadStateFromFirestore(processId: string): Promise<Partial<StoredProcessState> | null> {
-  console.log(`[ProcessStore Firestore LOAD] Attempting to load state from Firestore for processId: ${processId}`);
-  if (!processId) {
-    console.warn("[ProcessStore Firestore LOAD] No processId provided. Skipping Firestore load.");
-    return null;
-  }
-  try {
-    const docRef = doc(db, "inProgressContracts", processId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const firestoreData = docSnap.data() as StoredProcessState;
-      console.log("[ProcessStore Firestore LOAD] Raw Firestore data for processId:", processId, JSON.parse(JSON.stringify(firestoreData)));
-      return cleanUndefinedValues(firestoreData);
-    }
-    console.log("[ProcessStore Firestore LOAD] No process state found in Firestore for processId:", processId);
-    return null;
-  } catch (error) {
-    console.error("[ProcessStore Firestore LOAD] Error loading state from Firestore for processId:", processId, error);
-    toast({
-      title: "Erro ao Carregar Progresso da Nuvem",
-      description: "Não foi possível carregar seu progresso da nuvem. Tentaremos usar dados locais, se disponíveis.",
-      variant: "destructive",
-      duration: 7000,
-    });
-    return null;
-  }
-}
-
 export async function saveProcessState(state: StoredProcessState | undefined | null): Promise<void> {
-  console.log("[ProcessStore SAVE] Attempting to save process state. Input state:", state ? JSON.parse(JSON.stringify(state)) : state);
   if (typeof window === 'undefined') return;
 
   if (state === undefined || state === null) {
@@ -234,14 +205,11 @@ export async function saveProcessState(state: StoredProcessState | undefined | n
   try {
     let stateToSave: StoredProcessState = { ...state }; 
     const activeIdFromStorage = getActiveProcessId();
-    console.log(`[ProcessStore SAVE] Current activeId from localStorage: ${activeIdFromStorage}. State's processId: ${stateToSave.processId}`);
 
     if (activeIdFromStorage && stateToSave.processId !== activeIdFromStorage) {
-      console.warn(`[ProcessStore SAVE] State's processId (${stateToSave.processId}) differs from active localStorage ID (${activeIdFromStorage}). ALIGNING state's processId to active localStorage ID.`);
       stateToSave.processId = activeIdFromStorage;
     }
     if (!stateToSave.processId && activeIdFromStorage) {
-      console.log(`[ProcessStore SAVE] State has no processId, but active localStorage ID (${activeIdFromStorage}) exists. Assigning activeId to state.`);
       stateToSave.processId = activeIdFromStorage;
     }
     
@@ -252,16 +220,24 @@ export async function saveProcessState(state: StoredProcessState | undefined | n
         return;
     }
     
+    // Log before stringify for localStorage
+    console.log("[ProcessStore SAVE] State before localStorage.setItem:", {
+      processId: cleanedStateForStorage.processId,
+      currentStep: cleanedStateForStorage.currentStep,
+      hasExtractedData: !!cleanedStateForStorage.extractedData,
+      extractedDataKeys: cleanedStateForStorage.extractedData ? Object.keys(cleanedStateForStorage.extractedData) : null,
+      hasInternalTeamMemberInfo: !!cleanedStateForStorage.internalTeamMemberInfo,
+      internalTeamMemberInfoKeys: cleanedStateForStorage.internalTeamMemberInfo ? Object.keys(cleanedStateForStorage.internalTeamMemberInfo) : null,
+    });
+    
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(cleanedStateForStorage));
-    console.log("[ProcessStore SAVE] Process state saved to localStorage:", JSON.parse(JSON.stringify(cleanedStateForStorage)));
 
     if (cleanedStateForStorage.processId) {
       if (cleanedStateForStorage.processId !== activeIdFromStorage) {
         setActiveProcessId(cleanedStateForStorage.processId);
       }
-      await storeStateInFirestore(cleanedStateForStorage); // Await Firestore save
+      await storeStateInFirestore(cleanedStateForStorage); 
     } else {
-      console.warn("[ProcessStore SAVE] Saving state to localStorage, but it has a null processId. Firestore sync will be skipped.", cleanedStateForStorage);
       if (activeIdFromStorage) {
         clearActiveProcessId();
       }
@@ -282,9 +258,7 @@ export async function saveProcessState(state: StoredProcessState | undefined | n
 }
 
 export async function loadProcessState(): Promise<StoredProcessState> {
-  console.log("[ProcessStore LOAD] Attempting to load process state...");
   if (typeof window === 'undefined') {
-    console.log("[ProcessStore LOAD] Window not defined, returning initial state.");
     return ensureAllKeysPresent(initialStoredProcessState);
   }
 
@@ -292,11 +266,8 @@ export async function loadProcessState(): Promise<StoredProcessState> {
   const activeId = getActiveProcessId();
   let sourceOfTruthLog = `ActiveID from getActiveProcessId(): ${activeId}. `;
 
-  console.log(`[ProcessStore LOAD] Active processId from ACTIVE_PROCESS_ID_KEY: ${activeId}`);
-
   let firestoreData: Partial<StoredProcessState> | null = null;
   if (activeId) {
-    console.log(`[ProcessStore LOAD] Trying to load from Firestore with activeId: ${activeId}`);
     firestoreData = await loadStateFromFirestore(activeId);
     if (firestoreData) {
       sourceOfTruthLog += `Firestore (for activeId: ${activeId}) provided data. Merging. `;
@@ -307,34 +278,29 @@ export async function loadProcessState(): Promise<StoredProcessState> {
   } else {
     sourceOfTruthLog += `No activeId from storage. Firestore load skipped. `;
   }
-  console.log(`[ProcessStore LOAD] State after Firestore check (or skip):`, mergedState ? JSON.parse(JSON.stringify(mergedState)) : mergedState);
 
 
   let localStorageRaw: string | null = null;
   try {
     localStorageRaw = localStorage.getItem(PROCESS_STATE_KEY);
-    console.log(`[ProcessStore LOAD] Raw state from localStorage (PROCESS_STATE_KEY):`, localStorageRaw);
   } catch (error) {
-    console.error("[ProcessStore LOAD] Error reading from localStorage:", error);
     sourceOfTruthLog += `Error reading LS. `;
   }
 
   if (localStorageRaw && localStorageRaw !== "undefined" && localStorageRaw !== "null") {
     try {
       const localStorageParsed = JSON.parse(localStorageRaw) as Partial<StoredProcessState>;
-      console.log("[ProcessStore LOAD] Parsed localStorage data:", localStorageParsed ? JSON.parse(JSON.stringify(localStorageParsed)) : localStorageParsed);
 
       const lsProcessId = localStorageParsed.processId;
-      const lsLastUpdated = (localStorageParsed.lastUpdated as any)?.seconds; // Firestore Timestamp seconds
+      const lsLastUpdated = (localStorageParsed.lastUpdated as any)?.seconds; 
       const fsLastUpdated = (firestoreData?.lastUpdated as any)?.seconds;
 
       if (activeId && lsProcessId === activeId) {
         if (firestoreData && lsLastUpdated && fsLastUpdated && lsLastUpdated >= fsLastUpdated) {
           sourceOfTruthLog += `LocalStorage (for activeId: ${activeId}) is newer or same. Merging LS over FS. `;
-          mergedState = { ...firestoreData, ...localStorageParsed }; // LS data for the active process, if newer or same, takes precedence
+          mergedState = { ...firestoreData, ...localStorageParsed }; 
         } else if (firestoreData) {
            sourceOfTruthLog += `Firestore (for activeId: ${activeId}) is newer or LS timestamp missing. FS was already merged. `;
-           // Firestore data is already in mergedState and is newer or LS timestamp missing
         } else {
            sourceOfTruthLog += `No Firestore data, using LocalStorage for activeId ${activeId}. `;
            mergedState = { ...localStorageParsed };
@@ -355,7 +321,6 @@ export async function loadProcessState(): Promise<StoredProcessState> {
          mergedState = { ...mergedState, ...localStorageParsed };
       }
     } catch (error) {
-      console.error("[ProcessStore LOAD] Error parsing localStorage state JSON:", error, "Raw string was:", localStorageRaw);
       localStorage.removeItem(PROCESS_STATE_KEY); 
       sourceOfTruthLog += `Corrupted LocalStorage, removed. `;
     }
@@ -365,17 +330,14 @@ export async function loadProcessState(): Promise<StoredProcessState> {
         localStorage.removeItem(PROCESS_STATE_KEY); 
     }
   }
-  console.log(`[ProcessStore LOAD] State after LocalStorage merge:`, mergedState ? JSON.parse(JSON.stringify(mergedState)) : mergedState);
 
   let finalState = ensureAllKeysPresent(cleanUndefinedValues(mergedState as StoredProcessState | null) || initialStoredProcessState);
 
   const currentActiveIdAfterMerge = getActiveProcessId(); 
   if (finalState.processId && currentActiveIdAfterMerge && finalState.processId !== currentActiveIdAfterMerge) {
-    console.warn(`[ProcessStore LOAD] Discrepancy: finalState.processId (${finalState.processId}) vs currentActiveId (${currentActiveIdAfterMerge}). Prioritizing currentActiveId from storage.`);
     finalState.processId = currentActiveIdAfterMerge; 
     finalState = ensureAllKeysPresent(cleanUndefinedValues(finalState as StoredProcessState | null) || initialStoredProcessState);
   } else if (!finalState.processId && currentActiveIdAfterMerge) {
-     console.warn(`[ProcessStore LOAD] finalState had no processId, but currentActiveId (${currentActiveIdAfterMerge}) exists. Restoring activeId to finalState.`);
     finalState.processId = currentActiveIdAfterMerge;
     finalState = ensureAllKeysPresent(cleanUndefinedValues(finalState as StoredProcessState | null) || initialStoredProcessState);
   }
@@ -385,17 +347,22 @@ export async function loadProcessState(): Promise<StoredProcessState> {
     if (getActiveProcessId() !== finalState.processId) { 
         setActiveProcessId(finalState.processId);
     }
-    console.log("[ProcessStore LOAD] Saving final merged state back to localStorage for consistency:", JSON.parse(JSON.stringify(finalState)));
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(finalState));
   } else {
-     console.warn(`[ProcessStore LOAD] No processId in finalState after all checks. Active process ID will be cleared.`);
      localStorage.removeItem(PROCESS_STATE_KEY); 
      clearActiveProcessId(); 
      finalState = ensureAllKeysPresent(initialStoredProcessState); 
   }
   
   console.log(`[ProcessStore LOAD] Source of Truth log: ${sourceOfTruthLog}`);
-  console.log("[ProcessStore LOAD] Final loaded state being returned:", finalState ? JSON.parse(JSON.stringify(finalState)) : finalState);
+  console.log("[ProcessStore LOAD] Final loaded state being returned (extractedData, internalTeamMemberInfo):", 
+    finalState ? { 
+        extractedData: !!finalState.extractedData, 
+        internalTeamMemberInfo: !!finalState.internalTeamMemberInfo,
+        processId: finalState.processId,
+        currentStep: finalState.currentStep
+    } : String(finalState)
+  );
   return finalState;
 }
 
@@ -463,5 +430,7 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
+
+    
 
     

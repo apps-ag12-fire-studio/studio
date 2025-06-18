@@ -83,7 +83,7 @@ export default function PrintContractPage() {
       setIsLoading(true);
       const loadedData = await loadProcessState();
       
-      console.log('[PrintContractPage] Loaded data by loadProcessState():', loadedData ? JSON.parse(JSON.stringify(loadedData)) : loadedData);
+      console.log('[PrintContractPage] Loaded data by loadProcessState():', loadedData ? JSON.parse(JSON.stringify(loadedData)) : String(loadedData));
       if (loadedData) {
         console.log('  [PrintContractPage] > loadedData.processId:', loadedData.processId);
         console.log('  [PrintContractPage] > loadedData.internalTeamMemberInfo:', JSON.stringify(loadedData.internalTeamMemberInfo, null, 2));
@@ -101,7 +101,11 @@ export default function PrintContractPage() {
         toast({ title: "Erro de Processo", description: "ID do processo não encontrado. Não é possível prosseguir.", variant: "destructive" });
         return;
     }
-    await saveProcessState({ ...currentProcessState, currentStep: "/processo/foto-contrato-assinado" });
+    // Ensure currentStep is updated before saving
+    const stateToSave = {...currentProcessState, currentStep: "/processo/foto-contrato-assinado" };
+    await saveProcessState(stateToSave);
+    setCurrentProcessState(stateToSave); // Update local state after save confirmed
+
     toast({
       title: "Impressão (Simulada) Concluída!",
       description: "Prossiga para anexar a foto do contrato assinado.",
@@ -146,27 +150,9 @@ export default function PrintContractPage() {
     );
   }
 
-  const isExtractedDataMissingOrEmpty = (data: StoredProcessState['extractedData']) => {
-    if (!data) return true;
-    return !Object.values(data).some(value => {
-        if (Array.isArray(value)) return value.length > 0;
-        return value !== undefined && value !== null && value !== '';
-    });
-  };
-
-  const isInternalTeamMemberInfoMissingOrEmpty = (data: StoredProcessState['internalTeamMemberInfo']) => {
-    if (!data) return true;
-    return !data.nome || !data.cpf || !data.telefone || !data.email; // Assuming all are required
-  };
-  
-  const isBuyerInfoMissingOrEmpty = (data: StoredProcessState['buyerInfo']) => {
-    if (!data) return true; // Should not happen if state structure is correct
-    return !data.nome || !data.cpf || !data.telefone || !data.email; // Basic check
-  };
-
-
+  // Moved checks directly into render logic, operating on currentProcessState
   if (!currentProcessState || !currentProcessState.processId) {
-    console.error(
+     console.error(
         '[PrintContractPage] Critical Error: Process state or processId is missing. currentProcessState:', 
         currentProcessState ? JSON.parse(JSON.stringify(currentProcessState)) : String(currentProcessState)
     );
@@ -186,13 +172,12 @@ export default function PrintContractPage() {
       </div>
     );
   }
-
-  const extractedDataMissing = isExtractedDataMissingOrEmpty(currentProcessState.extractedData);
-  const internalTeamMemberInfoMissing = isInternalTeamMemberInfoMissingOrEmpty(currentProcessState.internalTeamMemberInfo);
-  const buyerInfoMissing = isBuyerInfoMissingOrEmpty(currentProcessState.buyerInfo);
-  // For PJ, companyInfo also needs to be checked
+  
+  // More specific checks for critical data points
+  const extractedDataMissing = !currentProcessState.extractedData || Object.keys(currentProcessState.extractedData).length === 0 || !Object.values(currentProcessState.extractedData).some(v => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : String(v).trim() !== ''));
+  const internalTeamMemberInfoMissing = !currentProcessState.internalTeamMemberInfo || !currentProcessState.internalTeamMemberInfo.nome || !currentProcessState.internalTeamMemberInfo.cpf || !currentProcessState.internalTeamMemberInfo.email || !currentProcessState.internalTeamMemberInfo.telefone;
+  const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
-
 
   if (extractedDataMissing || internalTeamMemberInfoMissing || buyerInfoMissing || companyInfoMissingForPJ) {
     let missingPartsDescriptionList = [];
@@ -212,10 +197,10 @@ export default function PrintContractPage() {
             internalTeamMemberInfoPresent: !internalTeamMemberInfoMissing,
             buyerInfoPresent: !buyerInfoMissing,
             companyInfoForPJPresent: !companyInfoMissingForPJ,
-            rawExtractedData: JSON.stringify(currentProcessState.extractedData),
-            rawInternalTeamMemberInfo: JSON.stringify(currentProcessState.internalTeamMemberInfo),
-            rawBuyerInfo: JSON.stringify(currentProcessState.buyerInfo),
-            rawCompanyInfo: JSON.stringify(currentProcessState.companyInfo),
+            rawExtractedData: currentProcessState.extractedData ? JSON.stringify(currentProcessState.extractedData) : 'null',
+            rawInternalTeamMemberInfo: currentProcessState.internalTeamMemberInfo ? JSON.stringify(currentProcessState.internalTeamMemberInfo) : 'null',
+            rawBuyerInfo: currentProcessState.buyerInfo ? JSON.stringify(currentProcessState.buyerInfo) : 'null',
+            rawCompanyInfo: currentProcessState.companyInfo ? JSON.stringify(currentProcessState.companyInfo) : 'null',
         }
     );
     
@@ -247,6 +232,7 @@ export default function PrintContractPage() {
       </div>
     );
   }
+  // End of data integrity checks, proceed to render if all data is present
 
   const { extractedData, buyerInfo, internalTeamMemberInfo, companyInfo, buyerType, selectedPlayer } = currentProcessState; 
 
@@ -431,3 +417,6 @@ export default function PrintContractPage() {
     </>
   );
 }
+
+
+    
