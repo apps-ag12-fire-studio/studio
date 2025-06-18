@@ -180,14 +180,14 @@ export default function PrintContractPage() {
     !currentProcessState.internalTeamMemberInfo.cpf || 
     !currentProcessState.internalTeamMemberInfo.email || 
     !currentProcessState.internalTeamMemberInfo.telefone ||
-    !currentProcessState.internalTeamMemberInfo.cargo; // Added cargo check
+    !currentProcessState.internalTeamMemberInfo.cargo;
   const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
 
   if (extractedDataMissing || internalTeamMemberInfoMissing || buyerInfoMissing || companyInfoMissingForPJ) {
     let missingPartsDescriptionList = [];
     if (extractedDataMissing) missingPartsDescriptionList.push("Dados do Contrato");
-    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (Nome, CPF, Email, Telefone, Cargo)"); // Updated text
+    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (Nome, CPF, Email, Telefone, Cargo)");
     if (buyerInfoMissing) missingPartsDescriptionList.push("Informações do Comprador/Representante (Nome, CPF, Email, Telefone)");
     if (companyInfoMissingForPJ) missingPartsDescriptionList.push("Informações da Empresa (PJ - Razão Social, CNPJ)");
     
@@ -196,7 +196,7 @@ export default function PrintContractPage() {
     console.error(
         '[PrintContractPage] Essential data for printing missing. \nDescription:', descriptionText,
         '\nProcess ID:', currentProcessState.processId,
-        `\nFlags: extractedDataMissing=${extractedDataMissing}, internalTeamMemberInfoMissing=${internalTeamMemberInfoMissing}, buyerInfoMissing=${buyerInfoMissing}, companyInfoMissingForPJ=${companyInfoMissingForPJ}`,
+        '\nFlags:', { extractedDataMissing, internalTeamMemberInfoMissing, buyerInfoMissing, companyInfoMissingForPJ },
         '\nRelevant State Parts (stringified for clarity):', JSON.stringify({
             processId: currentProcessState.processId,
             buyerType: currentProcessState.buyerType,
@@ -241,14 +241,24 @@ export default function PrintContractPage() {
   
   const { extractedData, buyerInfo, internalTeamMemberInfo, companyInfo, buyerType, selectedPlayer } = currentProcessState; 
 
+  const nomesDasPartesArray = Array.isArray(extractedData?.nomesDasPartes)
+    ? extractedData.nomesDasPartes
+    : (extractedData?.nomesDasPartes && typeof extractedData.nomesDasPartes === 'object' ? Object.values(extractedData.nomesDasPartes) : []);
+
+  const documentosDasPartesArray = Array.isArray(extractedData?.documentosDasPartes)
+    ? extractedData.documentosDasPartes
+    : (extractedData?.documentosDasPartes && typeof extractedData.documentosDasPartes === 'object' ? Object.values(extractedData.documentosDasPartes) : []);
+
+
   const vendedorNome = selectedPlayer ||
-                       extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR")) ||
+                       (nomesDasPartesArray.length > 0 ? nomesDasPartesArray.find(nome => String(nome).toUpperCase().includes("VENDEDOR")) : null) ||
                        "PABLO MARÇAL (ou empresa representante oficial)";
 
-  const vendedorDocumento = extractedData?.documentosDasPartes?.find((doc, index) => {
-    const nomeParte = extractedData.nomesDasPartes?.[index]?.toUpperCase();
-    return nomeParte?.includes("VENDEDOR") || (selectedPlayer && nomeParte?.includes(selectedPlayer.toUpperCase()));
-  }) || "[CNPJ DA EMPRESA VENDEDORA]";
+  const vendedorDocumento = (documentosDasPartesArray.length > 0 ? documentosDasPartesArray.find((doc, index) => {
+    const nomeParte = nomesDasPartesArray[index] ? String(nomesDasPartesArray[index]).toUpperCase() : "";
+    return nomeParte.includes("VENDEDOR") || (selectedPlayer && nomeParte.includes(selectedPlayer.toUpperCase()));
+  }) : null) || "[CNPJ DA EMPRESA VENDEDORA]";
+
 
   const renderCompradorInfo = () => {
     if (buyerType === 'pj' && companyInfo && buyerInfo) {
@@ -422,7 +432,3 @@ export default function PrintContractPage() {
     </>
   );
 }
-
-    
-
-    
