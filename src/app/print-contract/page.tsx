@@ -7,9 +7,9 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon, QrCode, Edit3, CheckCircle2, MapPin } from 'lucide-react'; // Added Edit3, CheckCircle2, MapPin
+import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon, QrCode, Edit3, CheckCircle2, MapPin } from 'lucide-react';
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from '@/lib/process-store';
-import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog"; // Import EditInfoDialog
+import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog";
 
 // Componente para o rodapé de impressão personalizado
 const PrintFooter = ({ processId }: { processId: string | null }) => {
@@ -49,24 +49,76 @@ export default function PrintContractPage() {
 
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDataAndUpdateSignatureDate = async () => {
       setIsLoading(true);
-      const loadedData = await loadProcessState();
+      let loadedData = await loadProcessState();
       
-      console.log('[PrintContractPage] Loaded data by loadProcessState():', loadedData ? JSON.parse(JSON.stringify(loadedData)) : String(loadedData));
+      if (loadedData?.extractedData) {
+        const today = new Date().toLocaleDateString('pt-BR');
+        let currentSigningString = loadedData.extractedData.localEDataAssinatura || "";
+        let newSigningString = currentSigningString; // Default to current if no changes needed
+        let locationPartForToast = "[Local Padrão]"; // Default for toast
+
+        const datePlaceholderRegex = /\[Data.*?\]|Data Atual/i;
+
+        if (datePlaceholderRegex.test(currentSigningString)) {
+          newSigningString = currentSigningString.replace(datePlaceholderRegex, today);
+          locationPartForToast = newSigningString.split(',')[0].trim();
+        } else if (currentSigningString.trim() === "" || currentSigningString.toLowerCase().includes("[local]")) {
+          newSigningString = `[Local da Assinatura], ${today}`;
+          locationPartForToast = "[Local da Assinatura]";
+        } else if (currentSigningString.includes(',')) {
+            const parts = currentSigningString.split(',');
+            const locationPart = parts.slice(0, -1).join(',').trim();
+            if (locationPart) {
+                 newSigningString = `${locationPart}, ${today}`;
+                 locationPartForToast = locationPart;
+            } else { // Only one part, assume it's location
+                newSigningString = `${currentSigningString.trim()}, ${today}`;
+                locationPartForToast = currentSigningString.trim();
+            }
+        } else if (currentSigningString.trim() !== "") {
+          newSigningString = `${currentSigningString.trim()}, ${today}`;
+          locationPartForToast = currentSigningString.trim();
+        }
+
+        if (newSigningString !== currentSigningString) {
+          loadedData = {
+            ...loadedData,
+            extractedData: {
+              ...(loadedData.extractedData!),
+              localEDataAssinatura: newSigningString,
+            },
+          };
+          console.log(`[PrintContractPage] Auto-updating localEDataAssinatura to: ${newSigningString}`);
+          
+          if (typeof window !== 'undefined' && !localStorage.getItem('geolocationToastShownForPrintContractPage')) {
+            toast({
+                title: "Local e Data da Assinatura",
+                description: `Data atualizada para ${today}. O local ("${locationPartForToast}") é baseado no modelo do contrato. A cidade e estado não são preenchidos automaticamente por geolocalização nesta versão.`,
+                duration: 10000, // Longer duration for this important info
+            });
+            localStorage.setItem('geolocationToastShownForPrintContractPage', 'true');
+          }
+        }
+      }
+      
       if (loadedData) {
-        console.log('  [PrintContractPage] > loadedData.processId:', loadedData.processId);
-        console.log('  [PrintContractPage] > loadedData.internalTeamMemberInfo:', JSON.stringify(loadedData.internalTeamMemberInfo, null, 2));
-        console.log('  [PrintContractPage] > loadedData.extractedData:', JSON.stringify(loadedData.extractedData, null, 2));
-        console.log('  [PrintContractPage] > loadedData.buyerInfo:', JSON.stringify(loadedData.buyerInfo, null, 2));
-        console.log('  [PrintContractPage] > loadedData.companyInfo:', JSON.stringify(loadedData.companyInfo, null, 2));
+        console.log('[PrintContractPage] Loaded data by loadProcessState() before setting local states:', loadedData ? JSON.parse(JSON.stringify(loadedData)) : String(loadedData));
         setCurrentBuyerInfo(loadedData.buyerInfo || initialStoredProcessState.buyerInfo);
       }
 
       setCurrentProcessState(loadedData); 
+      
+      // If loadedData was modified (e.g., date update), save it back.
+      if (loadedData && newSigningString !== currentSigningString && loadedData.processId) {
+        await saveProcessState(loadedData);
+      }
+
       setIsLoading(false);
     };
-    fetchData();
+    fetchDataAndUpdateSignatureDate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
   useEffect(() => {
@@ -174,8 +226,7 @@ export default function PrintContractPage() {
           alt={label}
           width={800} 
           height={1120} 
-          objectFit="contain"
-          className="w-full h-auto max-w-full block rounded-md border border-border/30"
+          className="w-full h-auto max-w-full block rounded-md border border-border/30 object-contain" // Changed objectFit to className
         />
       </div>
     );
@@ -247,7 +298,7 @@ export default function PrintContractPage() {
             currentStep: currentProcessState.currentStep,
             extractedData: currentProcessState.extractedData,
             internalTeamMemberInfo: currentProcessState.internalTeamMemberInfo,
-            buyerInfo: currentBuyerInfo, // Use currentBuyerInfo for logging
+            buyerInfo: currentBuyerInfo,
             companyInfo: currentProcessState.companyInfo,
             selectedPlayer: currentProcessState.selectedPlayer,
             contractSourceType: currentProcessState.contractSourceType
@@ -509,6 +560,8 @@ export default function PrintContractPage() {
     </>
   );
 }
+    
+
     
 
     
