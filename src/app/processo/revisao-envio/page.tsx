@@ -227,6 +227,19 @@ export default function RevisaoEnvioPage() {
     const loadInitialData = async () => {
       setIsStateLoading(true);
       let loadedState = await loadProcessState();
+      console.log('[RevisaoEnvioPage] loadInitialData - Loaded state:', loadedState ? JSON.parse(JSON.stringify(loadedState)) : loadedState);
+
+      if (!loadedState.processId) {
+        console.error("[RevisaoEnvioPage] CRITICAL: Loaded state has no processId. Redirecting to start.");
+        toast({
+          title: "Erro de Sessão",
+          description: "Não foi possível carregar os dados do processo (ID ausente). Por favor, inicie novamente.",
+          variant: "destructive",
+          duration: 7000,
+        });
+        router.replace('/'); // Redirect to home page to start a new process
+        return;
+      }
 
       let initialBuyerForEditing = loadedState.buyerInfo ? { ...loadedState.buyerInfo } : { ...initialStoredProcessState.buyerInfo };
       let initialCompanyForEditing = loadedState.buyerType === 'pj'
@@ -235,9 +248,7 @@ export default function RevisaoEnvioPage() {
 
       const buyerInfoNeedsPrefill = !initialBuyerForEditing.nome || !initialBuyerForEditing.cpf || !initialBuyerForEditing.email || !initialBuyerForEditing.telefone;
       const companyInfoNeedsPrefill = loadedState.buyerType === 'pj' && initialCompanyForEditing && (!initialCompanyForEditing.razaoSocial || !initialCompanyForEditing.cnpj);
-
-      let updatedGlobalState = { ...loadedState };
-
+      
       if (buyerInfoNeedsPrefill || companyInfoNeedsPrefill) {
         const { buyerInfo: preFilledBuyer, companyInfo: preFilledCompany } = attemptToPreFillInfo(
           loadedState,
@@ -250,26 +261,22 @@ export default function RevisaoEnvioPage() {
 
         if (buyerChangedByPrefill) {
             initialBuyerForEditing = preFilledBuyer;
+            loadedState.buyerInfo = preFilledBuyer; 
         }
         if (companyChangedByPrefill && loadedState.buyerType === 'pj') {
             initialCompanyForEditing = preFilledCompany;
+            loadedState.companyInfo = preFilledCompany; 
         }
       }
       
       setCurrentBuyerInfo(initialBuyerForEditing);
       setCurrentCompanyInfo(initialCompanyForEditing);
-
-      setProcessState(current => ({
-          ...current, // Start with current state from loadProcessState or previous setProcessState
-          ...loadedState, // Then apply loaded state
-          buyerInfo: initialBuyerForEditing, // Ensure these are set from potentially pre-filled values
-          companyInfo: initialCompanyForEditing, // Ensure these are set from potentially pre-filled values
-      }));
+      setProcessState(loadedState);
       
       setIsStateLoading(false);
     };
     loadInitialData();
-  }, []);
+  }, [router, toast]);
 
 
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
@@ -338,17 +345,14 @@ export default function RevisaoEnvioPage() {
     setIsPreparingPrint(true);
     const stateToSave: StoredProcessState = {
       ...processState,
-      buyerInfo: currentBuyerInfo, // Ensure the latest edited buyerInfo is included
-      companyInfo: currentCompanyInfo, // Ensure the latest edited companyInfo is included
+      buyerInfo: currentBuyerInfo, 
+      companyInfo: currentCompanyInfo, 
       currentStep: "/print-contract"
     };
 
-    console.log('[RevisaoEnvioPage] Preparing for print. State to save:');
-    console.log(`  Process ID: ${stateToSave.processId}`);
-    console.log('  InternalTeamMemberInfo:', JSON.stringify(stateToSave.internalTeamMemberInfo, null, 2));
-    console.log('  ExtractedData:', JSON.stringify(stateToSave.extractedData, null, 2));
-    console.log('  BuyerInfo:', JSON.stringify(stateToSave.buyerInfo, null, 2));
-    console.log('  CompanyInfo:', JSON.stringify(stateToSave.companyInfo, null, 2));
+    console.log('[RevisaoEnvioPage] State being saved before navigating to print:', JSON.parse(JSON.stringify(stateToSave)));
+    console.log('[RevisaoEnvioPage] stateToSave.extractedData:', stateToSave.extractedData ? JSON.parse(JSON.stringify(stateToSave.extractedData)) : 'null');
+    console.log('[RevisaoEnvioPage] stateToSave.internalTeamMemberInfo:', stateToSave.internalTeamMemberInfo ? JSON.parse(JSON.stringify(stateToSave.internalTeamMemberInfo)) : 'null');
     
     await saveProcessState(stateToSave);
     
