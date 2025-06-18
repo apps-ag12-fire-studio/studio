@@ -28,10 +28,9 @@ import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip,
 const attemptToPreFillInfo = (
   processState: StoredProcessState
 ): { buyerInfo: BuyerInfo, companyInfo: CompanyInfo | null } => {
-  // Cria cópias para não modificar o estado original diretamente aqui
-  let newBuyerInfo: BuyerInfo = { ...(processState.buyerInfo || initialStoredProcessState.buyerInfo) };
+  let newBuyerInfo: BuyerInfo = { ...(initialStoredProcessState.buyerInfo) }; // Start fresh for prefill
   let newCompanyInfo: CompanyInfo | null = processState.buyerType === 'pj' 
-    ? { ...(processState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } 
+    ? { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } 
     : null;
 
   const getAnalysisDataFromDocKey = (docKey: keyof StoredProcessState): ExtractBuyerDocumentDataOutput | null => {
@@ -42,53 +41,38 @@ const attemptToPreFillInfo = (
     return null;
   };
   
-  // Preenchimento para Pessoa Física
   if (processState.buyerType === 'pf') {
     const rgAntigoFrenteData = getAnalysisDataFromDocKey('rgAntigoFrente');
     const cnhAntigaFrenteData = getAnalysisDataFromDocKey('cnhAntigaFrente');
-    
-    const docData = rgAntigoFrenteData || cnhAntigaFrenteData; // Prioriza RG, depois CNH
+    const docData = rgAntigoFrenteData || cnhAntigaFrenteData; 
 
     if (docData) {
-      if (docData.nomeCompleto && (newBuyerInfo.nome === '' || newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome)) {
-        newBuyerInfo.nome = docData.nomeCompleto;
-      }
-      if (docData.cpf && (newBuyerInfo.cpf === '' || newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf)) {
-        newBuyerInfo.cpf = docData.cpf;
-      }
+      if (docData.nomeCompleto) newBuyerInfo.nome = docData.nomeCompleto;
+      if (docData.cpf) newBuyerInfo.cpf = docData.cpf;
     }
   } 
-  // Preenchimento para Pessoa Jurídica
   else if (processState.buyerType === 'pj' && newCompanyInfo) {
     const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile'); 
     const docSocioData = getAnalysisDataFromDocKey('docSocioFrente');
 
     if (cartaoCnpjData) {
-      if (cartaoCnpjData.nomeCompleto && (newCompanyInfo.razaoSocial === '' || newCompanyInfo.razaoSocial === initialStoredProcessState.companyInfo?.razaoSocial)) {
-        newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto; 
-      }
-      // Tenta extrair CNPJ do campo 'rg' ou 'cpf' se tiver 14 dígitos (comum em algumas análises de cartão CNPJ pela IA)
+      if (cartaoCnpjData.nomeCompleto) newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto; 
       const potentialCnpjFromRg = cartaoCnpjData.rg?.replace(/\D/g,'');
       const potentialCnpjFromCpf = cartaoCnpjData.cpf?.replace(/\D/g,'');
 
-      if (potentialCnpjFromRg && potentialCnpjFromRg.length === 14 && (newCompanyInfo.cnpj === '' || newCompanyInfo.cnpj === initialStoredProcessState.companyInfo?.cnpj)) {
-        newCompanyInfo.cnpj = cartaoCnpjData.rg!; // Usa o formatado se possível
-      } else if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14 && (newCompanyInfo.cnpj === '' || newCompanyInfo.cnpj === initialStoredProcessState.companyInfo?.cnpj)) {
-         newCompanyInfo.cnpj = cartaoCnpjData.cpf!; // Usa o formatado se possível
+      if (potentialCnpjFromRg && potentialCnpjFromRg.length === 14) {
+        newCompanyInfo.cnpj = cartaoCnpjData.rg!; 
+      } else if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14) {
+         newCompanyInfo.cnpj = cartaoCnpjData.cpf!; 
       }
     }
 
     if (docSocioData) {
-      if (docSocioData.nomeCompleto && (newBuyerInfo.nome === '' || newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome)) {
-        newBuyerInfo.nome = docSocioData.nomeCompleto;
-      }
-      if (docSocioData.cpf && (newBuyerInfo.cpf === '' || newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf)) {
-        newBuyerInfo.cpf = docSocioData.cpf;
-      }
+      if (docSocioData.nomeCompleto) newBuyerInfo.nome = docSocioData.nomeCompleto;
+      if (docSocioData.cpf) newBuyerInfo.cpf = docSocioData.cpf;
     }
   }
 
-  // Tentativa de preenchimento com dados do contrato principal (como fallback ou complemento)
   const contractData = processState.extractedData;
   if (contractData?.nomesDasPartes) {
     for (let i = 0; i < contractData.nomesDasPartes.length; i++) {
@@ -96,27 +80,27 @@ const attemptToPreFillInfo = (
       const parteNomeUpper = parteNomeCompleto.toUpperCase();
       
       if (parteNomeUpper.includes("COMPRADOR") || parteNomeUpper.includes("CLIENTE") || parteNomeUpper.includes("CONTRATANTE")) {
-        if (newBuyerInfo.nome === '' || newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome) {
+        if (newBuyerInfo.nome === '') {
           let nomeExtraido = parteNomeCompleto.split(/,|\bCOMPRADOR\b|\bCLIENTE\b|\bCONTRATANTE\b/i)[0].trim();
-          nomeExtraido = nomeExtraido.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim(); // Remove títulos
+          nomeExtraido = nomeExtraido.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim(); 
           if (nomeExtraido) newBuyerInfo.nome = nomeExtraido;
         }
-        if ((newBuyerInfo.cpf === '' || newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf) && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
+        if (newBuyerInfo.cpf === '' && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
           const docFormatado = contractData.documentosDasPartes[i];
           const docNumeros = docFormatado.replace(/\D/g, '');
-          if (docNumeros.length === 11) newBuyerInfo.cpf = docFormatado; // Assume CPF se tem 11 dígitos
+          if (docNumeros.length === 11) newBuyerInfo.cpf = docFormatado; 
         }
       }
       
       if (processState.buyerType === 'pj' && newCompanyInfo) {
-         if ((newCompanyInfo.razaoSocial === '' || newCompanyInfo.razaoSocial === initialStoredProcessState.companyInfo?.razaoSocial) && (parteNomeUpper.includes("EMPRESA") || parteNomeUpper.includes("LTDA") || parteNomeUpper.includes("S.A") || parteNomeUpper.includes("S/A"))) {
+         if (newCompanyInfo.razaoSocial === '' && (parteNomeUpper.includes("EMPRESA") || parteNomeUpper.includes("LTDA") || parteNomeUpper.includes("S.A") || parteNomeUpper.includes("S/A"))) {
              let nomeEmpresaExtraido = parteNomeCompleto.split(/,|\bCNPJ\b/i)[0].trim();
              if (nomeEmpresaExtraido) newCompanyInfo.razaoSocial = nomeEmpresaExtraido;
          }
-         if ((newCompanyInfo.cnpj === '' || newCompanyInfo.cnpj === initialStoredProcessState.companyInfo?.cnpj) && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
+         if (newCompanyInfo.cnpj === '' && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
             const docFormatado = contractData.documentosDasPartes[i];
             const docNumeros = docFormatado.replace(/\D/g, '');
-            if (docNumeros.length === 14) newCompanyInfo.cnpj = docFormatado; // Assume CNPJ se tem 14 dígitos
+            if (docNumeros.length === 14) newCompanyInfo.cnpj = docFormatado; 
          }
       }
     }
@@ -198,36 +182,31 @@ export default function RevisaoEnvioPage() {
   const [currentCompanyInfo, setCurrentCompanyInfo] = useState<CompanyInfo | null>(initialStoredProcessState.companyInfo);
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
   
-  // Este useEffect carrega o estado inicial e tenta preencher os campos uma vez no mount.
   useEffect(() => {
     const loadedState = loadProcessState();
-    setProcessState(loadedState); // Atualiza o processState geral
+    setProcessState(loadedState);
 
-    // Tenta preencher baseado no loadedState
     const { buyerInfo: preFilledBuyerInfoFromAI, companyInfo: preFilledCompanyInfoFromAI } = attemptToPreFillInfo(loadedState);
     
-    setCurrentBuyerInfo(prev => ({
-      nome: prev.nome || preFilledBuyerInfoFromAI.nome || '',
-      cpf: prev.cpf || preFilledBuyerInfoFromAI.cpf || '',
-      telefone: prev.telefone || preFilledBuyerInfoFromAI.telefone || '',
-      email: prev.email || preFilledBuyerInfoFromAI.email || '',
-    }));
+    setCurrentBuyerInfo({
+      nome: loadedState.buyerInfo.nome || preFilledBuyerInfoFromAI.nome || '',
+      cpf: loadedState.buyerInfo.cpf || preFilledBuyerInfoFromAI.cpf || '',
+      telefone: loadedState.buyerInfo.telefone || '', 
+      email: loadedState.buyerInfo.email || '',     
+    });
 
     if (loadedState.buyerType === 'pj') {
-      setCurrentCompanyInfo(prev => ({
-        razaoSocial: prev?.razaoSocial || preFilledCompanyInfoFromAI?.razaoSocial || '',
-        nomeFantasia: prev?.nomeFantasia || preFilledCompanyInfoFromAI?.nomeFantasia || '',
-        cnpj: prev?.cnpj || preFilledCompanyInfoFromAI?.cnpj || '',
-      }));
+      setCurrentCompanyInfo({
+        razaoSocial: loadedState.companyInfo?.razaoSocial || preFilledCompanyInfoFromAI?.razaoSocial || '',
+        nomeFantasia: loadedState.companyInfo?.nomeFantasia || preFilledCompanyInfoFromAI?.nomeFantasia || '',
+        cnpj: loadedState.companyInfo?.cnpj || preFilledCompanyInfoFromAI?.cnpj || '',
+      });
     } else {
       setCurrentCompanyInfo(null);
     }
-  }, []); // Roda apenas no mount inicial
+  }, []); 
 
-  // Este useEffect reage a mudanças no processState (ex: resultados de IA atualizados)
-  // e tenta preencher novamente os campos de input SE eles estiverem vazios.
   useEffect(() => {
-    // Não executa se o processState ainda for o inicial (antes do carregamento)
     if (processState === initialStoredProcessState) return;
 
     const { buyerInfo: preFilledBuyerInfoFromAI, companyInfo: preFilledCompanyInfoFromAI } = attemptToPreFillInfo(processState);
@@ -235,8 +214,8 @@ export default function RevisaoEnvioPage() {
     setCurrentBuyerInfo(prev => ({
       nome: prev.nome === '' ? (preFilledBuyerInfoFromAI.nome || '') : prev.nome,
       cpf: prev.cpf === '' ? (preFilledBuyerInfoFromAI.cpf || '') : prev.cpf,
-      telefone: prev.telefone === '' ? (preFilledBuyerInfoFromAI.telefone || '') : prev.telefone,
-      email: prev.email === '' ? (preFilledBuyerInfoFromAI.email || '') : prev.email,
+      telefone: prev.telefone, 
+      email: prev.email, 
     }));
 
     if (processState.buyerType === 'pj') {
@@ -246,7 +225,7 @@ export default function RevisaoEnvioPage() {
         cnpj: prev?.cnpj === '' ? (preFilledCompanyInfoFromAI?.cnpj || '') : (prev?.cnpj || ''),
       }));
     } else if (processState.buyerType === 'pf') {
-       setCurrentCompanyInfo(null); // Garante que companyInfo seja null para PF
+       setCurrentCompanyInfo(null);
     }
   }, [
     processState.rgAntigoFrente?.analysisResult,
@@ -258,24 +237,23 @@ export default function RevisaoEnvioPage() {
     processState.docSocioVerso?.analysisResult,
     processState.extractedData,
     processState.buyerType,
-    // Adicionar processState aqui faria rodar em CADA mudança de processState.
-    // Em vez disso, dependemos das partes específicas que afetam o preenchimento.
+    processState, 
   ]);
   
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const updatedBuyerInfo = { ...currentBuyerInfo, [field]: e.target.value };
     setCurrentBuyerInfo(updatedBuyerInfo);
-    // Salva no processState geral imediatamente para persistência se o usuário navegar
     setProcessState(prev => ({...prev, buyerInfo: updatedBuyerInfo }));
   };
 
   const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
-    const updatedCompanyInfo = { ...(currentCompanyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }), [field]: e.target.value };
-    setCurrentCompanyInfo(updatedCompanyInfo);
-    setProcessState(prev => ({...prev, companyInfo: updatedCompanyInfo }));
+    if (currentCompanyInfo) {
+      const updatedCompanyInfo = { ...currentCompanyInfo, [field]: e.target.value };
+      setCurrentCompanyInfo(updatedCompanyInfo);
+      setProcessState(prev => ({...prev, companyInfo: updatedCompanyInfo }));
+    }
   };
 
-  // Salva o estado completo no localStorage antes de desmontar a página (ao navegar)
   useEffect(() => {
     return () => {
       saveProcessState(processState);
@@ -285,9 +263,9 @@ export default function RevisaoEnvioPage() {
 
   const isPrintDisabled = useCallback(() => { 
     const currentStateForValidation: StoredProcessState = { 
-      ...processState, // Usa o processState mais recente
-      buyerInfo: currentBuyerInfo, // Usa os valores atuais dos inputs
-      companyInfo: currentCompanyInfo // Usa os valores atuais dos inputs
+      ...processState, 
+      buyerInfo: currentBuyerInfo, 
+      companyInfo: currentCompanyInfo 
     };
     return getMissingFieldsList(currentStateForValidation).length > 0;
   }, [processState, currentBuyerInfo, currentCompanyInfo]);
@@ -329,7 +307,6 @@ export default function RevisaoEnvioPage() {
 
   const handlePrepareForPrint = () => {
     setIsPreparingPrint(true);
-    // Garante que o processState mais atual (incluindo edições nos inputs) seja usado para validação e para salvar
     const finalProcessStateForPrint: StoredProcessState = { 
       ...processState, 
       buyerInfo: currentBuyerInfo, 
@@ -385,7 +362,6 @@ export default function RevisaoEnvioPage() {
   };
 
   const handleBack = () => {
-    // Salva o estado atual dos inputs no processState antes de navegar
     saveProcessState({ ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo });
     router.push("/processo/documentos");
   };
@@ -469,7 +445,7 @@ export default function RevisaoEnvioPage() {
         <CardContent className="space-y-3 p-6 pt-0">
           <div className="space-y-1">
             <h3 className="flex items-center text-lg font-semibold text-primary/90"><ListChecks className="mr-2 h-5 w-5" />Origem do Contrato</h3>
-            <p className="text-foreground/80">{processState.contractSourceType === 'new' ? 'Novo Contrato (Foto)' : 'Contrato Existente (Modelo)'}</p>
+            <p className="text-foreground/80">{processState.contractSourceType === 'new' ? 'Um Novo Modelo de Contrato (Foto)' : 'Contrato Validado pela ADM (Modelo)'}</p>
           </div>
           <hr className="border-border/30"/>
 
@@ -593,4 +569,4 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-
+    
