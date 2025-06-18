@@ -28,7 +28,7 @@ const attemptToPreFillInfo = (
   currentCompany: CompanyInfo | null
 ): { buyerInfo: BuyerInfo, companyInfo: CompanyInfo | null } => {
 
-  let newBuyerInfo: BuyerInfo = { ...currentBuyer }; // Start with a copy
+  let newBuyerInfo: BuyerInfo = { ...currentBuyer }; 
   let newCompanyInfo: CompanyInfo | null = currentCompany ? { ...currentCompany } : (
     processState.buyerType === 'pj' ? { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } : null
   );
@@ -41,7 +41,6 @@ const attemptToPreFillInfo = (
     return null;
   };
 
-  // Prepare a structure for preFilled values to avoid direct mutation issues later
   const preFilledValues = {
     buyer: {
       nome: currentBuyer.nome,
@@ -63,8 +62,8 @@ const attemptToPreFillInfo = (
     const docData = rgAntigoFrenteData || cnhAntigaFrenteData;
 
     if (docData) {
-      if (docData.nomeCompleto) preFilledValues.buyer.nome = docData.nomeCompleto;
-      if (docData.cpf) preFilledValues.buyer.cpf = docData.cpf;
+      if (docData.nomeCompleto && (newBuyerInfo.nome === '' || newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome)) preFilledValues.buyer.nome = docData.nomeCompleto;
+      if (docData.cpf && (newBuyerInfo.cpf === '' || newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf)) preFilledValues.buyer.cpf = docData.cpf;
     }
   }
   else if (processState.buyerType === 'pj' && preFilledValues.company) {
@@ -72,23 +71,23 @@ const attemptToPreFillInfo = (
     const docSocioData = getAnalysisDataFromDocKey('docSocioFrente');
 
     if (cartaoCnpjData) {
-      if (cartaoCnpjData.nomeCompleto) {
+      if (cartaoCnpjData.nomeCompleto && (newCompanyInfo!.razaoSocial === '' || newCompanyInfo!.razaoSocial === (initialStoredProcessState.companyInfo?.razaoSocial || ''))) {
         preFilledValues.company.razaoSocial = cartaoCnpjData.nomeCompleto;
       }
       const potentialCnpjFromCpf = cartaoCnpjData.cpf?.replace(/\D/g,'');
-      if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14 ) {
+      if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14  && (newCompanyInfo!.cnpj === '' || newCompanyInfo!.cnpj === (initialStoredProcessState.companyInfo?.cnpj || ''))) {
         preFilledValues.company.cnpj = cartaoCnpjData.cpf!;
       } else {
         const potentialCnpjFromRg = cartaoCnpjData.rg?.replace(/\D/g,'');
-        if (potentialCnpjFromRg && potentialCnpjFromRg.length === 14) {
+        if (potentialCnpjFromRg && potentialCnpjFromRg.length === 14 && (newCompanyInfo!.cnpj === '' || newCompanyInfo!.cnpj === (initialStoredProcessState.companyInfo?.cnpj || ''))) {
             preFilledValues.company.cnpj = cartaoCnpjData.rg!;
         }
       }
     }
 
     if (docSocioData) {
-      if (docSocioData.nomeCompleto) preFilledValues.buyer.nome = docSocioData.nomeCompleto;
-      if (docSocioData.cpf) preFilledValues.buyer.cpf = docSocioData.cpf;
+      if (docSocioData.nomeCompleto && (newBuyerInfo.nome === '' || newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome)) preFilledValues.buyer.nome = docSocioData.nomeCompleto;
+      if (docSocioData.cpf && (newBuyerInfo.cpf === '' || newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf)) preFilledValues.buyer.cpf = docSocioData.cpf;
     }
   }
 
@@ -99,13 +98,12 @@ const attemptToPreFillInfo = (
       const parteNomeUpper = parteNomeCompleto.toUpperCase();
 
       if (parteNomeUpper.includes("COMPRADOR") || parteNomeUpper.includes("CLIENTE") || parteNomeUpper.includes("CONTRATANTE")) {
-        // Only update if preFilledValues.buyer.nome is currently empty or default from initial state
-        if (preFilledValues.buyer.nome === currentBuyer.nome && (currentBuyer.nome === '' || currentBuyer.nome === initialStoredProcessState.buyerInfo.nome)) {
+        if (newBuyerInfo.nome === '' || newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome) {
           let nomeExtraido = parteNomeCompleto.split(/,|\bCOMPRADOR\b|\bCLIENTE\b|\bCONTRATANTE\b/i)[0].trim();
           nomeExtraido = nomeExtraido.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
           if (nomeExtraido) preFilledValues.buyer.nome = nomeExtraido;
         }
-        if (preFilledValues.buyer.cpf === currentBuyer.cpf && (currentBuyer.cpf === '' || currentBuyer.cpf === initialStoredProcessState.buyerInfo.cpf) && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
+        if ((newBuyerInfo.cpf === '' || newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf) && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
           const docFormatado = contractData.documentosDasPartes[i];
           const docNumeros = docFormatado.replace(/\D/g, '');
           if (docNumeros.length === 11) preFilledValues.buyer.cpf = docFormatado;
@@ -113,11 +111,11 @@ const attemptToPreFillInfo = (
       }
 
       if (processState.buyerType === 'pj' && preFilledValues.company && newCompanyInfo) {
-         if (preFilledValues.company.razaoSocial === newCompanyInfo.razaoSocial && (newCompanyInfo.razaoSocial === '' || newCompanyInfo.razaoSocial === (initialStoredProcessState.companyInfo?.razaoSocial || '')) && (parteNomeUpper.includes("EMPRESA") || parteNomeUpper.includes("LTDA") || parteNomeUpper.includes("S.A") || parteNomeUpper.includes("S/A"))) {
+         if ((newCompanyInfo.razaoSocial === '' || newCompanyInfo.razaoSocial === (initialStoredProcessState.companyInfo?.razaoSocial || '')) && (parteNomeUpper.includes("EMPRESA") || parteNomeUpper.includes("LTDA") || parteNomeUpper.includes("S.A") || parteNomeUpper.includes("S/A"))) {
              let nomeEmpresaExtraido = parteNomeCompleto.split(/,|\bCNPJ\b/i)[0].trim();
              if (nomeEmpresaExtraido) preFilledValues.company.razaoSocial = nomeEmpresaExtraido;
          }
-         if (preFilledValues.company.cnpj === newCompanyInfo.cnpj && (newCompanyInfo.cnpj === '' || newCompanyInfo.cnpj === (initialStoredProcessState.companyInfo?.cnpj || '')) && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
+         if ((newCompanyInfo.cnpj === '' || newCompanyInfo.cnpj === (initialStoredProcessState.companyInfo?.cnpj || '')) && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
             const docFormatado = contractData.documentosDasPartes[i];
             const docNumeros = docFormatado.replace(/\D/g, '');
             if (docNumeros.length === 14) preFilledValues.company.cnpj = docFormatado;
@@ -226,132 +224,82 @@ export default function RevisaoEnvioPage() {
   useEffect(() => {
     const loadInitialState = async () => {
       setIsStateLoading(true);
-      const loadedState = await loadProcessState();
-      setProcessState(loadedState);
-
-      const initialBuyer = loadedState.buyerInfo ? { ...loadedState.buyerInfo } : { ...initialStoredProcessState.buyerInfo };
-      const initialCompany = loadedState.buyerType === 'pj'
+      let loadedState = await loadProcessState(); 
+      
+      const initialBuyerFromLoadedState = loadedState.buyerInfo ? { ...loadedState.buyerInfo } : { ...initialStoredProcessState.buyerInfo };
+      const initialCompanyFromLoadedState = loadedState.buyerType === 'pj'
         ? (loadedState.companyInfo ? { ...loadedState.companyInfo } : { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) })
         : null;
+
+      const { buyerInfo: preFilledBuyer, companyInfo: preFilledCompany } = attemptToPreFillInfo(
+        loadedState,
+        initialBuyerFromLoadedState,
+        initialCompanyFromLoadedState
+      );
       
-      // Initialize currentBuyerInfo and currentCompanyInfo directly from loadedState or defaults
-      setCurrentBuyerInfo(initialBuyer);
-      setCurrentCompanyInfo(initialCompany);
+      setCurrentBuyerInfo(preFilledBuyer);
+      setCurrentCompanyInfo(preFilledCompany);
       
-      // The pre-fill logic will run in the subsequent effect
+      const buyerChanged = JSON.stringify(initialBuyerFromLoadedState) !== JSON.stringify(preFilledBuyer);
+      const companyChanged = loadedState.buyerType === 'pj' && JSON.stringify(initialCompanyFromLoadedState) !== JSON.stringify(preFilledCompany);
+
+      if (buyerChanged || companyChanged) {
+        loadedState = {
+          ...loadedState,
+          buyerInfo: preFilledBuyer,
+          companyInfo: preFilledCompany,
+        };
+      }
+      
+      setProcessState(loadedState); 
       setIsStateLoading(false);
     };
     loadInitialState();
-  }, []);
-
- useEffect(() => {
-    if (isStateLoading) return; // Don't run pre-fill if initial state is still loading
-
-    const { buyerInfo: preFilledBuyerValues, companyInfo: preFilledCompanyValues } = attemptToPreFillInfo(
-      processState,
-      currentBuyerInfo,
-      currentCompanyInfo
-    );
-
-    let buyerInfoUpdates: Partial<BuyerInfo> = {};
-    let companyInfoUpdates: Partial<CompanyInfo> = {};
-    let buyerActuallyChanged = false;
-    let companyActuallyChanged = false;
-
-    // Check and update buyerInfo
-    if (preFilledBuyerValues.nome && (currentBuyerInfo.nome === '' || currentBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome) && currentBuyerInfo.nome !== preFilledBuyerValues.nome) {
-      buyerInfoUpdates.nome = preFilledBuyerValues.nome;
-      buyerActuallyChanged = true;
-    }
-    if (preFilledBuyerValues.cpf && (currentBuyerInfo.cpf === '' || currentBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf) && currentBuyerInfo.cpf !== preFilledBuyerValues.cpf) {
-      buyerInfoUpdates.cpf = preFilledBuyerValues.cpf;
-      buyerActuallyChanged = true;
-    }
-    // Add similar checks for email and telefone if pre-filled
-    if (preFilledBuyerValues.email && (currentBuyerInfo.email === '' || currentBuyerInfo.email === initialStoredProcessState.buyerInfo.email) && currentBuyerInfo.email !== preFilledBuyerValues.email) {
-      buyerInfoUpdates.email = preFilledBuyerValues.email;
-      buyerActuallyChanged = true;
-    }
-    if (preFilledBuyerValues.telefone && (currentBuyerInfo.telefone === '' || currentBuyerInfo.telefone === initialStoredProcessState.buyerInfo.telefone) && currentBuyerInfo.telefone !== preFilledBuyerValues.telefone) {
-      buyerInfoUpdates.telefone = preFilledBuyerValues.telefone;
-      buyerActuallyChanged = true;
-    }
-
-
-    if (buyerActuallyChanged) {
-      setCurrentBuyerInfo(prev => ({ ...prev, ...buyerInfoUpdates }));
-    }
-
-    // Check and update companyInfo (only if buyerType is 'pj')
-    if (processState.buyerType === 'pj' && preFilledCompanyValues && currentCompanyInfo) {
-      if (preFilledCompanyValues.razaoSocial && (currentCompanyInfo.razaoSocial === '' || currentCompanyInfo.razaoSocial === (initialStoredProcessState.companyInfo?.razaoSocial || '')) && currentCompanyInfo.razaoSocial !== preFilledCompanyValues.razaoSocial) {
-        companyInfoUpdates.razaoSocial = preFilledCompanyValues.razaoSocial;
-        companyActuallyChanged = true;
-      }
-      if (preFilledCompanyValues.cnpj && (currentCompanyInfo.cnpj === '' || currentCompanyInfo.cnpj === (initialStoredProcessState.companyInfo?.cnpj || '')) && currentCompanyInfo.cnpj !== preFilledCompanyValues.cnpj) {
-        companyInfoUpdates.cnpj = preFilledCompanyValues.cnpj;
-        companyActuallyChanged = true;
-      }
-      // Add similar checks for nomeFantasia if pre-filled
-       if (preFilledCompanyValues.nomeFantasia && (currentCompanyInfo.nomeFantasia === '' || currentCompanyInfo.nomeFantasia === (initialStoredProcessState.companyInfo?.nomeFantasia || '')) && currentCompanyInfo.nomeFantasia !== preFilledCompanyValues.nomeFantasia) {
-        companyInfoUpdates.nomeFantasia = preFilledCompanyValues.nomeFantasia;
-        companyActuallyChanged = true;
-      }
-
-      if (companyActuallyChanged) {
-        setCurrentCompanyInfo(prev => prev ? ({ ...prev, ...companyInfoUpdates }) : null);
-      }
-    }
-  }, [
-    isStateLoading,
-    processState, // Main trigger for re-evaluating pre-fill
-    currentBuyerInfo, // To compare against pre-filled values
-    currentCompanyInfo // To compare against pre-filled values
-  ]);
+  }, []); 
 
 
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const { value } = e.target;
-    setCurrentBuyerInfo(prev => {
-      const updated = { ...prev, [field]: value };
-      setProcessState(currentMainState => ({
-        ...currentMainState,
-        buyerInfo: updated
-      }));
-      return updated;
-    });
+    const newBuyerInfo = { ...currentBuyerInfo, [field]: value };
+    setCurrentBuyerInfo(newBuyerInfo);
+    setProcessState(currentMainState => ({
+      ...currentMainState,
+      buyerInfo: newBuyerInfo 
+    }));
   };
 
   const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
     if (processState.buyerType === 'pj') {
       const { value } = e.target;
-      setCurrentCompanyInfo(prev => {
-        const updated = prev ? { ...prev, [field]: value } : { razaoSocial: '', nomeFantasia: '', cnpj: '', [field]: value };
-         setProcessState(currentMainState => ({
-          ...currentMainState,
-          companyInfo: updated
-        }));
-        return updated;
-      });
+      const newCompanyInfo = currentCompanyInfo ? { ...currentCompanyInfo, [field]: value } : { razaoSocial: '', nomeFantasia: '', cnpj: '', [field]: value };
+      setCurrentCompanyInfo(newCompanyInfo);
+      setProcessState(currentMainState => ({
+        ...currentMainState,
+        companyInfo: newCompanyInfo 
+      }));
     }
   };
-
+  
   const updateGlobalStateBeforeAction = useCallback(() => {
-    const updatedProcessState = {
+    // This function primarily ensures that the main `processState` object
+    // has the latest `buyerInfo` and `companyInfo` from the local form state
+    // before performing an action like saving or navigating.
+    const updatedProcessState: StoredProcessState = {
       ...processState,
       buyerInfo: currentBuyerInfo,
       companyInfo: currentCompanyInfo,
     };
-    // No longer calling setProcessState here to avoid potential loops with the unmount effect
-    saveProcessState(updatedProcessState);
+    // We don't call setProcessState here because this function is often called
+    // *before* a setProcessState that would trigger a save via the unmount effect.
+    // Or it's called before a direct saveProcessState.
+    saveProcessState(updatedProcessState); // Save to localStorage and Firestore
     return updatedProcessState;
   }, [processState, currentBuyerInfo, currentCompanyInfo]);
 
 
   const isPrintDisabled = useCallback(() => {
-    // Use current state values directly for validation
     const stateForValidation: StoredProcessState = {
-      ...processState, // Most up-to-date processState
+      ...processState,
       buyerInfo: currentBuyerInfo,
       companyInfo: currentCompanyInfo,
     };
@@ -393,7 +341,7 @@ export default function RevisaoEnvioPage() {
 
   const handlePrepareForPrint = () => {
     setIsPreparingPrint(true);
-    const finalProcessStateForPrint = updateGlobalStateBeforeAction(); // Saves currentBuyerInfo and currentCompanyInfo into processState structure and persists it
+    const finalProcessStateForPrint = updateGlobalStateBeforeAction(); 
 
     const missingFields = getMissingFieldsList(finalProcessStateForPrint);
     if (missingFields.length > 0) {
@@ -401,7 +349,6 @@ export default function RevisaoEnvioPage() {
       setIsPreparingPrint(false);
       return;
     }
-    // State already saved by updateGlobalStateBeforeAction
     saveProcessState({ ...finalProcessStateForPrint, currentStep: "/print-contract" });
     toast({ title: "Etapa 4 Concluída!", description: "Informações salvas. Carregando contrato para impressão...", className: "bg-green-600 text-primary-foreground border-green-700"});
     router.push('/print-contract');
@@ -409,19 +356,17 @@ export default function RevisaoEnvioPage() {
 
   const handleBack = () => {
     setIsNavigating(true);
-    updateGlobalStateBeforeAction(); // Save current form values to processState before navigating
+    updateGlobalStateBeforeAction(); 
     router.push("/processo/documentos");
   };
 
-  // Save state on unmount or when essential data changes, if not navigating via main buttons
   useEffect(() => {
     return () => {
       if (!isNavigating && !isPreparingPrint) {
-        // Construct the state to save using the most current local states
-        const stateToSaveOnUnmount: StoredProcessState = {
-          ...processState, // Base processState
-          buyerInfo: currentBuyerInfo, // Latest from its own state
-          companyInfo: currentCompanyInfo, // Latest from its own state
+        const stateToSaveOnUnmount: StoredProcessState = { 
+          ...processState,
+          buyerInfo: currentBuyerInfo,
+          companyInfo: currentCompanyInfo,
         };
         saveProcessState(stateToSaveOnUnmount);
       }
