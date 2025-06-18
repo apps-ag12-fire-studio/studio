@@ -88,6 +88,8 @@ export default function PrintContractPage() {
         console.log('  [PrintContractPage] > loadedData.processId:', loadedData.processId);
         console.log('  [PrintContractPage] > loadedData.internalTeamMemberInfo:', JSON.stringify(loadedData.internalTeamMemberInfo, null, 2));
         console.log('  [PrintContractPage] > loadedData.extractedData:', JSON.stringify(loadedData.extractedData, null, 2));
+        console.log('  [PrintContractPage] > loadedData.buyerInfo:', JSON.stringify(loadedData.buyerInfo, null, 2));
+        console.log('  [PrintContractPage] > loadedData.companyInfo:', JSON.stringify(loadedData.companyInfo, null, 2));
       }
 
       setCurrentProcessState(loadedData); 
@@ -101,10 +103,9 @@ export default function PrintContractPage() {
         toast({ title: "Erro de Processo", description: "ID do processo não encontrado. Não é possível prosseguir.", variant: "destructive" });
         return;
     }
-    // Ensure currentStep is updated before saving
     const stateToSave = {...currentProcessState, currentStep: "/processo/foto-contrato-assinado" };
     await saveProcessState(stateToSave);
-    setCurrentProcessState(stateToSave); // Update local state after save confirmed
+    setCurrentProcessState(stateToSave); 
 
     toast({
       title: "Impressão (Simulada) Concluída!",
@@ -150,10 +151,9 @@ export default function PrintContractPage() {
     );
   }
 
-  // Moved checks directly into render logic, operating on currentProcessState
   if (!currentProcessState || !currentProcessState.processId) {
      console.error(
-        '[PrintContractPage] Critical Error: Process state or processId is missing. currentProcessState:', 
+        '[PrintContractPage] Critical Error: Process state or processId is missing after loading. currentProcessState:', 
         currentProcessState ? JSON.parse(JSON.stringify(currentProcessState)) : String(currentProcessState)
     );
     return (
@@ -163,7 +163,7 @@ export default function PrintContractPage() {
             <CardTitle className="text-2xl text-destructive font-headline">Erro Crítico de Sessão</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-6">Não foi possível encontrar os dados do processo atual (ID ausente). Por favor, inicie o processo novamente.</p>
+            <p className="text-muted-foreground mb-6">Não foi possível encontrar os dados do processo atual (ID ausente ou estado nulo após carregamento). Por favor, inicie o processo novamente.</p>
             <Button onClick={() => router.push('/')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
               <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para o Início
             </Button>
@@ -173,35 +173,35 @@ export default function PrintContractPage() {
     );
   }
   
-  // More specific checks for critical data points
   const extractedDataMissing = !currentProcessState.extractedData || Object.keys(currentProcessState.extractedData).length === 0 || !Object.values(currentProcessState.extractedData).some(v => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : String(v).trim() !== ''));
-  const internalTeamMemberInfoMissing = !currentProcessState.internalTeamMemberInfo || !currentProcessState.internalTeamMemberInfo.nome || !currentProcessState.internalTeamMemberInfo.cpf || !currentProcessState.internalTeamMemberInfo.email || !currentProcessState.internalTeamMemberInfo.telefone;
+  const internalTeamMemberInfoMissing = !currentProcessState.internalTeamMemberInfo || !currentProcessState.internalTeamMemberInfo.nome || !currentProcessState.internalTeamMemberInfo.cpf || !currentProcessState.internalTeamMemberInfo.email || !currentProcessState.internalTeamMemberInfo.telefone; // cargo is optional for this check as it might not be critical for printing.
   const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
 
   if (extractedDataMissing || internalTeamMemberInfoMissing || buyerInfoMissing || companyInfoMissingForPJ) {
     let missingPartsDescriptionList = [];
     if (extractedDataMissing) missingPartsDescriptionList.push("Dados do Contrato");
-    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno");
+    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (Nome, CPF, Email, Telefone)");
     if (buyerInfoMissing) missingPartsDescriptionList.push("Informações do Comprador/Representante (Nome, CPF, Email, Telefone)");
     if (companyInfoMissingForPJ) missingPartsDescriptionList.push("Informações da Empresa (PJ - Razão Social, CNPJ)");
     
     const descriptionText = `Dados essenciais para impressão não encontrados: ${missingPartsDescriptionList.join('; ')}. Verifique as etapas anteriores ou se o processo foi reiniciado.`;
 
     console.error(
-        '[PrintContractPage] Essential data for printing missing. Details:', 
-        {
-            description: descriptionText,
+        '[PrintContractPage] Essential data for printing missing. \nDescription:', descriptionText,
+        '\nProcess ID:', currentProcessState.processId,
+        '\nFlags:', { extractedDataMissing, internalTeamMemberInfoMissing, buyerInfoMissing, companyInfoMissingForPJ },
+        '\nRelevant State Parts (stringified for clarity):', JSON.stringify({
             processId: currentProcessState.processId,
-            extractedDataPresent: !extractedDataMissing,
-            internalTeamMemberInfoPresent: !internalTeamMemberInfoMissing,
-            buyerInfoPresent: !buyerInfoMissing,
-            companyInfoForPJPresent: !companyInfoMissingForPJ,
-            rawExtractedData: currentProcessState.extractedData ? JSON.stringify(currentProcessState.extractedData) : 'null',
-            rawInternalTeamMemberInfo: currentProcessState.internalTeamMemberInfo ? JSON.stringify(currentProcessState.internalTeamMemberInfo) : 'null',
-            rawBuyerInfo: currentProcessState.buyerInfo ? JSON.stringify(currentProcessState.buyerInfo) : 'null',
-            rawCompanyInfo: currentProcessState.companyInfo ? JSON.stringify(currentProcessState.companyInfo) : 'null',
-        }
+            buyerType: currentProcessState.buyerType,
+            currentStep: currentProcessState.currentStep,
+            extractedData: currentProcessState.extractedData,
+            internalTeamMemberInfo: currentProcessState.internalTeamMemberInfo,
+            buyerInfo: currentProcessState.buyerInfo,
+            companyInfo: currentProcessState.companyInfo,
+            selectedPlayer: currentProcessState.selectedPlayer,
+            contractSourceType: currentProcessState.contractSourceType
+        }, null, 2)
     );
     
     return (
@@ -232,8 +232,7 @@ export default function PrintContractPage() {
       </div>
     );
   }
-  // End of data integrity checks, proceed to render if all data is present
-
+  
   const { extractedData, buyerInfo, internalTeamMemberInfo, companyInfo, buyerType, selectedPlayer } = currentProcessState; 
 
   const vendedorNome = selectedPlayer ||
@@ -417,6 +416,5 @@ export default function PrintContractPage() {
     </>
   );
 }
-
 
     
