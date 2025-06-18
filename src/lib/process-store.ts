@@ -220,16 +220,11 @@ export async function saveProcessState(state: StoredProcessState | undefined | n
         return;
     }
     
-    // Log before stringify for localStorage
     console.log("[ProcessStore SAVE] State before localStorage.setItem:", {
       processId: cleanedStateForStorage.processId,
       currentStep: cleanedStateForStorage.currentStep,
       hasExtractedData: !!cleanedStateForStorage.extractedData,
-      // extractedDataKeys: cleanedStateForStorage.extractedData ? Object.keys(cleanedStateForStorage.extractedData) : null,
       hasInternalTeamMemberInfo: !!cleanedStateForStorage.internalTeamMemberInfo,
-      // internalTeamMemberInfoKeys: cleanedStateForStorage.internalTeamMemberInfo ? Object.keys(cleanedStateForStorage.internalTeamMemberInfo) : null,
-      // rawExtractedData: cleanedStateForStorage.extractedData ? JSON.stringify(cleanedStateForStorage.extractedData) : 'null',
-      // rawInternalTeamMemberInfo: cleanedStateForStorage.internalTeamMemberInfo ? JSON.stringify(cleanedStateForStorage.internalTeamMemberInfo) : 'null',
     });
     
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(cleanedStateForStorage));
@@ -301,7 +296,7 @@ export async function loadProcessState(): Promise<StoredProcessState> {
 
   let firestoreData: Partial<StoredProcessState> | null = null;
   if (activeId) {
-    firestoreData = await loadStateFromFirestore(activeId); // Corrected function call
+    firestoreData = await loadStateFromFirestore(activeId);
     if (firestoreData) {
       sourceOfTruthLog += `Firestore (for activeId: ${activeId}) provided data. Merging. `;
       mergedState = { ...mergedState, ...firestoreData };
@@ -312,11 +307,13 @@ export async function loadProcessState(): Promise<StoredProcessState> {
     sourceOfTruthLog += `No activeId from storage. Firestore load skipped. `;
   }
 
-
   let localStorageRaw: string | null = null;
   try {
     localStorageRaw = localStorage.getItem(PROCESS_STATE_KEY);
-    console.log(`[ProcessStore LOAD] Raw data from localStorage '${PROCESS_STATE_KEY}':`, localStorageRaw ? `"${localStorageRaw.substring(0,100)}..."` : localStorageRaw);
+    if (localStorageRaw) {
+      localStorageRaw = localStorageRaw.trim(); // Trim whitespace
+    }
+    console.log(`[ProcessStore LOAD] Raw data from localStorage '${PROCESS_STATE_KEY}' (trimmed):`, localStorageRaw ? `"${localStorageRaw.substring(0,100)}..."` : localStorageRaw);
   } catch (error) {
     console.error("[ProcessStore LOAD] Error reading localStorage:", error);
     sourceOfTruthLog += `Error reading LS. `;
@@ -355,17 +352,17 @@ export async function loadProcessState(): Promise<StoredProcessState> {
         mergedState = { ...initialStoredProcessState, ...localStorageParsed };
       } else {
          sourceOfTruthLog += `LocalStorage data condition not met for explicit merging or resuming. Default merge logic (LS over FS). `;
-         mergedState = { ...mergedState, ...localStorageParsed }; // Default to LS if timestamps are unclear or FS is missing
+         mergedState = { ...mergedState, ...localStorageParsed };
       }
     } catch (error) {
-      console.error("[ProcessStore LOAD] Error parsing localStorage data, removing corrupted key:", error);
+      console.error(`[ProcessStore LOAD] Error parsing localStorage data ('${localStorageRaw.substring(0,100)}...'), removing corrupted key:`, error);
       localStorage.removeItem(PROCESS_STATE_KEY);
-      sourceOfTruthLog += `Corrupted LocalStorage, removed. `;
+      sourceOfTruthLog += `Corrupted LocalStorage (parse failed), removed. `;
     }
   } else {
-    sourceOfTruthLog += `No valid LocalStorage data found (raw: ${localStorageRaw}). `;
+    sourceOfTruthLog += `No valid LocalStorage data found (raw/trimmed: ${localStorageRaw}). `;
     if (localStorageRaw === "undefined" || localStorageRaw === "null") {
-        console.log("[ProcessStore LOAD] Removing 'undefined' or 'null' string from localStorage.");
+        console.log(`[ProcessStore LOAD] Removing 'undefined' or 'null' string (possibly with whitespace) from localStorage for key ${PROCESS_STATE_KEY}.`);
         localStorage.removeItem(PROCESS_STATE_KEY);
     }
   }
@@ -408,9 +405,7 @@ export async function loadProcessState(): Promise<StoredProcessState> {
         processId: finalState.processId,
         currentStep: finalState.currentStep,
         hasExtractedData: !!finalState.extractedData,
-        // rawExtractedData: finalState.extractedData ? JSON.stringify(finalState.extractedData) : 'null',
         hasInternalTeamMemberInfo: !!finalState.internalTeamMemberInfo,
-        // rawInternalTeamMemberInfo: finalState.internalTeamMemberInfo ? JSON.stringify(finalState.internalTeamMemberInfo) : 'null',
     } : String(finalState)
   );
   return finalState;
@@ -467,12 +462,19 @@ export function savePrintData(data: PrintData) {
 
 export function loadPrintData(): PrintData | null {
   try {
-    const dataString = localStorage.getItem('contractPrintData_v9_firestore_sync');
+    let dataString = localStorage.getItem('contractPrintData_v9_firestore_sync');
+    if (dataString) {
+      dataString = dataString.trim(); // Trim whitespace
+    }
+
     if (dataString && dataString !== "undefined" && dataString !== "null") {
       const parsedData = JSON.parse(dataString) as PrintData;
        parsedData.buyerType = parsedData.buyerType || 'pf';
        parsedData.companyInfo = parsedData.companyInfo || null;
       return cleanUndefinedValues(parsedData);
+    } else if (dataString === "undefined" || dataString === "null") {
+      console.log(`[LoadPrintData] Removing problematic string '${dataString}' from localStorage.`);
+      localStorage.removeItem('contractPrintData_v9_firestore_sync');
     }
   } catch (error) {
     console.error("Error loading print data from localStorage:", error);
@@ -483,3 +485,4 @@ export function loadPrintData(): PrintData | null {
     
 
     
+
