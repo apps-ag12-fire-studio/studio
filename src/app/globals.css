@@ -271,32 +271,34 @@ body {
   /* Custom Print Footer Styles */
   .custom-print-footer.print-only {
     display: flex !important;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    font-size: 8pt;
-    color: #333;
-    border-top: 1px solid #bbb;
-    padding: 0.2in 0.25in 0.1in 0.25in; /* Added more padding */
-    margin-top: 0.3in; /* Increased space before footer */
-    box-sizing: border-box;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    font-size: 8pt !important;
+    color: #333 !important;
+    border-top: 1px solid #bbb !important;
+    padding: 0.2in 0.25in 0.1in 0.25in !important;
+    margin-top: 0.3in !important;
+    box-sizing: border-box !important;
   }
   .custom-print-footer .verification-text {
-    max-width: calc(100% - 100px); /* Allow more space for QR code */
-    line-height: 1.3;
+    max-width: calc(100% - 100px) !important; /* Space for QR code (80px + 20px margin) */
+    line-height: 1.3 !important;
   }
   .custom-print-footer .verification-text p {
-    margin: 0 0 3px 0;
+    margin: 0 0 3px 0 !important;
   }
   .custom-print-footer .verification-text p.font-semibold {
-    font-weight: 600; /* Ensure bold for the link */
-    word-break: break-all; /* Break long URLs if necessary */
+    font-weight: 600 !important;
+    word-break: break-all !important; /* Break long URLs if necessary */
+    color: black !important; /* Make link black for print */
   }
   .custom-print-footer .qr-code-image {
-    width: 80px !important; /* Increased QR code size */
+    width: 80px !important;
     height: 80px !important;
-    display: block !important;
-    margin-left: 10px; /* Add some space between text and QR */
+    /* display: block !important; REMOVED to allow flex alignment */
+    margin-left: 15px !important; /* Increased margin for better separation */
+    flex-shrink: 0 !important; /* Prevent QR code from shrinking */
   }
 
   /* Attempt to hide injected Firebase Studio elements */
@@ -317,3 +319,4 @@ body {
 
 
     
+
