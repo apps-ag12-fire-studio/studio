@@ -18,7 +18,7 @@ export interface BuyerInfo {
 export type BuyerType = 'pf' | 'pj';
 
 export interface DocumentFile {
-  name?: string;
+  name?: string | null; // Allow null
   previewUrl?: string | null;
   storagePath?: string | null;
   analysisResult?: ExtractBuyerDocumentDataOutput | { error: string } | null;
@@ -33,22 +33,22 @@ export interface CompanyInfo {
 export type PfDocumentType = 'rgAntigo' | 'cnhAntiga';
 
 export interface StoredProcessState {
-  processId: string | null; 
+  processId: string | null;
   currentStep: string;
   contractSourceType: 'new' | 'existing';
   selectedPlayer: string | null;
   selectedContractTemplateName: string | null;
-  
+
   buyerType: BuyerType;
-  buyerInfo: BuyerInfo; 
-  companyInfo: CompanyInfo | null; 
+  buyerInfo: BuyerInfo;
+  companyInfo: CompanyInfo | null;
   internalTeamMemberInfo: BuyerInfo;
 
   rgAntigoFrente: DocumentFile | null;
   rgAntigoVerso: DocumentFile | null;
   cnhAntigaFrente: DocumentFile | null;
   cnhAntigaVerso: DocumentFile | null;
-  
+
   cartaoCnpjFile: DocumentFile | null;
   docSocioFrente: DocumentFile | null;
   docSocioVerso: DocumentFile | null;
@@ -56,25 +56,25 @@ export interface StoredProcessState {
   comprovanteEndereco: DocumentFile | null;
 
   contractPhotoPreview: string | null;
-  contractPhotoName?: string;
+  contractPhotoName?: string | null; // Changed from undefined
   contractPhotoStoragePath?: string | null;
   photoVerificationResult: VerifyContractPhotoOutput | null;
   photoVerified: boolean;
   extractedData: ExtractContractDataOutput | null;
-  
+
   signedContractPhotoPreview: string | null;
-  signedContractPhotoName?: string;
+  signedContractPhotoName?: string | null; // Changed from undefined
   signedContractPhotoStoragePath?: string | null;
   lastUpdated?: Timestamp; // For Firestore
 }
 
 export const initialStoredProcessState: StoredProcessState = {
-  processId: null, 
+  processId: null,
   currentStep: '/processo/dados-iniciais',
   contractSourceType: 'new',
   selectedPlayer: null,
   selectedContractTemplateName: null,
-  
+
   buyerType: 'pf',
   buyerInfo: { nome: '', cpf: '', telefone: '', email: '' },
   companyInfo: null,
@@ -91,19 +91,19 @@ export const initialStoredProcessState: StoredProcessState = {
   comprovanteEndereco: null,
 
   contractPhotoPreview: null,
-  contractPhotoName: undefined,
+  contractPhotoName: null, // Changed from undefined
   contractPhotoStoragePath: null,
   photoVerificationResult: null,
   photoVerified: false,
   extractedData: null,
 
   signedContractPhotoPreview: null,
-  signedContractPhotoName: undefined,
+  signedContractPhotoName: null, // Changed from undefined
   signedContractPhotoStoragePath: null,
 };
 
-const PROCESS_STATE_KEY = 'contratoFacilProcessState_v12_firestore_sync'; 
-const PRINT_DATA_KEY = 'contractPrintData_v9_firestore_sync'; 
+const PROCESS_STATE_KEY = 'contratoFacilProcessState_v12_firestore_sync';
+const PRINT_DATA_KEY = 'contractPrintData_v9_firestore_sync';
 const ACTIVE_PROCESS_ID_KEY = 'contratoFacilActiveProcessId_v1';
 
 function getActiveProcessId(): string | null {
@@ -133,7 +133,14 @@ async function storeStateInFirestore(state: StoredProcessState) {
   try {
     const docRef = doc(db, "inProgressContracts", state.processId);
     const stateToStore = { ...state, lastUpdated: Timestamp.now() };
-    await setDoc(docRef, stateToStore, { merge: true });
+
+    // Ensure no undefined values are being sent to Firestore
+    const cleanedStateToStore = JSON.parse(JSON.stringify(stateToStore, (key, value) => {
+        return (value === undefined ? null : value);
+    }));
+
+
+    await setDoc(docRef, cleanedStateToStore, { merge: true });
     console.log("Process state saved to Firestore:", state.processId);
   } catch (error) {
     console.error("Error saving state to Firestore:", error);
@@ -176,14 +183,14 @@ export function saveProcessState(state: StoredProcessState) {
       console.warn("Mismatch between active processId and state's processId during save. Using activeId from localStorage.");
       stateToSave.processId = activeId;
     }
-     if (!stateToSave.processId && activeId) { // If state somehow lost processId, but we have an active one
+     if (!stateToSave.processId && activeId) { 
       stateToSave.processId = activeId;
     }
 
 
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(stateToSave));
     if (stateToSave.processId) {
-      storeStateInFirestore(stateToSave); 
+      storeStateInFirestore(stateToSave);
     }
   } catch (error: any) {
     console.error("Error saving process state to localStorage:", error);
@@ -195,7 +202,7 @@ export function saveProcessState(state: StoredProcessState) {
       title: "Erro ao Salvar Progresso Localmente",
       description: description,
       variant: "destructive",
-      duration: 10000, 
+      duration: 10000,
     });
   }
 }
@@ -210,52 +217,42 @@ export async function loadProcessState(): Promise<StoredProcessState> {
     if (storedStateString && storedStateString !== "undefined" && storedStateString !== "null") {
       const parsed = JSON.parse(storedStateString) as StoredProcessState;
       if (parsed.processId && parsed.processId === activeId) {
-        localStorageData = parsed; // Valid localStorage data for the current active session
+        localStorageData = parsed;
       } else if (parsed.processId && !activeId) {
-        // localStorage has a processId, but no activeId. This implies a resumed session without going through HomePage.
-        // Set this as the activeId and use this localStorageData.
-        setActiveProcessId(parsed.processId); // Make this the active session
+        setActiveProcessId(parsed.processId); 
         localStorageData = parsed;
         console.log(`Resumed session with processId ${parsed.processId} from localStorage.`);
       } else if (parsed.processId && parsed.processId !== activeId) {
-        // localStorage has data for a *different* processId than the active one. This is stale.
         console.warn(`Stale localStorage data found for processId ${parsed.processId}, but activeId is ${activeId}. Clearing stale data.`);
         localStorageData = null;
-        localStorage.removeItem(PROCESS_STATE_KEY); // Remove only the main state key
+        localStorage.removeItem(PROCESS_STATE_KEY); 
       } else {
-        localStorageData = null; // Covers cases like no processId in localStorage or other mismatches
+        localStorageData = null; 
       }
     }
   } catch (error) {
     console.error("Error loading/parsing process state from localStorage:", error);
-    localStorage.removeItem(PROCESS_STATE_KEY);
+    if (typeof window !== 'undefined') localStorage.removeItem(PROCESS_STATE_KEY);
   }
 
   if (localStorageData) {
-    // Prioritize localStorage if it's valid for the (now potentially updated) activeId
     resolvedState = { ...initialStoredProcessState, ...localStorageData };
     console.log("Using localStorage state as primary source for processId:", resolvedState.processId);
-    // Optionally, one could merge with Firestore here if needed, e.g., to get latest server updates
-    // For this app, localStorage being most recent for current device session is likely desired.
   } else if (activeId) {
-    // No valid/current localStorage, but we have an activeId (e.g., from HomePage start or resumed session from URL param if implemented)
     console.log("No valid localStorage state for activeId. Attempting to load from Firestore for processId:", activeId);
     const firestoreData = await loadStateFromFirestore(activeId);
     if (firestoreData) {
       resolvedState = { ...initialStoredProcessState, ...firestoreData, processId: activeId };
     } else {
-      // No data in Firestore for this activeId. Start fresh for this activeId.
       resolvedState = { ...initialStoredProcessState, processId: activeId };
        console.log("No data in Firestore. Starting fresh for processId:", activeId);
     }
   } else {
-    // No activeId and no suitable localStorage data. Completely fresh start.
-    // A new processId will be generated by HomePage if the user starts a new process.
     resolvedState = { ...initialStoredProcessState, processId: null };
     console.log("No activeId or suitable localStorage. Starting with initial state.");
   }
 
-  // Ensure essential nested objects are initialized if they are somehow null
+  
   if (resolvedState.buyerType === 'pf') {
     resolvedState.companyInfo = null;
   } else if (resolvedState.buyerType === 'pj' && !resolvedState.companyInfo) {
@@ -268,13 +265,16 @@ export async function loadProcessState(): Promise<StoredProcessState> {
     resolvedState.internalTeamMemberInfo = { ...(initialStoredProcessState.internalTeamMemberInfo) };
   }
   
-  // Ensure all top-level keys from initial state are present
+  
   resolvedState = { ...initialStoredProcessState, ...resolvedState };
 
 
-  // Save the resolved/merged state back to localStorage to ensure consistency for the current session
   if (typeof window !== 'undefined') {
-    localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(resolvedState));
+    // Ensure no undefined values are written back to localStorage if they are problematic for Firestore
+     const cleanedResolvedState = JSON.parse(JSON.stringify(resolvedState, (key, value) => {
+        return (value === undefined ? null : value);
+    }));
+    localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(cleanedResolvedState));
   }
 
   return resolvedState;
@@ -285,12 +285,13 @@ export function clearProcessState() {
   try {
     const activeId = getActiveProcessId();
     if (activeId) {
-      // No need to delete from Firestore "inProgressContracts" here,
-      // as it might be useful for audit or if the user intentionally wants to abandon and restart.
-      // The final submission to "submittedContracts" is the key "completed" record.
+      // Optionally, you could delete the inProgressContracts document from Firestore here
+      // const docRef = doc(db, "inProgressContracts", activeId);
+      // deleteDoc(docRef).then(() => console.log("In-progress Firestore doc deleted for", activeId))
+      //   .catch(err => console.error("Error deleting in-progress Firestore doc:", err));
     }
     localStorage.removeItem(PROCESS_STATE_KEY);
-    localStorage.removeItem(PRINT_DATA_KEY); // Though this is deprecated by current flow
+    localStorage.removeItem(PRINT_DATA_KEY); 
     clearActiveProcessId();
     console.log("Local process state and activeProcessId cleared.");
   } catch (error) {
@@ -301,7 +302,7 @@ export function clearProcessState() {
 // --- Print Data (kept for reference, but not primary for print page anymore) ---
 export interface PrintData {
   extractedData: ExtractContractDataOutput | null;
-  buyerInfo: BuyerInfo | null; 
+  buyerInfo: BuyerInfo | null;
   companyInfo: CompanyInfo | null;
   buyerType: BuyerType;
   selectedPlayer: string | null;
@@ -311,11 +312,11 @@ export interface PrintData {
   rgAntigoVersoUrl?: string | null;
   cnhAntigaFrenteUrl?: string | null;
   cnhAntigaVersoUrl?: string | null;
-  
+
   cartaoCnpjFileUrl?: string | null;
   docSocioFrenteUrl?: string | null;
   docSocioVersoUrl?: string | null;
-  
+
   comprovanteEnderecoUrl?: string | null;
 }
 
@@ -343,7 +344,8 @@ export function loadPrintData(): PrintData | null {
     }
   } catch (error) {
     console.error("Error loading print data from localStorage:", error);
-    localStorage.removeItem(PRINT_DATA_KEY); 
+    if (typeof window !== 'undefined') localStorage.removeItem(PRINT_DATA_KEY);
   }
   return null;
 }
+
