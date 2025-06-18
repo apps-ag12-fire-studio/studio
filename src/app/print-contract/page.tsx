@@ -190,7 +190,7 @@ export default function PrintContractPage() {
     console.error(
         '[PrintContractPage] Essential data for printing missing. \nDescription:', descriptionText,
         '\nProcess ID:', currentProcessState.processId,
-        '\nFlags:', { extractedDataMissing, internalTeamMemberInfoMissing, buyerInfoMissing, companyInfoMissingForPJ },
+        '\nFlags:', JSON.stringify({ extractedDataMissing, internalTeamMemberInfoMissing, buyerInfoMissing, companyInfoMissingForPJ }),
         '\nRelevant State Parts (stringified for clarity):', JSON.stringify({
             processId: currentProcessState.processId,
             buyerType: currentProcessState.buyerType,

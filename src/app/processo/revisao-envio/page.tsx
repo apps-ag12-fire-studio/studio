@@ -275,50 +275,50 @@ export default function RevisaoEnvioPage() {
 
   const handleSaveResponsavel = async (updatedData: Record<string, string>) => {
     const newInternalInfo = {
-        ...currentInternalTeamMemberInfo, // Use current state for dialog as base
+        ...currentInternalTeamMemberInfo, 
         ...updatedData,
     } as BuyerInfo;
-    setCurrentInternalTeamMemberInfo(newInternalInfo); // Update UI state for dialog
+    setCurrentInternalTeamMemberInfo(newInternalInfo); 
 
     const updatedFullProcessState = {
         ...processState,
         internalTeamMemberInfo: newInternalInfo,
     };
-    setProcessState(updatedFullProcessState); // Update main process state
-    await saveProcessState(updatedFullProcessState); // Save to Firestore
+    setProcessState(updatedFullProcessState); 
+    await saveProcessState(updatedFullProcessState); 
     toast({ title: "Responsável Interno Atualizado", description: "Informações salvas e sincronizadas com o servidor." });
   };
 
   const handleSaveComprador = async (updatedData: Record<string, string>) => {
     const newBuyerInfo = {
-        ...currentBuyerInfo, // Use current state for dialog as base
+        ...currentBuyerInfo, 
         ...updatedData,
     } as BuyerInfo;
-    setCurrentBuyerInfo(newBuyerInfo); // Update UI state for dialog
+    setCurrentBuyerInfo(newBuyerInfo);
 
     const updatedFullProcessState = {
         ...processState,
         buyerInfo: newBuyerInfo,
     };
-    setProcessState(updatedFullProcessState); // Update main process state
-    await saveProcessState(updatedFullProcessState); // Save to Firestore
+    setProcessState(updatedFullProcessState); 
+    await saveProcessState(updatedFullProcessState); 
     toast({ title: "Dados do Comprador Atualizados", description: "Informações salvas e sincronizadas com o servidor." });
   };
 
   const handleSaveEmpresa = async (updatedData: Record<string, string>) => {
     if (processState.buyerType === 'pj') {
         const newCompanyInfo = {
-            ...(currentCompanyInfo || initialStoredProcessState.companyInfo!), // Use current state for dialog as base
+            ...(currentCompanyInfo || initialStoredProcessState.companyInfo!), 
             ...updatedData,
         } as CompanyInfo;
-        setCurrentCompanyInfo(newCompanyInfo); // Update UI state for dialog
+        setCurrentCompanyInfo(newCompanyInfo); 
 
         const updatedFullProcessState = {
             ...processState,
             companyInfo: newCompanyInfo,
         };
-        setProcessState(updatedFullProcessState); // Update main process state
-        await saveProcessState(updatedFullProcessState); // Save to Firestore
+        setProcessState(updatedFullProcessState); 
+        await saveProcessState(updatedFullProcessState); 
         toast({ title: "Dados da Empresa Atualizados", description: "Informações salvas e sincronizadas com o servidor." });
     }
   };
@@ -346,8 +346,9 @@ export default function RevisaoEnvioPage() {
 
 
   const isPrintDisabled = useCallback(() => {
-    return false;
-  }, []);
+    if (isStateLoading) return true; // Disable if state is still loading
+    return getMissingFieldsList(processState).length > 0;
+  }, [processState, isStateLoading]);
 
   const showPendingChecks = () => {
     const missingFields = getMissingFieldsList(processState);
@@ -380,6 +381,12 @@ export default function RevisaoEnvioPage() {
 
 
   const handlePrepareForPrint = async () => {
+    const missingFields = getMissingFieldsList(processState);
+    if (missingFields.length > 0) {
+      showPendingChecks();
+      return;
+    }
+
     setIsPreparingPrint(true);
     const stateToSave: StoredProcessState = {
       ...processState,
@@ -407,23 +414,17 @@ export default function RevisaoEnvioPage() {
 
   useEffect(() => {
     const currentProcessStateForEffect = processState;
-    // This effect still handles debounced/unmount saves for general state changes
-    // not covered by direct dialog saves.
     const saveDebounced = setTimeout(async () => {
         if (!isNavigating && !isPreparingPrint && !isStateLoading) {
-            // Avoid double-saving if a dialog save just happened
-            // This check might need refinement if race conditions occur
              if (JSON.stringify(currentProcessStateForEffect) !== localStorage.getItem("contratoFacilProcessState_v14_robust_parse")) {
                 await saveProcessState(currentProcessStateForEffect);
              }
         }
-    }, 1200); // Slightly increased delay
+    }, 1200); 
 
     return () => {
       clearTimeout(saveDebounced);
-      // Potentially save on unmount if not navigating, though explicit saves are preferred
       if (!isNavigating && !isPreparingPrint && !isStateLoading) {
-         // saveProcessState(currentProcessStateForEffect); // Consider if really needed here
       }
     };
   }, [processState, isNavigating, isPreparingPrint, isStateLoading]);
@@ -669,3 +670,5 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
+    
