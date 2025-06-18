@@ -14,7 +14,12 @@ export interface BuyerInfo {
   telefone: string;
   email: string;
   cargo?: string;
-  dataHora?: string; // Added for internalTeamMemberInfo if needed for root field
+  dataHora?: string; 
+  logradouro?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
 }
 
 export type BuyerType = 'pf' | 'pj';
@@ -78,7 +83,7 @@ export const initialStoredProcessState: StoredProcessState = {
   selectedContractTemplateName: null,
 
   buyerType: 'pf',
-  buyerInfo: { nome: '', cpf: '', telefone: '', email: '', cargo: '' },
+  buyerInfo: { nome: '', cpf: '', telefone: '', email: '', cargo: '', logradouro: '', bairro: '', cidade: '', estado: '', cep: '' },
   companyInfo: null,
   internalTeamMemberInfo: { nome: '', cpf: '', telefone: '', email: '', cargo: '' },
 
@@ -321,19 +326,16 @@ async function loadStateFromFirestore(processId: string): Promise<Partial<Stored
       const firestoreDocData = docSnap.data();
       const loadedClientState = (firestoreDocData.clientState || {}) as Partial<StoredProcessState>;
       
-      // Start with initial state, then layer Firestore's clientState over it.
       const stateFromClientState: Partial<StoredProcessState> = {
-          ...initialStoredProcessState, // Base defaults
-          ...loadedClientState,         // Data from clientState field
-          processId: processId,         // Ensure processId from doc is used
+          ...initialStoredProcessState, 
+          ...loadedClientState,         
+          processId: processId,         
       };
       
       if (firestoreDocData.lastUpdated) {
         stateFromClientState.lastUpdated = firestoreDocData.lastUpdated;
       }
       
-      // Ensure internalTeamMemberInfo, buyerInfo, and companyInfo are correctly derived from clientState
-      // or defaults if not present in clientState.
       stateFromClientState.internalTeamMemberInfo = {
           ...initialStoredProcessState.internalTeamMemberInfo,
           ...(loadedClientState.internalTeamMemberInfo || {})
@@ -353,7 +355,7 @@ async function loadStateFromFirestore(processId: string): Promise<Partial<Stored
            stateFromClientState.companyInfo = null;
        }
 
-      console.log(`[ProcessStore Firestore LOAD] State loaded from Firestore 'processos/${processId}'. InternalTeamMemberInfo from clientState:`, JSON.stringify(stateFromClientState.internalTeamMemberInfo));
+      console.log(`[ProcessStore Firestore LOAD] State loaded from Firestore 'processos/${processId}'. InternalTeamMemberInfo from clientState:`, stateFromClientState.internalTeamMemberInfo?.nome);
       return stateFromClientState;
     } else {
       console.log(`[ProcessStore Firestore LOAD] No document found in Firestore for 'processos/${processId}'.`);

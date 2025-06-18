@@ -7,14 +7,15 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon, QrCode } from 'lucide-react';
+import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon, QrCode, Edit3, CheckCircle2, MapPin } from 'lucide-react'; // Added Edit3, CheckCircle2, MapPin
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from '@/lib/process-store';
+import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog"; // Import EditInfoDialog
 
 // Componente para o rodapé de impressão personalizado
 const PrintFooter = ({ processId }: { processId: string | null }) => {
   if (!processId) return null;
 
-  const verificationBaseUrl = "https://contratofacil.app/verify"; // Use seu domínio real aqui
+  const verificationBaseUrl = "https://contratofacil.app/verify"; 
   const verificationUrl = `${verificationBaseUrl}?id=${processId}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(verificationUrl)}`;
 
@@ -30,7 +31,7 @@ const PrintFooter = ({ processId }: { processId: string | null }) => {
         width={70} 
         height={70}
         className="qr-code-image"
-        unoptimized // Para evitar otimização do Next/Image em URLs externas de API
+        unoptimized 
       />
     </div>
   );
@@ -43,6 +44,9 @@ export default function PrintContractPage() {
   const [currentProcessState, setCurrentProcessState] = useState<StoredProcessState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false); 
+  const [currentBuyerInfo, setCurrentBuyerInfo] = useState<BuyerInfo>(initialStoredProcessState.buyerInfo);
+  const [isEditCompradorOpen, setIsEditCompradorOpen] = useState(false);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,6 +60,7 @@ export default function PrintContractPage() {
         console.log('  [PrintContractPage] > loadedData.extractedData:', JSON.stringify(loadedData.extractedData, null, 2));
         console.log('  [PrintContractPage] > loadedData.buyerInfo:', JSON.stringify(loadedData.buyerInfo, null, 2));
         console.log('  [PrintContractPage] > loadedData.companyInfo:', JSON.stringify(loadedData.companyInfo, null, 2));
+        setCurrentBuyerInfo(loadedData.buyerInfo || initialStoredProcessState.buyerInfo);
       }
 
       setCurrentProcessState(loadedData); 
@@ -74,6 +79,45 @@ export default function PrintContractPage() {
       window.removeEventListener('afterprint', handleAfterPrint);
     };
   }, []);
+
+  const handleSaveComprador = async (updatedData: Record<string, string>) => {
+    if (!currentProcessState) return;
+    const newBuyerInfo = {
+        ...currentBuyerInfo, 
+        ...updatedData,
+    } as BuyerInfo;
+    setCurrentBuyerInfo(newBuyerInfo);
+
+    const updatedFullProcessState = {
+        ...currentProcessState,
+        buyerInfo: newBuyerInfo,
+    };
+    setCurrentProcessState(updatedFullProcessState); 
+    await saveProcessState(updatedFullProcessState); 
+    toast({ 
+        title: (
+          <div className="flex items-center">
+            <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
+            Dados do Comprador Atualizados
+          </div>
+        ), 
+        description: "Informações salvas e sincronizadas com o servidor.",
+        className: "bg-secondary text-secondary-foreground border-secondary"
+    });
+  };
+
+  const compradorFields: FieldConfig[] = [
+    { id: 'nome', label: 'Nome Completo', value: currentBuyerInfo.nome, type: 'text', required: true },
+    { id: 'cpf', label: 'CPF', value: currentBuyerInfo.cpf, type: 'text', required: true },
+    { id: 'telefone', label: 'Telefone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel', required: true },
+    { id: 'email', label: 'E-mail', value: currentBuyerInfo.email, type: 'email', required: true },
+    { id: 'logradouro', label: 'Logradouro (Rua, Av, Nº, Comp.)', value: currentBuyerInfo.logradouro || '', type: 'text', required: true },
+    { id: 'bairro', label: 'Bairro', value: currentBuyerInfo.bairro || '', type: 'text', required: true },
+    { id: 'cidade', label: 'Cidade', value: currentBuyerInfo.cidade || '', type: 'text', required: true },
+    { id: 'estado', label: 'Estado (UF)', value: currentBuyerInfo.estado || '', type: 'text', required: true },
+    { id: 'cep', label: 'CEP', value: currentBuyerInfo.cep || '', type: 'text', required: true },
+  ];
+
 
   const handleInitiatePrint = () => {
     setIsPrinting(true);
@@ -181,14 +225,14 @@ export default function PrintContractPage() {
     !currentProcessState.internalTeamMemberInfo.email || 
     !currentProcessState.internalTeamMemberInfo.telefone ||
     !currentProcessState.internalTeamMemberInfo.cargo; 
-  const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
+  const buyerInfoMissing = !currentBuyerInfo || !currentBuyerInfo.nome || !currentBuyerInfo.cpf || !currentBuyerInfo.email || !currentBuyerInfo.telefone || !currentBuyerInfo.logradouro;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
 
   if (extractedDataMissing || internalTeamMemberInfoMissing || buyerInfoMissing || companyInfoMissingForPJ) {
     let missingPartsDescriptionList = [];
     if (extractedDataMissing) missingPartsDescriptionList.push("Dados do Contrato");
     if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (Nome, CPF, Email, Telefone, Cargo)");
-    if (buyerInfoMissing) missingPartsDescriptionList.push("Informações do Comprador/Representante (Nome, CPF, Email, Telefone)");
+    if (buyerInfoMissing) missingPartsDescriptionList.push("Informações do Comprador/Representante (Nome, CPF, Email, Telefone, Endereço Completo)");
     if (companyInfoMissingForPJ) missingPartsDescriptionList.push("Informações da Empresa (PJ - Razão Social, CNPJ)");
     
     const descriptionText = `Dados essenciais para impressão não encontrados: ${missingPartsDescriptionList.join('; ')}. Verifique as etapas anteriores ou se o processo foi reiniciado.`;
@@ -203,7 +247,7 @@ export default function PrintContractPage() {
             currentStep: currentProcessState.currentStep,
             extractedData: currentProcessState.extractedData,
             internalTeamMemberInfo: currentProcessState.internalTeamMemberInfo,
-            buyerInfo: currentProcessState.buyerInfo,
+            buyerInfo: currentBuyerInfo, // Use currentBuyerInfo for logging
             companyInfo: currentProcessState.companyInfo,
             selectedPlayer: currentProcessState.selectedPlayer,
             contractSourceType: currentProcessState.contractSourceType
@@ -221,7 +265,7 @@ export default function PrintContractPage() {
             <ul className="list-disc list-inside text-left text-muted-foreground mb-4 text-sm inline-block">
                 {extractedDataMissing && <li>Dados do Contrato</li>}
                 {internalTeamMemberInfoMissing && <li>Informações do Responsável Interno (incluindo Cargo)</li>}
-                {buyerInfoMissing && <li>Informações do Comprador/Representante</li>}
+                {buyerInfoMissing && <li>Informações do Comprador/Representante (incluindo Endereço)</li>}
                 {companyInfoMissingForPJ && <li>Informações da Empresa (PJ)</li>}
             </ul>
             <p className="text-muted-foreground mb-6">Por favor, volte e verifique se todas as informações foram preenchidas e salvas corretamente nas etapas anteriores. Se o problema persistir, tente reiniciar o processo.</p>
@@ -239,7 +283,7 @@ export default function PrintContractPage() {
     );
   }
   
-  const { extractedData, buyerInfo, internalTeamMemberInfo, companyInfo, buyerType, selectedPlayer, processId } = currentProcessState; 
+  const { extractedData, companyInfo, buyerType, selectedPlayer, processId, internalTeamMemberInfo } = currentProcessState; 
 
   const nomesDasPartesArray = Array.isArray(extractedData?.nomesDasPartes)
     ? extractedData.nomesDasPartes
@@ -261,26 +305,31 @@ export default function PrintContractPage() {
 
 
   const renderCompradorInfo = () => {
-    if (buyerType === 'pj' && companyInfo && buyerInfo) {
+    const displayAddress = `${currentBuyerInfo.logradouro || '[Logradouro]'}, ${currentBuyerInfo.bairro || '[Bairro]'}\n${currentBuyerInfo.cidade || '[Cidade]'} - ${currentBuyerInfo.estado || '[UF]'}, CEP: ${currentBuyerInfo.cep || '[CEP]'}`;
+    const fullAddressPlaceholder = '[ENDEREÇO COMPLETO DO COMPRADOR: Logradouro, Bairro, Cidade, UF, CEP]';
+
+    if (buyerType === 'pj' && companyInfo && currentBuyerInfo) {
       return (
         <>
           <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA JURÍDICA):</p>
           <p><strong>Razão Social:</strong> {companyInfo.razaoSocial || '[RAZÃO SOCIAL DA EMPRESA]'}</p>
           <p><strong>CNPJ:</strong> {companyInfo.cnpj || '[CNPJ DA EMPRESA]'}</p>
-          <p><strong>Representada por:</strong> {buyerInfo.nome || '[NOME DO REPRESENTANTE]'}</p>
-          <p><strong>CPF do Representante:</strong> {buyerInfo.cpf || '[CPF DO REPRESENTANTE]'}</p>
-          <p><strong>E-mail:</strong> {buyerInfo.email || '[E-MAIL DO REPRESENTANTE]'}</p>
-          <p><strong>Telefone:</strong> {buyerInfo.telefone || '[TELEFONE DO REPRESENTANTE]'}</p>
+          <p><strong>Endereço (Sede):</strong> {currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</p>
+          <p><strong>Representada por:</strong> {currentBuyerInfo.nome || '[NOME DO REPRESENTANTE]'}</p>
+          <p><strong>CPF do Representante:</strong> {currentBuyerInfo.cpf || '[CPF DO REPRESENTANTE]'}</p>
+          <p><strong>E-mail:</strong> {currentBuyerInfo.email || '[E-MAIL DO REPRESENTANTE]'}</p>
+          <p><strong>Telefone:</strong> {currentBuyerInfo.telefone || '[TELEFONE DO REPRESENTANTE]'}</p>
         </>
       );
     }
     return (
       <>
         <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA FÍSICA):</p>
-        <p><strong>Nome:</strong> {buyerInfo?.nome || '[NOME DO COMPRADOR]'}</p>
-        <p><strong>CPF:</strong> {buyerInfo?.cpf || '[CPF DO COMPRADOR]'}</p>
-        <p><strong>E-mail:</strong> {buyerInfo?.email || '[E-MAIL DO COMPRADOR]'}</p>
-        <p><strong>Telefone:</strong> {buyerInfo?.telefone || '[TELEFONE DO COMPRADOR]'}</p>
+        <p><strong>Nome:</strong> {currentBuyerInfo?.nome || '[NOME DO COMPRADOR]'}</p>
+        <p><strong>CPF:</strong> {currentBuyerInfo?.cpf || '[CPF DO COMPRADOR]'}</p>
+        <p><strong>E-mail:</strong> {currentBuyerInfo?.email || '[E-MAIL DO COMPRADOR]'}</p>
+        <p><strong>Telefone:</strong> {currentBuyerInfo?.telefone || '[TELEFONE DO COMPRADOR]'}</p>
+        <p><strong>Endereço:</strong> {currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</p>
       </>
     );
   };
@@ -314,7 +363,14 @@ export default function PrintContractPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 sm:p-8 space-y-6 text-sm contract-text-content text-foreground/90 leading-relaxed">
-              <p>Pelo presente instrumento particular, de um lado:</p>
+              <div className="flex justify-between items-start print-hidden">
+                <p>Pelo presente instrumento particular, de um lado:</p>
+                <Button variant="ghost" size="icon" onClick={() => setIsEditCompradorOpen(true)} className="text-primary/70 hover:text-primary -mt-2 -mr-2">
+                    <Edit3 className="h-5 w-5" />
+                </Button>
+              </div>
+               <p className="print-only">Pelo presente instrumento particular, de um lado:</p>
+
 
               <div className="space-y-1 pl-4 border-l-2 border-primary/30 py-2">
                 {renderCompradorInfo()}
@@ -360,8 +416,8 @@ export default function PrintContractPage() {
               <div className="mt-12 space-y-10">
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
                    <p className="text-sm min-h-[1.25rem]">
-                     {buyerType === 'pj' && companyInfo ? companyInfo.razaoSocial : buyerInfo?.nome || '[NOME DO COMPRADOR/EMPRESA]'}
-                     {buyerType === 'pj' && buyerInfo && <span className="block text-xs text-muted-foreground">Representado por: {buyerInfo.nome}</span>}
+                     {buyerType === 'pj' && companyInfo ? companyInfo.razaoSocial : currentBuyerInfo?.nome || '[NOME DO COMPRADOR/EMPRESA]'}
+                     {buyerType === 'pj' && currentBuyerInfo && <span className="block text-xs text-muted-foreground">Representado por: {currentBuyerInfo.nome}</span>}
                    </p>
                    <p className="text-xs text-muted-foreground">(COMPRADOR{buyerType === 'pj' ? ' - PESSOA JURÍDICA' : ''})</p>
                 </div>
@@ -442,10 +498,17 @@ export default function PrintContractPage() {
           </div>
         </div>
       </div>
+      <EditInfoDialog
+        isOpen={isEditCompradorOpen}
+        setIsOpen={setIsEditCompradorOpen}
+        dialogTitle={buyerType === 'pf' ? "Editar Dados do Comprador" : "Editar Dados do Representante Legal"}
+        fieldsConfig={compradorFields}
+        onSaveHandler={handleSaveComprador}
+        initialData={currentBuyerInfo}
+      />
     </>
   );
 }
-
     
 
     

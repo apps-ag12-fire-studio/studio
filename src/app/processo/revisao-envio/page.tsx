@@ -19,7 +19,7 @@ import {
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info, Edit3, CheckCircle2 } from "lucide-react"; // Added CheckCircle2
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info, Edit3, CheckCircle2, Home, MapPin } from "lucide-react"; 
 import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog";
 
 
@@ -42,6 +42,8 @@ const attemptToPreFillInfo = (
     return null;
   };
 
+  const comprovanteEnderecoData = getAnalysisDataFromDocKey('comprovanteEndereco');
+
   if (!newBuyerInfo.nome) {
     const rgData = getAnalysisDataFromDocKey('rgAntigoFrente');
     const cnhData = getAnalysisDataFromDocKey('cnhAntigaFrente');
@@ -54,6 +56,14 @@ const attemptToPreFillInfo = (
     const socioData = getAnalysisDataFromDocKey('docSocioFrente');
     newBuyerInfo.cpf = rgData?.cpf || cnhData?.cpf || socioData?.cpf || newBuyerInfo.cpf;
   }
+
+  // Preencher endereço do comprador
+  if (!newBuyerInfo.logradouro && comprovanteEnderecoData?.logradouro) newBuyerInfo.logradouro = comprovanteEnderecoData.logradouro;
+  if (!newBuyerInfo.bairro && comprovanteEnderecoData?.bairro) newBuyerInfo.bairro = comprovanteEnderecoData.bairro;
+  if (!newBuyerInfo.cidade && comprovanteEnderecoData?.cidade) newBuyerInfo.cidade = comprovanteEnderecoData.cidade;
+  if (!newBuyerInfo.estado && comprovanteEnderecoData?.estado) newBuyerInfo.estado = comprovanteEnderecoData.estado;
+  if (!newBuyerInfo.cep && comprovanteEnderecoData?.cep) newBuyerInfo.cep = comprovanteEnderecoData.cep;
+
 
   if (fullProcessState.buyerType === 'pj' && newCompanyInfo) {
     const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile');
@@ -190,6 +200,11 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
   if (!state.buyerInfo?.email) {
     missingFields.push("E-mail do comprador/representante (Edite ✏️ na Revisão).");
   }
+  if (!state.buyerInfo?.logradouro) missingFields.push("Logradouro do comprador/representante (Edite ✏️ na Revisão).");
+  if (!state.buyerInfo?.bairro) missingFields.push("Bairro do comprador/representante (Edite ✏️ na Revisão).");
+  if (!state.buyerInfo?.cidade) missingFields.push("Cidade do comprador/representante (Edite ✏️ na Revisão).");
+  if (!state.buyerInfo?.estado) missingFields.push("Estado do comprador/representante (Edite ✏️ na Revisão).");
+  if (!state.buyerInfo?.cep) missingFields.push("CEP do comprador/representante (Edite ✏️ na Revisão).");
   return missingFields;
 };
 
@@ -363,6 +378,11 @@ export default function RevisaoEnvioPage() {
     { id: 'cpf', label: 'CPF', value: currentBuyerInfo.cpf, type: 'text', required: true },
     { id: 'telefone', label: 'Telefone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel', required: true },
     { id: 'email', label: 'E-mail', value: currentBuyerInfo.email, type: 'email', required: true },
+    { id: 'logradouro', label: 'Logradouro (Rua, Av, Nº, Comp.)', value: currentBuyerInfo.logradouro || '', type: 'text', required: true },
+    { id: 'bairro', label: 'Bairro', value: currentBuyerInfo.bairro || '', type: 'text', required: true },
+    { id: 'cidade', label: 'Cidade', value: currentBuyerInfo.cidade || '', type: 'text', required: true },
+    { id: 'estado', label: 'Estado (UF)', value: currentBuyerInfo.estado || '', type: 'text', required: true },
+    { id: 'cep', label: 'CEP', value: currentBuyerInfo.cep || '', type: 'text', required: true },
   ];
 
   const empresaFields: FieldConfig[] = currentCompanyInfo ? [
@@ -531,6 +551,14 @@ export default function RevisaoEnvioPage() {
             <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
             <p className="text-foreground/80"><strong>Telefone (WhatsApp):</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
             <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
+            <div className="pt-2">
+                <h4 className="text-sm font-medium text-primary/80 flex items-center"><MapPin className="mr-1 h-4 w-4" /> Endereço:</h4>
+                <p className="text-foreground/80 pl-5">
+                    {currentBuyerInfo.logradouro || '[Logradouro não informado]'}, {currentBuyerInfo.bairro || '[Bairro não informado]'}<br/>
+                    {currentBuyerInfo.cidade || '[Cidade não informada]'} - {currentBuyerInfo.estado || '[UF não informada]'}<br/>
+                    CEP: {currentBuyerInfo.cep || '[CEP não informado]'}
+                </p>
+            </div>
             <CardDescription className="text-foreground/70 pt-2 text-xs">
             Confirme ou edite os dados. Alguns campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou do contrato principal.
           </CardDescription>
@@ -602,9 +630,10 @@ export default function RevisaoEnvioPage() {
               <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
               <p className="text-foreground/80"><strong>Telefone:</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
               <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
+              <p className="text-foreground/80"><strong>Endereço:</strong> {currentBuyerInfo.logradouro ? `${currentBuyerInfo.logradouro}, ${currentBuyerInfo.bairro || ''} - ${currentBuyerInfo.cidade || ''}/${currentBuyerInfo.estado || ''}, CEP: ${currentBuyerInfo.cep || ''}` : 'Não informado'}</p>
             </div>
           )}
-          <hr className="border-border/30"/>
+           <hr className="border-border/30"/>
 
 
           {processState.contractSourceType === 'new' && processState.contractPhotoName && (
