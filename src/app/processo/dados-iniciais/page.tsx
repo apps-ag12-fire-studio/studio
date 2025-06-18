@@ -276,21 +276,21 @@ export default function DadosIniciaisPage() {
         <CardContent className="space-y-6 p-6 pt-0">
           <div>
             <Label htmlFor="internal-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
-            <Input id="internal-nome" value={processState.internalTeamMemberInfo?.nome || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'nome')} placeholder="Nome do responsável interno" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            <Input id="internal-nome" value={processState.internalTeamMemberInfo?.nome || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'nome')} placeholder="Nome do responsável interno" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="name"/>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <Label htmlFor="internal-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
-              <Input id="internal-cpf" value={processState.internalTeamMemberInfo?.cpf || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+              <Input id="internal-cpf" value={processState.internalTeamMemberInfo?.cpf || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="on" />
             </div>
             <div>
               <Label htmlFor="internal-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone</Label>
-              <Input id="internal-telefone" type="tel" value={processState.internalTeamMemberInfo?.telefone || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+              <Input id="internal-telefone" type="tel" value={processState.internalTeamMemberInfo?.telefone || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="tel"/>
             </div>
           </div>
           <div>
             <Label htmlFor="internal-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
-            <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo?.email || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="email.interno@empresa.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo?.email || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="email.interno@empresa.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="email"/>
           </div>
         </CardContent>
       </Card>
@@ -374,3 +374,4 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
+
