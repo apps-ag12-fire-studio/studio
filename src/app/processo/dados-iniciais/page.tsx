@@ -97,23 +97,17 @@ export default function DadosIniciaisPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // For page navigation
+  const [isStateLoading, setIsStateLoading] = useState(true); // For initial state load
 
   useEffect(() => {
-    const loadedState = loadProcessState();
-    if (!loadedState.internalTeamMemberInfo) {
-      loadedState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo };
-    }
-     if (!loadedState.buyerInfo) {
-      loadedState.buyerInfo = { ...initialStoredProcessState.buyerInfo };
-    }
-    if (loadedState.selectedPlayer === undefined) {
-      loadedState.selectedPlayer = null;
-    }
-    if (loadedState.selectedContractTemplateName === undefined) {
-      loadedState.selectedContractTemplateName = null;
-    }
-    setProcessState(loadedState);
+    const loadInitialState = async () => {
+      setIsStateLoading(true);
+      const loadedState = await loadProcessState();
+      setProcessState(loadedState);
+      setIsStateLoading(false);
+    };
+    loadInitialState();
   }, []);
   
   const handleInternalTeamMemberInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
@@ -127,26 +121,29 @@ export default function DadosIniciaisPage() {
   };
 
   const handleContractSourceChange = (value: 'new' | 'existing') => {
-    setProcessState(prevState => ({
-      ...prevState,
+    const newState = {
+      ...processState,
       contractSourceType: value,
       contractPhotoPreview: null,
       contractPhotoName: undefined,
       photoVerificationResult: null,
       photoVerified: false,
-      extractedData: value === 'existing' ? prevState.extractedData : null, 
-      selectedPlayer: value === 'existing' ? prevState.selectedPlayer : null,
-      selectedContractTemplateName: value === 'existing' ? prevState.selectedContractTemplateName : null,
-    }));
+      extractedData: value === 'existing' ? processState.extractedData : null, 
+      selectedPlayer: value === 'existing' ? processState.selectedPlayer : null,
+      selectedContractTemplateName: value === 'existing' ? processState.selectedContractTemplateName : null,
+    };
+    setProcessState(newState);
+    // No need to call saveProcessState here if it's called on handleNext or blur/unmount
   };
 
   const handlePlayerSelect = (playerName: string) => {
-    setProcessState(prevState => ({
-      ...prevState,
+    const newState = {
+      ...processState,
       selectedPlayer: playerName,
       extractedData: null, 
       selectedContractTemplateName: null, // Reset template when player changes
-    }));
+    };
+    setProcessState(newState);
   };
 
   const handleSelectContractTemplate = (templateId: string) => {
@@ -162,11 +159,13 @@ export default function DadosIniciaisPage() {
 
     const contractData = template.data(processState.selectedPlayer);
     
-    setProcessState(prevState => ({
-      ...prevState,
+    const newState = {
+      ...processState,
       extractedData: contractData,
       selectedContractTemplateName: template.displayName,
-    }));
+    };
+    setProcessState(newState);
+    saveProcessState(newState); // Save after significant action
     toast({ 
       title: "Modelo Carregado com Sucesso!", 
       description: `O modelo "${template.displayName}" para ${processState.selectedPlayer} foi carregado.`, 
@@ -198,8 +197,11 @@ export default function DadosIniciaisPage() {
     setIsLoading(true);
 
     const nextPath = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/documentos";
+    const updatedState = { ...processState, currentStep: nextPath };
+    
+    saveProcessState(updatedState); // Save state before navigating
+    setProcessState(updatedState); // Update local state if saveProcessState doesn't do it synchronously for UI
 
-    saveProcessState({ ...processState, currentStep: nextPath });
     toast({
       title: "Etapa 1 Concluída!",
       description: "Dados iniciais validados. Carregando próxima etapa...",
@@ -207,6 +209,23 @@ export default function DadosIniciaisPage() {
     });
     router.push(nextPath);
   };
+
+  // Save state on component unmount or input blur for critical fields
+  useEffect(() => {
+    return () => {
+      saveProcessState(processState);
+    };
+  }, [processState]);
+
+
+  if (isStateLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Carregando dados do processo...</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -257,21 +276,21 @@ export default function DadosIniciaisPage() {
         <CardContent className="space-y-6 p-6 pt-0">
           <div>
             <Label htmlFor="internal-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
-            <Input id="internal-nome" value={processState.internalTeamMemberInfo.nome} onChange={(e) => handleInternalTeamMemberInputChange(e, 'nome')} placeholder="Nome do responsável interno" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            <Input id="internal-nome" value={processState.internalTeamMemberInfo?.nome || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'nome')} placeholder="Nome do responsável interno" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <Label htmlFor="internal-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
-              <Input id="internal-cpf" value={processState.internalTeamMemberInfo.cpf} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+              <Input id="internal-cpf" value={processState.internalTeamMemberInfo?.cpf || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
             </div>
             <div>
               <Label htmlFor="internal-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone</Label>
-              <Input id="internal-telefone" type="tel" value={processState.internalTeamMemberInfo.telefone} onChange={(e) => handleInternalTeamMemberInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+              <Input id="internal-telefone" type="tel" value={processState.internalTeamMemberInfo?.telefone || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
             </div>
           </div>
           <div>
             <Label htmlFor="internal-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
-            <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo.email} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="email.interno@empresa.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
+            <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo?.email || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="email.interno@empresa.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
           </div>
         </CardContent>
       </Card>
@@ -337,7 +356,7 @@ export default function DadosIniciaisPage() {
       <div className="flex justify-end mt-8">
         <Button 
           onClick={handleNext}
-          disabled={isLoading} 
+          disabled={isLoading || isStateLoading} 
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
           {isLoading ? (
@@ -355,5 +374,3 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
-
-    

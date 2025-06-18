@@ -48,24 +48,35 @@ export default function DocumentosPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
+  const [isStateLoading, setIsStateLoading] = useState(true);
   const [analyzingDocKey, setAnalyzingDocKey] = useState<DocumentSlotKey | null>(null);
   const [uploadingDocKey, setUploadingDocKey] = useState<DocumentSlotKey | null>(null);
   const [uploadProgress, setUploadProgress] = useState<Record<DocumentSlotKey, number | null>>({} as Record<DocumentSlotKey, number | null>);
   const [selectedPfDocType, setSelectedPfDocType] = useState<PfDocumentType | ''>('');
-  const [isNavigatingNext, setIsNavigatingNext] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const fileInputRefs = useRef<Record<DocumentSlotKey, HTMLInputElement | null>>({} as Record<DocumentSlotKey, HTMLInputElement | null>);
 
 
   useEffect(() => {
-    const loadedState = loadProcessState();
-    if (!loadedState.companyInfo && loadedState.buyerType === 'pj') {
-      loadedState.companyInfo = { razaoSocial: '', nomeFantasia: '', cnpj: '' };
-    }
-    setProcessState(loadedState);
-    if (loadedState.buyerType === 'pf') {
-      if (loadedState.rgAntigoFrente || loadedState.rgAntigoVerso) setSelectedPfDocType('rgAntigo');
-      else if (loadedState.cnhAntigaFrente || loadedState.cnhAntigaVerso) setSelectedPfDocType('cnhAntiga');
-    }
+    const loadInitialState = async () => {
+      setIsStateLoading(true);
+      const loadedState = await loadProcessState();
+      
+      // Ensure companyInfo is initialized if buyerType is 'pj' but companyInfo is null/undefined
+      if (loadedState.buyerType === 'pj' && !loadedState.companyInfo) {
+        loadedState.companyInfo = { ...initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' } };
+      }
+      
+      setProcessState(loadedState);
+
+      if (loadedState.buyerType === 'pf') {
+        if (loadedState.rgAntigoFrente || loadedState.rgAntigoVerso) setSelectedPfDocType('rgAntigo');
+        else if (loadedState.cnhAntigaFrente || loadedState.cnhAntigaVerso) setSelectedPfDocType('cnhAntiga');
+        // else, it remains '' which is fine if no documents were previously selected/uploaded
+      }
+      setIsStateLoading(false);
+    };
+    loadInitialState();
   }, []);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
@@ -87,7 +98,7 @@ export default function DocumentosPage() {
         }
       }
 
-      const filePath = generateUniqueFileName(file, docKey);
+      const filePath = generateUniqueFileName(file, docKey, `user-${processState.processId || 'unknown'}/docs`);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
 
@@ -135,7 +146,7 @@ export default function DocumentosPage() {
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
             setUploadProgress(prev => ({ ...prev, [docKey]: null })); 
              const newState = { ...processState, [docKey]: { 
-                name: processState[docKey]?.name || file.name, 
+                name: (processState[docKey] as DocumentFile)?.name || file.name, 
                 previewUrl: null, 
                 storagePath: filePath, 
                 analysisResult: null
@@ -201,7 +212,7 @@ export default function DocumentosPage() {
       const newState = {
         ...processState,
         [docKey]: {
-          ...currentDocInState,
+          ...(currentDocInState!), // Assert non-null as photoDownloadUrl exists
           analysisResult: result,
         } as DocumentFile, 
       };
@@ -226,7 +237,7 @@ export default function DocumentosPage() {
       const newState = {
         ...processState,
         [docKey]: {
-          ...currentDocInState,
+          ...(currentDocInState!),
           analysisResult: { error: userFriendlyErrorMessage },
         } as DocumentFile,
       };
@@ -266,12 +277,12 @@ export default function DocumentosPage() {
         toast({ title: "Comprovante de Endereço Necessário", description: "Anexe um comprovante de endereço.", variant: "destructive" });
         return false;
       }
-    } else { 
+    } else { // PJ
       if (!processState.companyInfo?.razaoSocial || !processState.companyInfo?.cnpj) {
         toast({ title: "Dados da Empresa Incompletos", description: "Preencha Razão Social e CNPJ da empresa.", variant: "destructive"});
         return false;
       }
-      if (!processState.buyerInfo.nome || !processState.buyerInfo.cpf) {
+      if (!processState.buyerInfo?.nome || !processState.buyerInfo?.cpf) {
         toast({ title: "Dados do Representante Incompletos", description: "Preencha Nome e CPF do representante legal.", variant: "destructive"});
         return false;
       }
@@ -285,28 +296,27 @@ export default function DocumentosPage() {
 
   const handleNext = () => {
     if (!validateStep()) return;
-    setIsNavigatingNext(true);
-    saveProcessState({ ...processState, currentStep: "/processo/revisao-envio" });
-    toast({
-      title: "Etapa 3 Concluída!",
-      description: "Documentos e informações salvos. Carregando próxima etapa...",
-      className: "bg-green-600 text-primary-foreground border-green-700",
-    });
+    setIsNavigating(true);
+    const newState = { ...processState, currentStep: "/processo/revisao-envio" };
+    saveProcessState(newState); 
+    setProcessState(newState);
+    toast({ title: "Etapa 3 Concluída!", description: "Documentos e informações salvos.", className: "bg-green-600 text-primary-foreground border-green-700" });
     router.push("/processo/revisao-envio");
   };
 
   const handleBack = () => {
-    setIsNavigatingNext(true); 
+    setIsNavigating(true);
     saveProcessState(processState);
     const prevStep = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/dados-iniciais"; 
     router.push(prevStep);
   };
 
   const handleBuyerTypeChange = (value: BuyerType) => {
-    const newState = {
+    const newState: StoredProcessState = {
       ...processState,
       buyerType: value,
-      companyInfo: value === 'pj' ? (processState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) : null,
+      companyInfo: value === 'pj' ? (processState.companyInfo || { ...initialStoredProcessState.companyInfo! }) : null,
+      // Clear PF docs if switching to PJ, and PJ docs if switching to PF
       rgAntigoFrente: value === 'pj' ? null : processState.rgAntigoFrente,
       rgAntigoVerso: value === 'pj' ? null : processState.rgAntigoVerso,
       cnhAntigaFrente: value === 'pj' ? null : processState.cnhAntigaFrente,
@@ -316,10 +326,10 @@ export default function DocumentosPage() {
       docSocioVerso: value === 'pf' ? null : processState.docSocioVerso,
     };
     setProcessState(newState);
-    saveProcessState(newState);
     if (value === 'pj') {
       setSelectedPfDocType(''); 
     }
+    // saveProcessState(newState); // Save on major state change like this
   };
 
   const handlePfDocTypeChange = (value: PfDocumentType) => {
@@ -336,11 +346,12 @@ export default function DocumentosPage() {
       else if (value === 'cnhAntiga' && (key === 'cnhAntigaFrente' || key === 'cnhAntigaVerso')) shouldClear = false;
       
       if (shouldClear && newState[key]) {
+        // Instead of null, maybe keep analysisResult if only type changes? For now, clear.
         newState[key] = null;
       }
     });
     setProcessState(newState);
-    saveProcessState(newState);
+    // saveProcessState(newState);
   };
   
   const handleCompanyInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
@@ -352,18 +363,27 @@ export default function DocumentosPage() {
       }
     };
     setProcessState(newState);
+    // Debounced save or save on blur/next might be better than on every keystroke
   };
   
   const handleBuyerInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const newState = {
       ...processState,
       buyerInfo: {
-        ...(processState.buyerInfo as BuyerInfo),
+        ...(processState.buyerInfo!),
         [field]: e.target.value,
       }
     };
     setProcessState(newState);
   };
+
+  useEffect(() => { // Save state on unmount or when certain critical parts change
+    return () => {
+      if (!isNavigating) {
+        saveProcessState(processState);
+      }
+    };
+  }, [processState, isNavigating]);
 
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
@@ -372,7 +392,8 @@ export default function DocumentosPage() {
     const isCurrentlyAnalyzing = analyzingDocKey === docKey;
     const displayDocName = currentDoc?.name;
     const displayPreviewUrl = currentDoc?.previewUrl; 
-    const isPdf = displayDocName?.toLowerCase().endsWith('.pdf');
+    const isPdf = displayDocName?.toLowerCase().endsWith('.pdf') || displayPreviewUrl?.startsWith('data:application/pdf') || currentDoc?.storagePath?.toLowerCase().endsWith('.pdf');
+
 
     return (
       <div className="p-4 border border-border/50 rounded-lg bg-background/30 space-y-3">
@@ -403,7 +424,7 @@ export default function DocumentosPage() {
             accept={docKey === 'cartaoCnpjFile' || docKey === 'comprovanteEndereco' ? "image/*,application/pdf" : "image/*"}
             onChange={(e) => handleFileChange(e, docKey)}
             className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
-            disabled={isCurrentlyAnalyzing || uploadingDocKey !== null} 
+            disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || isNavigating || isStateLoading} 
           />
         )}
         {displayDocName && !isCurrentlyUploadingThisSlot && ( 
@@ -414,14 +435,14 @@ export default function DocumentosPage() {
                 <Button 
                   type="button" variant="outline" size="sm" 
                   onClick={() => handleAnalyzeDocument(docKey)}
-                  disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || (!displayPreviewUrl)} 
+                  disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || (!displayPreviewUrl) || isNavigating || isStateLoading} 
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
                   {isCurrentlyAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
                   {isCurrentlyAnalyzing ? "Analisando..." : (currentDoc?.analysisResult && !(currentDoc.analysisResult as any).error ? "Reanalisar" : "Analisar IA")}
                 </Button>
               )}
-              <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} disabled={uploadingDocKey !== null || isCurrentlyAnalyzing} className="text-destructive/70 hover:text-destructive h-7 w-7">
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} disabled={uploadingDocKey !== null || isCurrentlyAnalyzing || isNavigating || isStateLoading} className="text-destructive/70 hover:text-destructive h-7 w-7">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
@@ -466,7 +487,16 @@ export default function DocumentosPage() {
     }
   }
 
-  const globalDisableCondition = isNavigatingNext || uploadingDocKey !== null || analyzingDocKey !== null;
+  if (isStateLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Carregando dados do processo...</p>
+      </div>
+    );
+  }
+  
+  const globalDisableCondition = isNavigating || uploadingDocKey !== null || analyzingDocKey !== null || isStateLoading;
 
   return (
     <>
@@ -536,7 +566,7 @@ export default function DocumentosPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
-          {processState.buyerType === 'pj' && ( 
+          {processState.buyerType === 'pj' && processState.buyerInfo && ( 
             <>
               <div>
                 <Label htmlFor="repNome">Nome Completo do Representante</Label>
@@ -583,17 +613,17 @@ export default function DocumentosPage() {
         <Button 
           onClick={handleBack} 
           variant="outline"
-          disabled={globalDisableCondition || isNavigatingNext}
+          disabled={globalDisableCondition}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
           <ArrowLeft className="mr-2 h-5 w-5" /> Voltar
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={globalDisableCondition || isNavigatingNext}
+          disabled={globalDisableCondition}
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          {isNavigatingNext && !globalDisableCondition ? ( 
+          {isNavigating && !globalDisableCondition ? ( 
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Aguarde...
@@ -608,9 +638,3 @@ export default function DocumentosPage() {
     </>
   );
 }
-    
-    
-
-    
-
-    

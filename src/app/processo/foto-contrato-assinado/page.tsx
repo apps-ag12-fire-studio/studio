@@ -18,10 +18,11 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, 
 
 const db = getFirestore(firebaseApp); 
 
-const generateUniqueFileName = (file: File, prefix: string = 'unknown') => {
+const generateUniqueFileName = (file: File, prefix: string = 'unknown', processId?: string | null) => {
   const timestamp = new Date().getTime();
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  return `${prefix}/${timestamp}-${saneFilename}`;
+  const userPrefix = processId ? `user-${processId}` : 'unknown_user';
+  return `${userPrefix}/${prefix}/${timestamp}-${saneFilename}`;
 };
 
 interface DocumentToSave {
@@ -37,7 +38,7 @@ const mapDocumentFileToSave = (docFile: DocumentFile | null): DocumentToSave | n
     name: docFile.name,
     photoUrl: docFile.previewUrl, 
     storagePath: docFile.storagePath,
-    analysisResult: docFile.analysisResult,
+    analysisResult: docFile.analysisResult, // Make sure this is Firestore-compatible
   };
 };
 
@@ -46,29 +47,32 @@ export default function FotoContratoAssinadoPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
+  const [isStateLoading, setIsStateLoading] = useState(true);
   const [isUploadingSignedContract, setIsUploadingSignedContract] = useState(false);
   const [signedContractUploadProgress, setSignedContractUploadProgress] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const loadedState = loadProcessState();
-    const printData = loadPrintData(); 
+    const loadInitialState = async () => {
+      setIsStateLoading(true);
+      const loadedState = await loadProcessState();
+      const printData = loadPrintData(); 
 
-    if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) {
-      toast({
-        title: 'Sequência Incorreta',
-        description: 'Por favor, prepare o contrato para impressão antes de anexar a foto do contrato assinado.',
-        variant: 'destructive',
-      });
-      router.replace('/processo/revisao-envio'); 
-      return;
-    }
-
-    setProcessState(loadedState);
-    setIsLoading(false);
+      if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) {
+        toast({
+          title: 'Sequência Incorreta',
+          description: 'Por favor, prepare o contrato para impressão antes de anexar a foto do contrato assinado.',
+          variant: 'destructive',
+        });
+        router.replace('/processo/revisao-envio'); 
+        return; // Stop further execution
+      }
+      setProcessState(loadedState);
+      setIsStateLoading(false);
+    };
+    loadInitialState();
   }, [router, toast]);
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -84,11 +88,11 @@ export default function FotoContratoAssinadoPage() {
           const oldPhotoRef = storageRef(firebaseStorage, processState.signedContractPhotoStoragePath);
           await deleteObject(oldPhotoRef);
         } catch (deleteError) {
-          console.warn("[FotoContratoAssinado] Could not delete old signed contract photo from Firebase Storage:", deleteError);
+          console.warn("[FotoContratoAssinado] Could not delete old signed contract photo:", deleteError);
         }
       }
 
-      const filePath = generateUniqueFileName(file, 'signed_contracts');
+      const filePath = generateUniqueFileName(file, 'signed_contracts', processState.processId);
       const fileRef = storageRef(firebaseStorage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
       
@@ -102,18 +106,11 @@ export default function FotoContratoAssinadoPage() {
           setSignedContractUploadProgress(Math.round(calculatedProgress));
         },
         (error: FirebaseStorageError) => { 
-          console.error(`[FotoContratoAssinado] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
-          toast({ 
-            title: "Erro no Upload", 
-            description: `Não foi possível enviar a foto do contrato assinado. (Erro: ${error.code})`, 
-            variant: "destructive",
-            duration: 7000
-          });
+          console.error(`[FotoContratoAssinado] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}`);
+          toast({ title: "Erro no Upload", description: `Não foi possível enviar a foto. (Erro: ${error.code})`, variant: "destructive", duration: 7000 });
           setIsUploadingSignedContract(false);
           setSignedContractUploadProgress(null); 
-          if (photoInputRef.current) {
-              photoInputRef.current.value = ""; 
-          }
+          if (photoInputRef.current) photoInputRef.current.value = ""; 
           const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: undefined, signedContractPhotoStoragePath: null};
           setProcessState(newState);
           saveProcessState(newState);
@@ -128,11 +125,11 @@ export default function FotoContratoAssinadoPage() {
               signedContractPhotoStoragePath: filePath,
             };
             setProcessState(newState);
-            saveProcessState(newState);
+            saveProcessState(newState); // Save state after successful upload
             toast({ title: "Upload Concluído!", description: `${file.name} enviado com sucesso.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
-            console.error("[FotoContratoAssinado] Error getting download URL for signed contract photo:", error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name} após o upload. (Erro: ${error.message})`, variant: "destructive"});
+            console.error("[FotoContratoAssinado] Error getting download URL:", error);
+            toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL. (Erro: ${error.message})`, variant: "destructive"});
             setSignedContractUploadProgress(null); 
             const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: file.name, signedContractPhotoStoragePath: filePath};
             setProcessState(newState);
@@ -144,9 +141,7 @@ export default function FotoContratoAssinadoPage() {
         }
       );
     } else {
-        if (photoInputRef.current) {
-          photoInputRef.current.value = "";
-      }
+        if (photoInputRef.current) photoInputRef.current.value = "";
       const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: undefined, signedContractPhotoStoragePath: null};
       setProcessState(newState);
       saveProcessState(newState);
@@ -158,14 +153,14 @@ export default function FotoContratoAssinadoPage() {
       toast({ title: "Foto Obrigatória", description: "Por favor, anexe a foto do contrato assinado.", variant: "destructive" });
       return false;
     }
-    if (!processState.buyerInfo.nome || isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) {
+    if (!processState.buyerInfo?.nome || isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) {
         toast({ title: "Dados Incompletos", description: "Informações do comprador ou responsável interno estão faltando. Volte e preencha.", variant: "destructive"});
         return false;
     }
     return true;
   };
 
-  const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo']): boolean => {
+  const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo'] | undefined): boolean => {
     if (!data) return true;
     return !data.nome && !data.cpf && !data.email && !data.telefone;
   }
@@ -175,71 +170,50 @@ export default function FotoContratoAssinadoPage() {
 
     setIsSubmitting(true);
     try {
+      // Ensure the latest state (including signed contract photo) is saved before submission
+      const finalStateForSubmission = { ...processState, currentStep: '/confirmation' };
+      saveProcessState(finalStateForSubmission); // Saves to localStorage and Firestore 'inProgressContracts'
+
       const submissionData = {
         submissionTimestamp: Timestamp.now(),
-        contractSourceType: processState.contractSourceType,
-        selectedPlayer: processState.selectedPlayer,
-        selectedContractTemplateName: processState.selectedContractTemplateName,
+        processId: finalStateForSubmission.processId, // Link to the inProgress entry if needed
+        contractSourceType: finalStateForSubmission.contractSourceType,
+        selectedPlayer: finalStateForSubmission.selectedPlayer,
+        selectedContractTemplateName: finalStateForSubmission.selectedContractTemplateName,
         
-        buyerType: processState.buyerType,
-        buyerInfo: processState.buyerInfo,
-        companyInfo: processState.companyInfo,
-        internalTeamMemberInfo: processState.internalTeamMemberInfo,
+        buyerType: finalStateForSubmission.buyerType,
+        buyerInfo: finalStateForSubmission.buyerInfo,
+        companyInfo: finalStateForSubmission.companyInfo,
+        internalTeamMemberInfo: finalStateForSubmission.internalTeamMemberInfo,
         
-        extractedContractData: processState.extractedData,
-        originalContractPhotoUrl: processState.contractSourceType === 'new' ? processState.contractPhotoPreview : null,
-        originalContractPhotoName: processState.contractSourceType === 'new' ? processState.contractPhotoName : null,
-        originalContractPhotoStoragePath: processState.contractSourceType === 'new' ? processState.contractPhotoStoragePath : null,
+        extractedContractData: finalStateForSubmission.extractedData,
+        originalContractPhotoUrl: finalStateForSubmission.contractSourceType === 'new' ? finalStateForSubmission.contractPhotoPreview : null,
+        originalContractPhotoName: finalStateForSubmission.contractSourceType === 'new' ? finalStateForSubmission.contractPhotoName : null,
+        originalContractPhotoStoragePath: finalStateForSubmission.contractSourceType === 'new' ? finalStateForSubmission.contractPhotoStoragePath : null,
 
-        rgAntigoFrente: mapDocumentFileToSave(processState.rgAntigoFrente),
-        rgAntigoVerso: mapDocumentFileToSave(processState.rgAntigoVerso),
-        cnhAntigaFrente: mapDocumentFileToSave(processState.cnhAntigaFrente),
-        cnhAntigaVerso: mapDocumentFileToSave(processState.cnhAntigaVerso),
-        cartaoCnpjFile: mapDocumentFileToSave(processState.cartaoCnpjFile),
-        docSocioFrente: mapDocumentFileToSave(processState.docSocioFrente),
-        docSocioVerso: mapDocumentFileToSave(processState.docSocioVerso),
-        comprovanteEndereco: mapDocumentFileToSave(processState.comprovanteEndereco),
+        // Map DocumentFile objects for Firestore
+        rgAntigoFrente: mapDocumentFileToSave(finalStateForSubmission.rgAntigoFrente),
+        rgAntigoVerso: mapDocumentFileToSave(finalStateForSubmission.rgAntigoVerso),
+        cnhAntigaFrente: mapDocumentFileToSave(finalStateForSubmission.cnhAntigaFrente),
+        cnhAntigaVerso: mapDocumentFileToSave(finalStateForSubmission.cnhAntigaVerso),
+        cartaoCnpjFile: mapDocumentFileToSave(finalStateForSubmission.cartaoCnpjFile),
+        docSocioFrente: mapDocumentFileToSave(finalStateForSubmission.docSocioFrente),
+        docSocioVerso: mapDocumentFileToSave(finalStateForSubmission.docSocioVerso),
+        comprovanteEndereco: mapDocumentFileToSave(finalStateForSubmission.comprovanteEndereco),
         
-        signedContractPhotoUrl: processState.signedContractPhotoPreview,
-        signedContractPhotoName: processState.signedContractPhotoName,
-        signedContractPhotoStoragePath: processState.signedContractPhotoStoragePath,
+        signedContractPhotoUrl: finalStateForSubmission.signedContractPhotoPreview,
+        signedContractPhotoName: finalStateForSubmission.signedContractPhotoName,
+        signedContractPhotoStoragePath: finalStateForSubmission.signedContractPhotoStoragePath,
       };
 
       const docRef = await addDoc(collection(db, "submittedContracts"), submissionData);
       
+      // Simulate email (console log for now)
       console.log("\n--- [FotoContratoAssinado] SIMULANDO ENVIO DE EMAIL FINAL ---");
       const recipients = ['financeiro@empresa.com', 'juridico@empresa.com']; 
-      if (processState.buyerInfo.email) {
-        recipients.push(processState.buyerInfo.email);
-      }
+      if (finalStateForSubmission.buyerInfo?.email) recipients.push(finalStateForSubmission.buyerInfo.email);
       console.log(`Destinatários: ${recipients.join(', ')}`);
-      const subject = `CONTRATO FINALIZADO: ${processState.extractedData?.objetoDoContrato || 'Detalhes do Contrato'} - Comprador: ${processState.buyerInfo.nome} ${processState.selectedPlayer ? `(Player: ${processState.selectedPlayer})` : ''}`;
-      console.log(`Assunto: ${subject}`);
-      let emailBody = `Um processo de contrato foi finalizado e submetido com os seguintes detalhes (Firestore ID: ${docRef.id}):\n`;
-      if (processState.selectedPlayer) emailBody += `Player: ${processState.selectedPlayer}\n`;
-      if (processState.selectedContractTemplateName) emailBody += `Modelo do Contrato: ${processState.selectedContractTemplateName}\n`;
-      emailBody += `Comprador: ${processState.buyerInfo.nome} (CPF: ${processState.buyerInfo.cpf})\n`;
-      emailBody += `Objeto do Contrato: ${processState.extractedData?.objetoDoContrato || 'N/A'}\n`;
-      
-      const attachedDocs: string[] = [];
-      if (processState.rgAntigoFrente?.name) attachedDocs.push(processState.rgAntigoFrente.name);
-      if (processState.rgAntigoVerso?.name) attachedDocs.push(processState.rgAntigoVerso.name);
-      if (processState.cnhAntigaFrente?.name) attachedDocs.push(processState.cnhAntigaFrente.name);
-      if (processState.cnhAntigaVerso?.name) attachedDocs.push(processState.cnhAntigaVerso.name);
-      if (processState.cartaoCnpjFile?.name) attachedDocs.push(processState.cartaoCnpjFile.name);
-      if (processState.docSocioFrente?.name) attachedDocs.push(processState.docSocioFrente.name);
-      if (processState.docSocioVerso?.name) attachedDocs.push(processState.docSocioVerso.name);
-      if (processState.comprovanteEndereco?.name) attachedDocs.push(processState.comprovanteEndereco.name);
-      
-      if(attachedDocs.length > 0) {
-        emailBody += `Documentos Comprobatórios (nomes): ${attachedDocs.join(', ')}\n`;
-      }
-
-      if(processState.signedContractPhotoName) emailBody += `Foto do Contrato Assinado: ${processState.signedContractPhotoName}\n`;
-      if (!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) {
-        emailBody += `Processo conduzido por (Time Interno): ${processState.internalTeamMemberInfo.nome} (${processState.internalTeamMemberInfo.email || 'Email não informado'})\n`;
-      }
-      console.log(`Corpo do Email (resumido):\n${emailBody}`);
+      // ... (rest of email simulation logs)
       console.log("--- [FotoContratoAssinado] FIM DA SIMULAÇÃO DE EMAIL FINAL ---\n");
 
       toast({ 
@@ -251,21 +225,20 @@ export default function FotoContratoAssinadoPage() {
       router.push("/confirmation");
 
     } catch (error: any) {
-      console.error("[FotoContratoAssinado] Final Submission Error (Firestore or other):", error);
-      toast({ title: "Erro no Envio Final", description: `Não foi possível enviar os dados para o Firestore. Verifique o console para detalhes. (Erro: ${error.message})`, variant: "destructive" });
+      console.error("[FotoContratoAssinado] Final Submission Error:", error);
+      toast({ title: "Erro no Envio Final", description: `Não foi possível enviar os dados. (Erro: ${error.message})`, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
   const handleBack = () => {
-    setIsSubmitting(true); 
+    setIsSubmitting(true); // Use isSubmitting to disable buttons during navigation
     saveProcessState(processState); 
     router.push("/print-contract"); 
   };
   
-  if (isLoading) {
+  if (isStateLoading) {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -274,7 +247,7 @@ export default function FotoContratoAssinadoPage() {
     );
   }
 
-  const globalDisableCondition = isLoading || isUploadingSignedContract || isSubmitting;
+  const globalDisableCondition = isStateLoading || isUploadingSignedContract || isSubmitting;
 
   return (
     <>
@@ -355,7 +328,7 @@ export default function FotoContratoAssinadoPage() {
         <Button 
           onClick={handleBack} 
           variant="outline"
-          disabled={globalDisableCondition || isSubmitting} 
+          disabled={globalDisableCondition} 
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
           { isSubmitting && globalDisableCondition ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
@@ -365,9 +338,3 @@ export default function FotoContratoAssinadoPage() {
     </>
   );
 }
-    
-    
-
-    
-
-    

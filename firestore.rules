@@ -8,8 +8,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Regras para processos em andamento
+    // Permite leitura e escrita para qualquer um NESTE CAMINHO
+    // IMPORTANTE: Para produção, restrinja essas regras (ex: if request.auth.uid == resource.data.userId)!
+    match /inProgressContracts/{processId} {
+      allow read, write: if true;
+    }
+
     // Adicione aqui regras para outras coleções, se necessário.
-    // Por padrão, todas as outras coleções serão negadas se não houver
-    // uma regra explícita permitindo o acesso.
+    // Por padrão, todas as outras coleções serão negadas.
   }
 }

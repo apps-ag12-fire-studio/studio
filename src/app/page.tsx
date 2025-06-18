@@ -4,13 +4,27 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { clearProcessState } from "@/lib/process-store"; // Importar a função para limpar o estado
+import { clearProcessState, setActiveProcessId, saveProcessState, initialStoredProcessState } from "@/lib/process-store";
+import { db } from "@/lib/firebase";
+import { collection, doc } from "firebase/firestore";
 
 export default function HomePage() {
   const router = useRouter();
 
   const handleStartProcess = () => {
-    clearProcessState(); // Limpa qualquer estado de processo anterior
+    clearProcessState(); // Limpa qualquer estado de processo anterior, incluindo activeProcessId
+
+    const newProcessId = doc(collection(db, 'inProgressContracts')).id; // Gera um ID único
+    setActiveProcessId(newProcessId);
+
+    const initialState = { 
+      ...initialStoredProcessState, 
+      processId: newProcessId, 
+      currentStep: '/processo/dados-iniciais' 
+    };
+    
+    saveProcessState(initialState); // Salva no localStorage e inicia salvamento no Firestore
+    
     router.push("/processo/dados-iniciais");
   };
 
