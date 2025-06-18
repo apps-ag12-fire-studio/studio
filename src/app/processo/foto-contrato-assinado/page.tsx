@@ -219,7 +219,7 @@ export default function FotoContratoAssinadoPage() {
       toast({
         title: "Processo Enviado com Sucesso!",
         description: `Contrato assinado e documentos enviados para Firestore (ID: ${docRef.id}). Você será redirecionado.`,
-        className: "bg-primary text-primary-foreground border-primary-foreground/30"
+        className: "bg-green-600 text-primary-foreground border-green-700", // Changed className for green success
       });
       clearProcessState(); // Clears localStorage for the next process
       router.push("/confirmation");
