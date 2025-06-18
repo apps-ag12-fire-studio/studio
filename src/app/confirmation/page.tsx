@@ -25,10 +25,11 @@ export default function ConfirmationPage() {
         try {
           const parsedDetails = JSON.parse(detailsString);
           setDetails(parsedDetails);
-          localStorage.removeItem('contratoFacilConfirmationDetails'); // Clean up after reading
+          // It's generally better to remove the item after use to prevent stale data
+          // localStorage.removeItem('contratoFacilConfirmationDetails'); 
         } catch (error) {
           console.error("Error parsing confirmation details from localStorage:", error);
-          localStorage.removeItem('contratoFacilConfirmationDetails');
+          localStorage.removeItem('contratoFacilConfirmationDetails'); // Clean up on error
         }
       }
     }
@@ -109,10 +110,10 @@ export default function ConfirmationPage() {
               <Button 
                 onClick={handleShareViaWhatsApp}
                 variant="outline" 
-                className="w-full border-green-500/70 text-green-400 hover:bg-green-500/10 hover:text-green-300 text-lg py-5 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105"
+                className="w-full border-green-500/70 text-green-400 hover:bg-green-500/10 hover:text-green-300 text-lg py-5 px-4 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 whitespace-normal leading-snug"
               >
-                <MessageSquareText className="mr-2 h-6 w-6" /> {/* Using MessageSquareText as a WhatsApp-like icon */}
-                Compartilhar via WhatsApp
+                <MessageSquareText className="mr-2 h-6 w-6 flex-shrink-0" /> 
+                <span className="text-center">Compartilhar via WhatsApp</span>
               </Button>
             )}
           </div>
@@ -121,4 +122,3 @@ export default function ConfirmationPage() {
     </div>
   );
 }
-
