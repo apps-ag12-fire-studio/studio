@@ -460,7 +460,7 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
-          {!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo) && (
+          {processState.internalTeamMemberInfo && (
             <>
               <div className="space-y-1">
                 <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Responsável Interno</h3>
@@ -573,5 +573,6 @@ export default function RevisaoEnvioPage() {
 
 
     
+
 
 
