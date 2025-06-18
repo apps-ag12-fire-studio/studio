@@ -13,15 +13,13 @@ import {
   loadProcessState,
   saveProcessState,
   initialStoredProcessState,
-  savePrintData,
   BuyerInfo,
   CompanyInfo,
   DocumentFile,
-  PrintData
-} from "@/lib/process-store"; // BuyerType is implicitly imported via StoredProcessState
+} from "@/lib/process-store"; 
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip, UserCog, Users as PlayersIcon, Building, Loader2, Info } from "lucide-react";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info } from "lucide-react";
 
 
 const attemptToPreFillInfo = (
@@ -121,7 +119,7 @@ const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolea
   });
 };
 
-const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo']): boolean => {
+const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo'] | undefined): boolean => {
   if (!data) return true;
   return !data.nome || !data.cpf || !data.telefone || !data.email;
 };
@@ -210,7 +208,7 @@ export default function RevisaoEnvioPage() {
     loadInitialState();
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
     if (isStateLoading || processState === initialStoredProcessState) return;
 
     const { buyerInfo: preFilledBuyer, companyInfo: preFilledCompany } = attemptToPreFillInfo(processState, currentBuyerInfo, currentCompanyInfo);
@@ -218,6 +216,7 @@ export default function RevisaoEnvioPage() {
     let buyerChanged = false;
     let companyChanged = false;
 
+    // Only update if current input field is empty or matches initial placeholder
     if ((currentBuyerInfo.nome === '' || currentBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome) && preFilledBuyer.nome && preFilledBuyer.nome !== currentBuyerInfo.nome) {
       currentBuyerInfo.nome = preFilledBuyer.nome;
       buyerChanged = true;
@@ -246,8 +245,10 @@ export default function RevisaoEnvioPage() {
     processState.cnhAntigaFrente?.analysisResult, processState.cnhAntigaVerso?.analysisResult,
     processState.cartaoCnpjFile?.analysisResult,
     processState.docSocioFrente?.analysisResult, processState.docSocioVerso?.analysisResult,
-    processState.extractedData,
-    isStateLoading 
+    processState.extractedData, // This is key for contract-based prefill
+    isStateLoading, 
+    // Do NOT add currentBuyerInfo or currentCompanyInfo here directly to avoid loops if they are also set inside this effect
+    // Instead, rely on processState changing for document analysis results.
   ]);
 
 
@@ -271,13 +272,14 @@ export default function RevisaoEnvioPage() {
       buyerInfo: currentBuyerInfo,
       companyInfo: currentCompanyInfo,
     };
-    setProcessState(updatedProcessState); 
+    // No setProcessState here to avoid potential loops if called from effects
     saveProcessState(updatedProcessState); 
     return updatedProcessState;
   }, [processState, currentBuyerInfo, currentCompanyInfo]);
 
 
   const isPrintDisabled = useCallback(() => {
+    // Use a snapshot of current state for validation to avoid stale closures
     const stateForValidation: StoredProcessState = {
       ...processState, 
       buyerInfo: currentBuyerInfo, 
@@ -329,24 +331,7 @@ export default function RevisaoEnvioPage() {
       setIsPreparingPrint(false);
       return;
     }
-
-    const printPayload: PrintData = {
-      extractedData: finalProcessStateForPrint.extractedData,
-      buyerInfo: finalProcessStateForPrint.buyerInfo,
-      companyInfo: finalProcessStateForPrint.companyInfo,
-      buyerType: finalProcessStateForPrint.buyerType,
-      selectedPlayer: finalProcessStateForPrint.selectedPlayer,
-      internalTeamMemberInfo: finalProcessStateForPrint.internalTeamMemberInfo,
-      rgAntigoFrenteUrl: finalProcessStateForPrint.rgAntigoVerso?.previewUrl,
-      rgAntigoVersoUrl: finalProcessStateForPrint.rgAntigoVerso?.previewUrl,
-      cnhAntigaFrenteUrl: finalProcessStateForPrint.cnhAntigaFrente?.previewUrl,
-      cnhAntigaVersoUrl: finalProcessStateForPrint.cnhAntigaVerso?.previewUrl,
-      cartaoCnpjFileUrl: finalProcessStateForPrint.cartaoCnpjFile?.previewUrl,
-      docSocioFrenteUrl: finalProcessStateForPrint.docSocioFrente?.previewUrl,
-      docSocioVersoUrl: finalProcessStateForPrint.docSocioVerso?.previewUrl,
-      comprovanteEnderecoUrl: finalProcessStateForPrint.comprovanteEndereco?.previewUrl,
-    };
-    savePrintData(printPayload);
+    
     saveProcessState({ ...finalProcessStateForPrint, currentStep: "/print-contract" }); 
     toast({ title: "Etapa 4 Concluída!", description: "Informações salvas. Carregando contrato para impressão...", className: "bg-green-600 text-primary-foreground border-green-700"});
     router.push('/print-contract');
@@ -359,8 +344,9 @@ export default function RevisaoEnvioPage() {
   };
 
   useEffect(() => {
+    // Save state on unmount or when navigating away
     return () => {
-      if (!isNavigating && !isPreparingPrint) {
+      if (!isNavigating && !isPreparingPrint) { // Avoid double save if navigating via buttons
         const stateToSaveOnUnmount = {
           ...processState,
           buyerInfo: currentBuyerInfo,
@@ -457,7 +443,7 @@ export default function RevisaoEnvioPage() {
         </CardHeader>
         <CardContent className="space-y-3 p-6 pt-0">
           <div className="space-y-1">
-            <h3 className="flex items-center text-lg font-semibold text-primary/90"><ListChecks className="mr-2 h-5 w-5" />Origem do Contrato</h3>
+            <h3 className="flex items-center text-lg font-semibold text-primary/90"><ListChecks className="mr-2 h-5 w-5" />O Contrato que será assinado é:</h3>
             <p className="text-foreground/80">{processState.contractSourceType === 'new' ? 'Um Novo Modelo de Contrato (Foto)' : 'Contrato Validado pela ADM (Modelo)'}</p>
           </div>
           <hr className="border-border/30"/>

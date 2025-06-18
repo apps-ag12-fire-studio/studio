@@ -7,37 +7,43 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react'; 
-import { loadPrintData, type PrintData } from '@/lib/process-store';
-import { saveProcessState, loadProcessState } from '@/lib/process-store'; 
+import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon } from 'lucide-react';
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState } from '@/lib/process-store';
 
 export default function PrintContractPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [printData, setPrintData] = useState<PrintData | null>(null);
+  const [currentProcessState, setCurrentProcessState] = useState<StoredProcessState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const data = loadPrintData();
-    // Check if essential data for printing is present
-    if (data && data.extractedData && data.buyerInfo && data.internalTeamMemberInfo) {
-      setPrintData(data);
-    } else {
-      toast({
-        title: 'Erro ao Carregar Dados para Impressão',
-        description: 'Dados essenciais não encontrados. Verifique as etapas anteriores ou se o processo foi reiniciado. Redirecionando...',
-        variant: 'destructive',
-        duration: 7000,
-      });
-      // Redirect to a safe previous step, e.g., review page or initial data page
-      router.replace('/processo/revisao-envio'); 
-    }
-    setIsLoading(false);
+    const fetchData = async () => {
+      setIsLoading(true);
+      const data = await loadProcessState();
+      if (data && data.processId && data.extractedData && data.buyerInfo && data.internalTeamMemberInfo) {
+        setCurrentProcessState(data);
+      } else {
+        toast({
+          title: 'Erro ao Carregar Dados para Impressão',
+          description: 'Dados essenciais não encontrados. Verifique as etapas anteriores ou se o processo foi reiniciado. Redirecionando...',
+          variant: 'destructive',
+          duration: 7000,
+        });
+        router.replace('/processo/revisao-envio');
+      }
+      setIsLoading(false);
+    };
+    fetchData();
   }, [router, toast]);
 
-  const handleProceedToSignedUpload = () => {
-    const currentState = loadProcessState();
-    saveProcessState({ ...currentState, currentStep: "/processo/foto-contrato-assinado" });
+  const handleProceedToSignedUpload = async () => {
+    // Ensure we have the latest state before updating the step
+    const stateToUpdate = currentProcessState ? { ...currentProcessState } : await loadProcessState();
+    if (!stateToUpdate.processId) {
+        toast({ title: "Erro de Processo", description: "ID do processo não encontrado. Não é possível prosseguir.", variant: "destructive" });
+        return;
+    }
+    saveProcessState({ ...stateToUpdate, currentStep: "/processo/foto-contrato-assinado" });
     toast({
       title: "Impressão (Simulada) Concluída!",
       description: "Prossiga para anexar a foto do contrato assinado.",
@@ -47,10 +53,10 @@ export default function PrintContractPage() {
   };
 
   const renderDocumentImage = (url: string | null | undefined, label: string) => {
-    if (!url) return null; // If no URL, don't render anything
-    
-    // Check if the URL is a PDF by looking at the extension from the URL itself or common PDF data URI prefix
-    const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf');
+    if (!url) return null;
+
+    const isPdf = url.toLowerCase().includes('.pdf') || url.startsWith('data:application/pdf') || url.includes('application%2Fpdf');
+
 
     if (isPdf) {
       return (
@@ -61,7 +67,6 @@ export default function PrintContractPage() {
         </div>
       );
     }
-    // For images (assuming next/image can handle the URL, which now should be a Firebase downloadURL)
     return (
       <div className="mb-6 document-to-print" style={{ pageBreakInside: 'avoid' }}>
         <p className="font-semibold text-center text-muted-foreground mb-2 print:text-xs">{label}</p>
@@ -71,7 +76,6 @@ export default function PrintContractPage() {
       </div>
     );
   };
-
 
   if (isLoading) {
     return (
@@ -86,8 +90,7 @@ export default function PrintContractPage() {
     );
   }
 
-  if (!printData || !printData.extractedData || !printData.buyerInfo || !printData.internalTeamMemberInfo) { 
-    // This state should ideally be caught by the useEffect redirect, but as a fallback:
+  if (!currentProcessState || !currentProcessState.processId || !currentProcessState.extractedData || !currentProcessState.buyerInfo || !currentProcessState.internalTeamMemberInfo) {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
@@ -104,18 +107,17 @@ export default function PrintContractPage() {
       </div>
     );
   }
-  
-  const { extractedData, buyerInfo, companyInfo, buyerType, selectedPlayer, internalTeamMemberInfo } = printData;
 
-  const vendedorNome = selectedPlayer || 
-                       extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR")) || 
+  const { extractedData, buyerInfo, companyInfo, buyerType, selectedPlayer, internalTeamMemberInfo } = currentProcessState;
+
+  const vendedorNome = selectedPlayer ||
+                       extractedData?.nomesDasPartes?.find(nome => nome.toUpperCase().includes("VENDEDOR")) ||
                        "PABLO MARÇAL (ou empresa representante oficial)";
-  
+
   const vendedorDocumento = extractedData?.documentosDasPartes?.find((doc, index) => {
     const nomeParte = extractedData.nomesDasPartes?.[index]?.toUpperCase();
     return nomeParte?.includes("VENDEDOR") || (selectedPlayer && nomeParte?.includes(selectedPlayer.toUpperCase()));
   }) || "[CNPJ DA EMPRESA VENDEDORA]";
-
 
   const renderCompradorInfo = () => {
     if (buyerType === 'pj' && companyInfo && buyerInfo) {
@@ -141,7 +143,6 @@ export default function PrintContractPage() {
       </>
     );
   };
-
 
   return (
     <>
@@ -254,8 +255,7 @@ export default function PrintContractPage() {
               </div>
             </CardContent>
           </Card>
-          
-          {/* Documentos do Comprador */}
+
           <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
             <CardHeader className="border-b border-border/50 pb-4 p-6">
               <CardTitle className="text-xl sm:text-2xl font-headline text-primary text-center uppercase tracking-wider">
@@ -265,20 +265,20 @@ export default function PrintContractPage() {
             <CardContent className="p-6 sm:p-8 space-y-4">
               {buyerType === 'pf' && (
                 <>
-                  {renderDocumentImage(printData.rgAntigoFrenteUrl, 'RG (Antigo) - Frente')}
-                  {renderDocumentImage(printData.rgAntigoVersoUrl, 'RG (Antigo) - Verso')}
-                  {renderDocumentImage(printData.cnhAntigaFrenteUrl, 'CNH (Antiga) - Frente')}
-                  {renderDocumentImage(printData.cnhAntigaVersoUrl, 'CNH (Antiga) - Verso')}
+                  {renderDocumentImage(currentProcessState.rgAntigoFrente?.previewUrl, 'RG (Antigo) - Frente')}
+                  {renderDocumentImage(currentProcessState.rgAntigoVerso?.previewUrl, 'RG (Antigo) - Verso')}
+                  {renderDocumentImage(currentProcessState.cnhAntigaFrente?.previewUrl, 'CNH (Antiga) - Frente')}
+                  {renderDocumentImage(currentProcessState.cnhAntigaVerso?.previewUrl, 'CNH (Antiga) - Verso')}
                 </>
               )}
               {buyerType === 'pj' && (
                 <>
-                  {renderDocumentImage(printData.cartaoCnpjFileUrl, 'Cartão CNPJ')}
-                  {renderDocumentImage(printData.docSocioFrenteUrl, 'Documento do Sócio/Representante - Frente')}
-                  {renderDocumentImage(printData.docSocioVersoUrl, 'Documento do Sócio/Representante - Verso')}
+                  {renderDocumentImage(currentProcessState.cartaoCnpjFile?.previewUrl, 'Cartão CNPJ')}
+                  {renderDocumentImage(currentProcessState.docSocioFrente?.previewUrl, 'Documento do Sócio/Representante - Frente')}
+                  {renderDocumentImage(currentProcessState.docSocioVerso?.previewUrl, 'Documento do Sócio/Representante - Verso')}
                 </>
               )}
-              {renderDocumentImage(printData.comprovanteEnderecoUrl, buyerType === 'pf' ? 'Comprovante de Endereço Pessoal' : 'Comprovante de Endereço da Empresa')}
+              {renderDocumentImage(currentProcessState.comprovanteEndereco?.previewUrl, buyerType === 'pf' ? 'Comprovante de Endereço Pessoal' : 'Comprovante de Endereço da Empresa')}
             </CardContent>
           </Card>
 
