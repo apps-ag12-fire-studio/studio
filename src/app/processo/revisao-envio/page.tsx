@@ -28,7 +28,7 @@ const attemptToPreFillInfo = (
   currentCompany: CompanyInfo | null
 ): { buyerInfo: BuyerInfo, companyInfo: CompanyInfo | null } => {
 
-  let newBuyerInfo: BuyerInfo = { ...currentBuyer }; 
+  let newBuyerInfo: BuyerInfo = { ...currentBuyer };
   let newCompanyInfo: CompanyInfo | null = currentCompany ? { ...currentCompany } : (
     processState.buyerType === 'pj' ? { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } : null
   );
@@ -73,16 +73,13 @@ const attemptToPreFillInfo = (
     const docSocioData = getAnalysisDataFromDocKey('docSocioFrente');
 
     if (cartaoCnpjData) {
-      // For CNPJ card, nomeCompleto often refers to company name.
       if (cartaoCnpjData.nomeCompleto && !preFilledCompanyValues.razaoSocial) {
          preFilledCompanyValues.razaoSocial = cartaoCnpjData.nomeCompleto;
       }
-      // CPF field in document analysis might sometimes contain CNPJ if it's a CNPJ card.
       const potentialCnpjFromCpf = cartaoCnpjData.cpf?.replace(/\D/g,'');
       if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14  && !preFilledCompanyValues.cnpj) {
-        preFilledCompanyValues.cnpj = cartaoCnpjData.cpf!; // Use formatted if available
+        preFilledCompanyValues.cnpj = cartaoCnpjData.cpf!;
       } else {
-        // RG field is less likely but check as a last resort if schema asks for it.
         const potentialCnpjFromRg = cartaoCnpjData.rg?.replace(/\D/g,'');
         if (potentialCnpjFromRg && potentialCnpjFromRg.length === 14 && !preFilledCompanyValues.cnpj) {
             preFilledCompanyValues.cnpj = cartaoCnpjData.rg!;
@@ -90,7 +87,7 @@ const attemptToPreFillInfo = (
       }
     }
 
-    if (docSocioData) { // Representative's document
+    if (docSocioData) {
       if (docSocioData.nomeCompleto && !preFilledBuyerValues.nome) preFilledBuyerValues.nome = docSocioData.nomeCompleto;
       if (docSocioData.cpf && !preFilledBuyerValues.cpf) preFilledBuyerValues.cpf = docSocioData.cpf;
     }
@@ -102,32 +99,28 @@ const attemptToPreFillInfo = (
       const parteNomeCompleto = contractData.nomesDasPartes[i];
       const parteNomeUpper = parteNomeCompleto.toUpperCase();
 
-      // Try to identify buyer/client from contract
       if (parteNomeUpper.includes("COMPRADOR") || parteNomeUpper.includes("CLIENTE") || parteNomeUpper.includes("CONTRATANTE")) {
         if (!preFilledBuyerValues.nome) {
-          // Extract name before keywords like COMPRADOR, CPF, etc.
           let nomeExtraido = parteNomeCompleto.split(/,|\bCOMPRADOR\b|\bCLIENTE\b|\bCONTRATANTE\b|\bCPF\b|\bCNPJ\b/i)[0].trim();
-          nomeExtraido = nomeExtraido.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim(); // Remove titles
-          if (nomeExtraido && nomeExtraido.split(' ').length > 1) preFilledBuyerValues.nome = nomeExtraido; // Basic check for full name
+          nomeExtraido = nomeExtraido.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
+          if (nomeExtraido && nomeExtraido.split(' ').length > 1) preFilledBuyerValues.nome = nomeExtraido;
         }
         if (!preFilledBuyerValues.cpf && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
           const docFormatado = contractData.documentosDasPartes[i];
           const docNumeros = docFormatado.replace(/\D/g, '');
-          if (docNumeros.length === 11) preFilledBuyerValues.cpf = docFormatado; // Check if it's a CPF
+          if (docNumeros.length === 11) preFilledBuyerValues.cpf = docFormatado;
         }
       }
 
-      // Try to identify company info if PJ
       if (processState.buyerType === 'pj' && preFilledCompanyValues && newCompanyInfo) {
          if (!preFilledCompanyValues.razaoSocial && (parteNomeUpper.includes("EMPRESA") || parteNomeUpper.includes("LTDA") || parteNomeUpper.includes("S.A") || parteNomeUpper.includes("S/A") || parteNomeUpper.includes("MEI"))) {
-             // Extract company name before keywords or common suffixes
              let nomeEmpresaExtraido = parteNomeCompleto.split(/,|\bCNPJ\b|\bLTDA\b|\bS\.A\b|\bS\/A\b|\bMEI\b/i)[0].trim();
              if (nomeEmpresaExtraido && nomeEmpresaExtraido.split(' ').length > 1) preFilledCompanyValues.razaoSocial = nomeEmpresaExtraido;
          }
          if (!preFilledCompanyValues.cnpj && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
             const docFormatado = contractData.documentosDasPartes[i];
             const docNumeros = docFormatado.replace(/\D/g, '');
-            if (docNumeros.length === 14) preFilledCompanyValues.cnpj = docFormatado; // Check if it's a CNPJ
+            if (docNumeros.length === 14) preFilledCompanyValues.cnpj = docFormatado;
          }
       }
     }
@@ -144,7 +137,7 @@ const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolea
 };
 
 const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo'] | undefined): boolean => {
-  if (!data) return true; // True if data itself is undefined or null
+  if (!data) return true;
   return !data.nome || !data.cpf || !data.telefone || !data.email;
 };
 
@@ -186,7 +179,7 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
     if (!state.comprovanteEndereco?.previewUrl) {
       missingFields.push("Comprovante de endereço pessoal não anexado - Etapa 3: Documentos.");
     }
-  } else { // PJ
+  } else {
     if (!state.companyInfo?.razaoSocial) {
       missingFields.push("Razão Social da empresa não informada - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
     }
@@ -234,46 +227,45 @@ export default function RevisaoEnvioPage() {
   useEffect(() => {
     const loadInitialData = async () => {
       setIsStateLoading(true);
+      console.log('[RevisaoEnvioPage] Starting loadInitialData...');
       let loadedState = await loadProcessState();
       console.log('[RevisaoEnvioPage] Initial loadedState from loadProcessState:', JSON.parse(JSON.stringify(loadedState)));
-
 
       const initialBuyer = loadedState.buyerInfo ? { ...loadedState.buyerInfo } : { ...initialStoredProcessState.buyerInfo };
       const initialCompany = loadedState.buyerType === 'pj'
         ? (loadedState.companyInfo ? { ...loadedState.companyInfo } : { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) })
         : null;
 
-      const { buyerInfo: preFilledBuyer, companyInfo: preFilledCompany } = attemptToPreFillInfo(
-        loadedState,
-        initialBuyer,
-        initialCompany
-      );
-      
-      console.log('[RevisaoEnvioPage] Pre-filled Buyer Info:', JSON.parse(JSON.stringify(preFilledBuyer)));
-      console.log('[RevisaoEnvioPage] Pre-filled Company Info:', JSON.parse(JSON.stringify(preFilledCompany)));
+      let finalProcessState = { ...loadedState };
 
-      setCurrentBuyerInfo(preFilledBuyer);
-      setCurrentCompanyInfo(preFilledCompany);
-      
-      // Update processState with pre-filled info if it changed from what was initially loaded
-      const buyerChanged = JSON.stringify(loadedState.buyerInfo) !== JSON.stringify(preFilledBuyer);
-      const companyChanged = loadedState.buyerType === 'pj' && JSON.stringify(loadedState.companyInfo) !== JSON.stringify(preFilledCompany);
+      if (Object.values(initialBuyer).some(val => val === '') || (finalProcessState.buyerType === 'pj' && initialCompany && Object.values(initialCompany).some(val => val === ''))) {
+          const { buyerInfo: preFilledBuyer, companyInfo: preFilledCompany } = attemptToPreFillInfo(
+            loadedState,
+            initialBuyer,
+            initialCompany
+          );
+          console.log('[RevisaoEnvioPage] Pre-filled Buyer Info:', JSON.parse(JSON.stringify(preFilledBuyer)));
+          console.log('[RevisaoEnvioPage] Pre-filled Company Info:', JSON.parse(JSON.stringify(preFilledCompany)));
 
-      if (buyerChanged || companyChanged) {
-        loadedState = {
-          ...loadedState,
-          buyerInfo: preFilledBuyer,
-          companyInfo: preFilledCompany,
-        };
-        console.log('[RevisaoEnvioPage] processState updated with pre-filled info:', JSON.parse(JSON.stringify(loadedState)));
-         // No saveProcessState here, it will be handled by blur/unmount or navigation
+          setCurrentBuyerInfo(preFilledBuyer);
+          setCurrentCompanyInfo(preFilledCompany);
+
+          finalProcessState = {
+            ...loadedState,
+            buyerInfo: preFilledBuyer,
+            companyInfo: preFilledCompany,
+          };
+      } else {
+          setCurrentBuyerInfo(initialBuyer);
+          setCurrentCompanyInfo(initialCompany);
       }
       
-      setProcessState(loadedState); 
+      setProcessState(finalProcessState);
+      console.log('[RevisaoEnvioPage] Final processState after potential pre-fill:', JSON.parse(JSON.stringify(finalProcessState)));
       setIsStateLoading(false);
     };
     loadInitialData();
-  }, []); 
+  }, []);
 
 
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
@@ -282,7 +274,7 @@ export default function RevisaoEnvioPage() {
       const newInfo = { ...prev, [field]: value };
       setProcessState(currentMainState => ({
         ...currentMainState,
-        buyerInfo: newInfo 
+        buyerInfo: newInfo
       }));
       return newInfo;
     });
@@ -295,23 +287,12 @@ export default function RevisaoEnvioPage() {
         const newInfo = prev ? { ...prev, [field]: value } : { razaoSocial: '', nomeFantasia: '', cnpj: '', [field]: value };
         setProcessState(currentMainState => ({
           ...currentMainState,
-          companyInfo: newInfo 
+          companyInfo: newInfo
         }));
         return newInfo;
       });
     }
   };
-  
-  const updateGlobalStateBeforeAction = useCallback(() => {
-    const updatedProcessState: StoredProcessState = {
-      ...processState,
-      buyerInfo: currentBuyerInfo,
-      companyInfo: currentCompanyInfo, // currentCompanyInfo can be null for 'pf'
-    };
-    saveProcessState(updatedProcessState); // Save the potentially modified state
-    return updatedProcessState;
-  }, [processState, currentBuyerInfo, currentCompanyInfo]);
-
 
   const isPrintDisabled = useCallback(() => {
     // Temporarily removed for debugging, restore later
@@ -321,7 +302,7 @@ export default function RevisaoEnvioPage() {
     //   companyInfo: currentCompanyInfo,
     // };
     // return getMissingFieldsList(stateForValidation).length > 0;
-    return false; 
+    return false;
   }, [processState, currentBuyerInfo, currentCompanyInfo]);
 
   const showPendingChecks = () => {
@@ -359,48 +340,35 @@ export default function RevisaoEnvioPage() {
 
   const handlePrepareForPrint = () => {
     setIsPreparingPrint(true);
-    const finalProcessStateForPrint = updateGlobalStateBeforeAction(); 
-
-    // Re-enable this check after debugging the data flow
-    // const missingFields = getMissingFieldsList(finalProcessStateForPrint);
-    // if (missingFields.length > 0) {
-    //   showPendingChecks();
-    //   setIsPreparingPrint(false);
-    //   return;
-    // }
-    // saveProcessState is already called in updateGlobalStateBeforeAction
-    saveProcessState({ ...finalProcessStateForPrint, currentStep: "/print-contract" });
+    const stateToSave = { ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo, currentStep: "/print-contract" };
+    console.log('[RevisaoEnvioPage] State being saved before navigating to print:', JSON.parse(JSON.stringify(stateToSave)));
+    saveProcessState(stateToSave);
     toast({ title: "Etapa 4 Concluída!", description: "Informações salvas. Carregando contrato para impressão...", className: "bg-green-600 text-primary-foreground border-green-700"});
     router.push('/print-contract');
   };
 
   const handleBack = () => {
     setIsNavigating(true);
-    updateGlobalStateBeforeAction(); 
+    const stateToSave = { ...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo };
+    saveProcessState(stateToSave);
     router.push("/processo/documentos");
   };
 
-  // Save state on component unmount or critical state changes
   useEffect(() => {
-    const currentStateToSave: StoredProcessState = { 
-      ...processState,
-      buyerInfo: currentBuyerInfo,
-      companyInfo: currentCompanyInfo,
+    const saveCurrentEdits = () => {
+        if (!isNavigating && !isPreparingPrint && !isStateLoading) {
+            const currentStateToSave: StoredProcessState = {
+                ...processState,
+                buyerInfo: currentBuyerInfo,
+                companyInfo: currentCompanyInfo,
+            };
+            saveProcessState(currentStateToSave);
+        }
     };
-    // Avoid saving if only navigating or preparing print, as it's handled by their functions
-    if (!isNavigating && !isPreparingPrint && !isStateLoading) {
-        saveProcessState(currentStateToSave);
-    }
-    // Cleanup function to save on unmount if not triggered by navigation buttons
+    // Save on blur of text inputs could be complex, so let's rely on unmount and navigation
+    // This effect will save the latest currentBuyerInfo and currentCompanyInfo into processState on unmount
     return () => {
-      if (!isNavigating && !isPreparingPrint) {
-        const latestStateToSaveOnUnmount: StoredProcessState = { 
-            ...processState, // Use the version of processState captured by this effect instance
-            buyerInfo: currentBuyerInfo, // Use current buyerInfo captured by this effect instance
-            companyInfo: currentCompanyInfo, // Use current companyInfo captured by this effect instance
-        };
-        saveProcessState(latestStateToSaveOnUnmount);
-      }
+      saveCurrentEdits();
     };
   }, [processState, currentBuyerInfo, currentCompanyInfo, isNavigating, isPreparingPrint, isStateLoading]);
 
@@ -615,3 +583,5 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
+
+    

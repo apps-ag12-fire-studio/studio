@@ -20,18 +20,18 @@ export default function PrintContractPage() {
     const fetchData = async () => {
       setIsLoading(true);
       const data = await loadProcessState();
-      console.log('[PrintContractPage] Loaded processState:', JSON.parse(JSON.stringify(data)));
+      console.log('[PrintContractPage] Loaded processState by loadProcessState():', data ? JSON.parse(JSON.stringify(data)) : null);
 
       if (data && data.processId && data.extractedData && data.buyerInfo && data.internalTeamMemberInfo) {
         setCurrentProcessState(data);
       } else {
         toast({
           title: 'Erro ao Carregar Dados para Impressão',
-          description: 'Dados essenciais não encontrados (processId, extractedData, buyerInfo, ou internalTeamMemberInfo). Verifique as etapas anteriores ou se o processo foi reiniciado. Redirecionando...',
+          description: `Dados essenciais não encontrados (processId: ${data?.processId}, extractedData: ${!!data?.extractedData}, buyerInfo: ${!!data?.buyerInfo}, internalTeamMemberInfo: ${!!data?.internalTeamMemberInfo}). Verifique as etapas anteriores ou se o processo foi reiniciado.`,
           variant: 'destructive',
-          duration: 7000,
+          duration: 10000,
         });
-        // router.replace('/processo/revisao-envio'); // Temporarily commented out to see logs
+        // router.replace('/processo/revisao-envio'); // Temporarily commented for debugging
       }
       setIsLoading(false);
     };
@@ -39,7 +39,6 @@ export default function PrintContractPage() {
   }, [router, toast]);
 
   const handleProceedToSignedUpload = async () => {
-    // Ensure we have the latest state before updating the step
     const stateToUpdate = currentProcessState ? { ...currentProcessState } : await loadProcessState();
     if (!stateToUpdate.processId) {
         toast({ title: "Erro de Processo", description: "ID do processo não encontrado. Não é possível prosseguir.", variant: "destructive" });
@@ -93,14 +92,13 @@ export default function PrintContractPage() {
   }
 
   if (!currentProcessState || !currentProcessState.processId || !currentProcessState.extractedData || !currentProcessState.buyerInfo || !currentProcessState.internalTeamMemberInfo) {
-    // This block will now likely be hit if the toast was shown, due to router.replace being commented out
-     console.error('[PrintContractPage] Critical data missing for printing:', {
+     console.error('[PrintContractPage] Critical data missing for printing. Current state at render:', {
         hasProcessState: !!currentProcessState,
         processId: currentProcessState?.processId,
         hasExtractedData: !!currentProcessState?.extractedData,
         hasBuyerInfo: !!currentProcessState?.buyerInfo,
         hasInternalTeamMemberInfo: !!currentProcessState?.internalTeamMemberInfo,
-        fullState: currentProcessState
+        fullStateForDebugging: currentProcessState // Log the entire problematic state
     });
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
@@ -311,3 +309,5 @@ export default function PrintContractPage() {
     </>
   );
 }
+
+    
