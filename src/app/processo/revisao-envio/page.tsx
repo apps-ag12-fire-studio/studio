@@ -8,17 +8,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  StoredProcessState, 
-  loadProcessState, 
-  saveProcessState, 
-  initialStoredProcessState, 
-  savePrintData, 
+import {
+  StoredProcessState,
+  loadProcessState,
+  saveProcessState,
+  initialStoredProcessState,
+  savePrintData,
   BuyerInfo,
   CompanyInfo,
   DocumentFile,
   BuyerType,
-  PrintData 
+  PrintData
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
@@ -28,9 +28,9 @@ import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, Paperclip,
 const attemptToPreFillInfo = (
   processState: StoredProcessState
 ): { buyerInfo: BuyerInfo, companyInfo: CompanyInfo | null } => {
-  let newBuyerInfo: BuyerInfo = { ...(initialStoredProcessState.buyerInfo) }; // Start fresh for prefill
-  let newCompanyInfo: CompanyInfo | null = processState.buyerType === 'pj' 
-    ? { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } 
+  let newBuyerInfo: BuyerInfo = { ...(initialStoredProcessState.buyerInfo) };
+  let newCompanyInfo: CompanyInfo | null = processState.buyerType === 'pj'
+    ? { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) }
     : null;
 
   const getAnalysisDataFromDocKey = (docKey: keyof StoredProcessState): ExtractBuyerDocumentDataOutput | null => {
@@ -40,36 +40,36 @@ const attemptToPreFillInfo = (
     }
     return null;
   };
-  
+
   if (processState.buyerType === 'pf') {
     const rgAntigoFrenteData = getAnalysisDataFromDocKey('rgAntigoFrente');
     const cnhAntigaFrenteData = getAnalysisDataFromDocKey('cnhAntigaFrente');
-    const docData = rgAntigoFrenteData || cnhAntigaFrenteData; 
+    const docData = rgAntigoFrenteData || cnhAntigaFrenteData;
 
     if (docData) {
-      if (docData.nomeCompleto) newBuyerInfo.nome = docData.nomeCompleto;
-      if (docData.cpf) newBuyerInfo.cpf = docData.cpf;
+      if (docData.nomeCompleto && newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome) newBuyerInfo.nome = docData.nomeCompleto;
+      if (docData.cpf && newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf) newBuyerInfo.cpf = docData.cpf;
     }
-  } 
+  }
   else if (processState.buyerType === 'pj' && newCompanyInfo) {
-    const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile'); 
+    const cartaoCnpjData = getAnalysisDataFromDocKey('cartaoCnpjFile');
     const docSocioData = getAnalysisDataFromDocKey('docSocioFrente');
 
     if (cartaoCnpjData) {
-      if (cartaoCnpjData.nomeCompleto) newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto; 
+      if (cartaoCnpjData.nomeCompleto && newCompanyInfo.razaoSocial === (initialStoredProcessState.companyInfo?.razaoSocial || '')) newCompanyInfo.razaoSocial = cartaoCnpjData.nomeCompleto;
       const potentialCnpjFromRg = cartaoCnpjData.rg?.replace(/\D/g,'');
       const potentialCnpjFromCpf = cartaoCnpjData.cpf?.replace(/\D/g,'');
 
-      if (potentialCnpjFromRg && potentialCnpjFromRg.length === 14) {
-        newCompanyInfo.cnpj = cartaoCnpjData.rg!; 
-      } else if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14) {
-         newCompanyInfo.cnpj = cartaoCnpjData.cpf!; 
+      if (potentialCnpjFromRg && potentialCnpjFromRg.length === 14 && newCompanyInfo.cnpj === (initialStoredProcessState.companyInfo?.cnpj || '')) {
+        newCompanyInfo.cnpj = cartaoCnpjData.rg!;
+      } else if (potentialCnpjFromCpf && potentialCnpjFromCpf.length === 14 && newCompanyInfo.cnpj === (initialStoredProcessState.companyInfo?.cnpj || '')) {
+         newCompanyInfo.cnpj = cartaoCnpjData.cpf!;
       }
     }
 
     if (docSocioData) {
-      if (docSocioData.nomeCompleto) newBuyerInfo.nome = docSocioData.nomeCompleto;
-      if (docSocioData.cpf) newBuyerInfo.cpf = docSocioData.cpf;
+      if (docSocioData.nomeCompleto && newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome) newBuyerInfo.nome = docSocioData.nomeCompleto;
+      if (docSocioData.cpf && newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf) newBuyerInfo.cpf = docSocioData.cpf;
     }
   }
 
@@ -78,29 +78,29 @@ const attemptToPreFillInfo = (
     for (let i = 0; i < contractData.nomesDasPartes.length; i++) {
       const parteNomeCompleto = contractData.nomesDasPartes[i];
       const parteNomeUpper = parteNomeCompleto.toUpperCase();
-      
+
       if (parteNomeUpper.includes("COMPRADOR") || parteNomeUpper.includes("CLIENTE") || parteNomeUpper.includes("CONTRATANTE")) {
-        if (newBuyerInfo.nome === '') {
+        if (newBuyerInfo.nome === initialStoredProcessState.buyerInfo.nome) {
           let nomeExtraido = parteNomeCompleto.split(/,|\bCOMPRADOR\b|\bCLIENTE\b|\bCONTRATANTE\b/i)[0].trim();
-          nomeExtraido = nomeExtraido.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim(); 
+          nomeExtraido = nomeExtraido.replace(/\b(SR\.?|SRA\.?|DR\.?|DRA\.?)\b/gi, '').trim();
           if (nomeExtraido) newBuyerInfo.nome = nomeExtraido;
         }
-        if (newBuyerInfo.cpf === '' && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
+        if (newBuyerInfo.cpf === initialStoredProcessState.buyerInfo.cpf && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
           const docFormatado = contractData.documentosDasPartes[i];
           const docNumeros = docFormatado.replace(/\D/g, '');
-          if (docNumeros.length === 11) newBuyerInfo.cpf = docFormatado; 
+          if (docNumeros.length === 11) newBuyerInfo.cpf = docFormatado;
         }
       }
-      
+
       if (processState.buyerType === 'pj' && newCompanyInfo) {
-         if (newCompanyInfo.razaoSocial === '' && (parteNomeUpper.includes("EMPRESA") || parteNomeUpper.includes("LTDA") || parteNomeUpper.includes("S.A") || parteNomeUpper.includes("S/A"))) {
+         if (newCompanyInfo.razaoSocial === (initialStoredProcessState.companyInfo?.razaoSocial || '') && (parteNomeUpper.includes("EMPRESA") || parteNomeUpper.includes("LTDA") || parteNomeUpper.includes("S.A") || parteNomeUpper.includes("S/A"))) {
              let nomeEmpresaExtraido = parteNomeCompleto.split(/,|\bCNPJ\b/i)[0].trim();
              if (nomeEmpresaExtraido) newCompanyInfo.razaoSocial = nomeEmpresaExtraido;
          }
-         if (newCompanyInfo.cnpj === '' && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
+         if (newCompanyInfo.cnpj === (initialStoredProcessState.companyInfo?.cnpj || '') && contractData.documentosDasPartes && contractData.documentosDasPartes[i]) {
             const docFormatado = contractData.documentosDasPartes[i];
             const docNumeros = docFormatado.replace(/\D/g, '');
-            if (docNumeros.length === 14) newCompanyInfo.cnpj = docFormatado; 
+            if (docNumeros.length === 14) newCompanyInfo.cnpj = docFormatado;
          }
       }
     }
@@ -137,12 +137,12 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
   if (state.contractSourceType === 'new') {
     if (!state.contractPhotoPreview) missingFields.push("Foto do contrato original não carregada - Etapa 2: Foto do Contrato.");
     else if (!state.photoVerified) missingFields.push("Foto do contrato original não verificada pela IA - Etapa 2: Foto do Contrato.");
-    
+
     if (state.photoVerified && (!state.extractedData || isExtractedDataEmpty(state.extractedData))) {
       missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação - Etapa 2: Foto do Contrato.");
     }
   }
-  
+
   if (state.buyerType === 'pf') {
     const hasRgAntigo = state.rgAntigoFrente?.previewUrl && state.rgAntigoVerso?.previewUrl;
     const hasCnhAntiga = state.cnhAntigaFrente?.previewUrl && state.cnhAntigaVerso?.previewUrl;
@@ -152,10 +152,10 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
     if (!state.comprovanteEndereco?.previewUrl) {
       missingFields.push("Comprovante de endereço pessoal não anexado - Etapa 3: Documentos.");
     }
-  } else { 
+  } else {
     if (!state.companyInfo?.razaoSocial) missingFields.push("Razão Social da empresa não informada - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
     if (!state.companyInfo?.cnpj) missingFields.push("CNPJ da empresa não informado - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
-    
+
     if (!state.cartaoCnpjFile?.previewUrl) missingFields.push("Cartão CNPJ não anexado - Etapa 3: Documentos.");
     if (!(state.docSocioFrente?.previewUrl && state.docSocioVerso?.previewUrl)) {
       missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado - Etapa 3: Documentos.");
@@ -181,18 +181,19 @@ export default function RevisaoEnvioPage() {
   const [currentBuyerInfo, setCurrentBuyerInfo] = useState<BuyerInfo>(initialStoredProcessState.buyerInfo);
   const [currentCompanyInfo, setCurrentCompanyInfo] = useState<CompanyInfo | null>(initialStoredProcessState.companyInfo);
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
-  
+
   useEffect(() => {
     const loadedState = loadProcessState();
+    console.log("Loaded processState in RevisaoEnvioPage:", JSON.stringify(loadedState, null, 2)); // View the loaded state
     setProcessState(loadedState);
 
     const { buyerInfo: preFilledBuyerInfoFromAI, companyInfo: preFilledCompanyInfoFromAI } = attemptToPreFillInfo(loadedState);
-    
+
     setCurrentBuyerInfo({
       nome: loadedState.buyerInfo.nome || preFilledBuyerInfoFromAI.nome || '',
       cpf: loadedState.buyerInfo.cpf || preFilledBuyerInfoFromAI.cpf || '',
-      telefone: loadedState.buyerInfo.telefone || '', 
-      email: loadedState.buyerInfo.email || '',     
+      telefone: loadedState.buyerInfo.telefone || '',
+      email: loadedState.buyerInfo.email || '',
     });
 
     if (loadedState.buyerType === 'pj') {
@@ -204,7 +205,7 @@ export default function RevisaoEnvioPage() {
     } else {
       setCurrentCompanyInfo(null);
     }
-  }, []); 
+  }, []);
 
   useEffect(() => {
     if (processState === initialStoredProcessState) return;
@@ -212,17 +213,17 @@ export default function RevisaoEnvioPage() {
     const { buyerInfo: preFilledBuyerInfoFromAI, companyInfo: preFilledCompanyInfoFromAI } = attemptToPreFillInfo(processState);
 
     setCurrentBuyerInfo(prev => ({
-      nome: prev.nome === '' ? (preFilledBuyerInfoFromAI.nome || '') : prev.nome,
-      cpf: prev.cpf === '' ? (preFilledBuyerInfoFromAI.cpf || '') : prev.cpf,
-      telefone: prev.telefone, 
-      email: prev.email, 
+      nome: prev.nome === '' && prev.nome !== initialStoredProcessState.buyerInfo.nome ? prev.nome : (preFilledBuyerInfoFromAI.nome || prev.nome || ''),
+      cpf: prev.cpf === '' && prev.cpf !== initialStoredProcessState.buyerInfo.cpf ? prev.cpf : (preFilledBuyerInfoFromAI.cpf || prev.cpf || ''),
+      telefone: prev.telefone,
+      email: prev.email,
     }));
 
     if (processState.buyerType === 'pj') {
       setCurrentCompanyInfo(prev => ({
-        razaoSocial: prev?.razaoSocial === '' ? (preFilledCompanyInfoFromAI?.razaoSocial || '') : (prev?.razaoSocial || ''),
-        nomeFantasia: prev?.nomeFantasia === '' ? (preFilledCompanyInfoFromAI?.nomeFantasia || '') : (prev?.nomeFantasia || ''),
-        cnpj: prev?.cnpj === '' ? (preFilledCompanyInfoFromAI?.cnpj || '') : (prev?.cnpj || ''),
+        razaoSocial: prev?.razaoSocial === '' && prev?.razaoSocial !== (initialStoredProcessState.companyInfo?.razaoSocial || '') ? (prev?.razaoSocial || '') : (preFilledCompanyInfoFromAI?.razaoSocial || prev?.razaoSocial || ''),
+        nomeFantasia: prev?.nomeFantasia === '' && prev?.nomeFantasia !== (initialStoredProcessState.companyInfo?.nomeFantasia || '') ? (prev?.nomeFantasia || '') : (preFilledCompanyInfoFromAI?.nomeFantasia || prev?.nomeFantasia || ''),
+        cnpj: prev?.cnpj === '' && prev?.cnpj !== (initialStoredProcessState.companyInfo?.cnpj || '') ? (prev?.cnpj || '') : (preFilledCompanyInfoFromAI?.cnpj || prev?.cnpj || ''),
       }));
     } else if (processState.buyerType === 'pf') {
        setCurrentCompanyInfo(null);
@@ -237,9 +238,9 @@ export default function RevisaoEnvioPage() {
     processState.docSocioVerso?.analysisResult,
     processState.extractedData,
     processState.buyerType,
-    processState, 
+    // processState, // Avoid full object dependency if it causes loops with setProcessState
   ]);
-  
+
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const updatedBuyerInfo = { ...currentBuyerInfo, [field]: e.target.value };
     setCurrentBuyerInfo(updatedBuyerInfo);
@@ -255,17 +256,19 @@ export default function RevisaoEnvioPage() {
   };
 
   useEffect(() => {
+    // Save on unmount or when critical pieces change for safety,
+    // though primary save should be on explicit navigation.
     return () => {
-      saveProcessState(processState);
+      saveProcessState({...processState, buyerInfo: currentBuyerInfo, companyInfo: currentCompanyInfo});
     };
-  }, [processState]);
+  }, [processState, currentBuyerInfo, currentCompanyInfo]);
 
 
-  const isPrintDisabled = useCallback(() => { 
-    const currentStateForValidation: StoredProcessState = { 
-      ...processState, 
-      buyerInfo: currentBuyerInfo, 
-      companyInfo: currentCompanyInfo 
+  const isPrintDisabled = useCallback(() => {
+    const currentStateForValidation: StoredProcessState = {
+      ...processState,
+      buyerInfo: currentBuyerInfo,
+      companyInfo: currentCompanyInfo
     };
     return getMissingFieldsList(currentStateForValidation).length > 0;
   }, [processState, currentBuyerInfo, currentCompanyInfo]);
@@ -292,7 +295,7 @@ export default function RevisaoEnvioPage() {
           </div>
         ),
         variant: "destructive",
-        duration: 20000, 
+        duration: 20000,
       });
     } else {
       toast({
@@ -307,10 +310,10 @@ export default function RevisaoEnvioPage() {
 
   const handlePrepareForPrint = () => {
     setIsPreparingPrint(true);
-    const finalProcessStateForPrint: StoredProcessState = { 
-      ...processState, 
-      buyerInfo: currentBuyerInfo, 
-      companyInfo: currentCompanyInfo 
+    const finalProcessStateForPrint: StoredProcessState = {
+      ...processState,
+      buyerInfo: currentBuyerInfo,
+      companyInfo: currentCompanyInfo
     };
 
     const missingFields = getMissingFieldsList(finalProcessStateForPrint);
@@ -334,9 +337,9 @@ export default function RevisaoEnvioPage() {
       setIsPreparingPrint(false);
       return;
     }
-    
-    const printPayload: PrintData = { 
-      extractedData: finalProcessStateForPrint.extractedData, 
+
+    const printPayload: PrintData = {
+      extractedData: finalProcessStateForPrint.extractedData,
       buyerInfo: finalProcessStateForPrint.buyerInfo,
       companyInfo: finalProcessStateForPrint.companyInfo,
       buyerType: finalProcessStateForPrint.buyerType,
@@ -352,7 +355,7 @@ export default function RevisaoEnvioPage() {
       comprovanteEnderecoUrl: finalProcessStateForPrint.comprovanteEndereco?.previewUrl,
     };
     savePrintData(printPayload);
-    saveProcessState({ ...finalProcessStateForPrint, currentStep: "/print-contract" }); 
+    saveProcessState({ ...finalProcessStateForPrint, currentStep: "/print-contract" });
     toast({
       title: "Etapa 4 Concluída!",
       description: "Informações salvas. Carregando contrato para impressão...",
@@ -407,7 +410,7 @@ export default function RevisaoEnvioPage() {
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm mt-8">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-2xl font-headline text-primary">
-            <UserRound className="mr-3 h-7 w-7" /> 
+            <UserRound className="mr-3 h-7 w-7" />
             {processState.buyerType === 'pf' ? "Informações do Comprador" : "Informações do Representante Legal"}
           </CardTitle>
           <CardDescription className="text-foreground/70 pt-1">
@@ -459,7 +462,7 @@ export default function RevisaoEnvioPage() {
               <hr className="border-border/30"/>
             </>
           )}
-          
+
           {processState.buyerType === 'pj' && currentCompanyInfo && (
             <>
               <div className="space-y-1">
@@ -480,7 +483,7 @@ export default function RevisaoEnvioPage() {
             <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
           </div>
           <hr className="border-border/30"/>
-            
+
           {!isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo) && (
             <>
               <div className="space-y-1">
@@ -500,14 +503,14 @@ export default function RevisaoEnvioPage() {
                 <h3 className="flex items-center text-lg font-semibold text-primary/90"><Camera className="mr-2 h-5 w-5" />Foto do Contrato Original</h3>
                 <p className="text-foreground/80"><strong>Arquivo:</strong> {processState.contractPhotoName}</p>
                 <p className={`text-sm ${processState.photoVerified ? 'text-green-400' : 'text-red-400'}`}>
-                  {processState.photoVerified ? 'Foto Verificada com Sucesso' : 
+                  {processState.photoVerified ? 'Foto Verificada com Sucesso' :
                     (processState.photoVerificationResult?.reason ? `Falha na Verificação: ${processState.photoVerificationResult.reason}` : 'Foto Não Verificada ou Com Falhas')}
                 </p>
               </div>
               <hr className="border-border/30"/>
             </>
           )}
-           
+
           {processState.extractedData && !isExtractedDataEmpty(processState.extractedData) && (
             <div className="space-y-1">
               <h3 className="flex items-center text-lg font-semibold text-primary/90"><FileText className="mr-2 h-5 w-5" />Dados do Contrato {processState.contractSourceType === 'existing' ? `(Modelo de ${processState.selectedPlayer || 'Player não definido'})` : '(Extraídos da Foto)'}</h3>
@@ -518,28 +521,28 @@ export default function RevisaoEnvioPage() {
             </div>
           )}
            <hr className="border-border/30"/>
-          
+
         </CardContent>
       </Card>
-      
+
       <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
          <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary"><Printer className="mr-3 h-7 w-7" />Preparar para Impressão</CardTitle>
             <CardDescription className="text-foreground/70 pt-1">Gere o contrato para impressão física, assinatura e posterior anexo da foto do documento assinado.</CardDescription>
         </CardHeader>
         <CardFooter className="p-6 flex flex-col sm:flex-row gap-4">
-            <Button 
-                type="button" 
-                variant="outline" 
-                onClick={showPendingChecks} 
+            <Button
+                type="button"
+                variant="outline"
+                onClick={showPendingChecks}
                 className="w-full sm:w-auto border-blue-500/70 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
             >
                 <Info className="mr-2 h-5 w-5" /> Verificar Pendências
             </Button>
-            <Button 
-                type="button" 
-                onClick={handlePrepareForPrint} 
-                className="w-full sm:flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted" 
+            <Button
+                type="button"
+                onClick={handlePrepareForPrint}
+                className="w-full sm:flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted"
                 disabled={isPreparingPrint || isPrintDisabled()}
             >
                 {isPreparingPrint ? (
@@ -557,8 +560,8 @@ export default function RevisaoEnvioPage() {
       </Card>
 
       <div className="flex justify-start mt-8">
-        <Button 
-          onClick={handleBack} 
+        <Button
+          onClick={handleBack}
           variant="outline"
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
           disabled={isPreparingPrint}
