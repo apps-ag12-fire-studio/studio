@@ -114,12 +114,14 @@ function getActiveProcessId(): string | null {
 
 export function setActiveProcessId(id: string) {
   if (typeof window !== 'undefined') {
+    console.log(`[ProcessStore] Setting active process ID: ${id}`);
     localStorage.setItem(ACTIVE_PROCESS_ID_KEY, id);
   }
 }
 
 function clearActiveProcessId() {
   if (typeof window !== 'undefined') {
+    console.log("[ProcessStore] Clearing active process ID.");
     localStorage.removeItem(ACTIVE_PROCESS_ID_KEY);
   }
 }
@@ -132,7 +134,7 @@ function cleanUndefinedValues<T extends object>(obj: T | null | undefined): T | 
   for (const key in cleaned) {
     if (cleaned[key] === undefined) {
       (cleaned as any)[key] = null;
-    } else if (typeof cleaned[key] === 'object' && !(cleaned[key] instanceof Timestamp)) {
+    } else if (typeof cleaned[key] === 'object' && cleaned[key] !== null && !(cleaned[key] instanceof Timestamp) && !(cleaned[key] instanceof Date)) { // Added Date check
       (cleaned as any)[key] = cleanUndefinedValues(cleaned[key] as object | null);
     }
   }
@@ -141,7 +143,6 @@ function cleanUndefinedValues<T extends object>(obj: T | null | undefined): T | 
 
 function ensureAllKeysPresent(state: Partial<StoredProcessState>): StoredProcessState {
     const completeState = { ...initialStoredProcessState, ...state };
-    // Ensure nested objects are also fully initialized if they exist partially
     completeState.buyerInfo = { ...initialStoredProcessState.buyerInfo, ...(state.buyerInfo || {}) };
     completeState.internalTeamMemberInfo = { ...initialStoredProcessState.internalTeamMemberInfo, ...(state.internalTeamMemberInfo || {}) };
     if (completeState.buyerType === 'pj') {
@@ -149,25 +150,36 @@ function ensureAllKeysPresent(state: Partial<StoredProcessState>): StoredProcess
     } else {
         completeState.companyInfo = null;
     }
+    // Ensure all DocumentFile fields are at least null if not present
+    const docKeys: (keyof StoredProcessState)[] = [
+        "rgAntigoFrente", "rgAntigoVerso", "cnhAntigaFrente", "cnhAntigaVerso",
+        "cartaoCnpjFile", "docSocioFrente", "docSocioVerso", "comprovanteEndereco"
+    ];
+    docKeys.forEach(key => {
+        if (!(key in completeState) || completeState[key] === undefined) {
+            (completeState as any)[key] = null;
+        }
+    });
     return completeState;
 }
 
 
 async function storeStateInFirestore(state: StoredProcessState) {
   if (!state.processId) {
-    console.warn("[FirestoreStore] Attempted to save state to Firestore without a processId.");
+    console.warn("[ProcessStore Firestore SAVE] Attempted to save state to Firestore without a processId. Skipping.");
     return;
   }
   try {
     const docRef = doc(db, "inProgressContracts", state.processId);
     const stateToStore = cleanUndefinedValues({ ...state, lastUpdated: Timestamp.now() });
     if (!stateToStore) {
-        console.error("[FirestoreStore] Cleaned state became null, aborting Firestore save.");
+        console.error("[ProcessStore Firestore SAVE] Cleaned state became null, aborting Firestore save for processId:", state.processId);
         return;
     }
     await setDoc(docRef, stateToStore, { merge: true });
+    console.log(`[ProcessStore Firestore SAVE] Process state saved to Firestore: ${state.processId}`, stateToStore);
   } catch (error) {
-    console.error("[FirestoreStore] Error saving state to Firestore:", error);
+    console.error("[ProcessStore Firestore SAVE] Error saving state to Firestore for processId:", state.processId, error);
     toast({
       title: "Erro ao Salvar Progresso na Nuvem",
       description: "Seu progresso local foi salvo, mas não pudemos sincronizar com a nuvem. Verifique sua conexão.",
@@ -178,19 +190,23 @@ async function storeStateInFirestore(state: StoredProcessState) {
 }
 
 async function loadStateFromFirestore(processId: string): Promise<Partial<StoredProcessState> | null> {
-  console.log(`[FirestoreLoad] Attempting to load state from Firestore for processId: ${processId}`);
+  console.log(`[ProcessStore Firestore LOAD] Attempting to load state from Firestore for processId: ${processId}`);
+  if (!processId) {
+    console.warn("[ProcessStore Firestore LOAD] No processId provided. Skipping Firestore load.");
+    return null;
+  }
   try {
     const docRef = doc(db, "inProgressContracts", processId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const firestoreData = docSnap.data() as StoredProcessState;
-      console.log("[FirestoreLoad] Raw Firestore data:", JSON.parse(JSON.stringify(firestoreData)));
+      console.log("[ProcessStore Firestore LOAD] Raw Firestore data for processId:", processId, JSON.parse(JSON.stringify(firestoreData)));
       return cleanUndefinedValues(firestoreData);
     }
-    console.log("[FirestoreLoad] No process state found in Firestore for:", processId);
+    console.log("[ProcessStore Firestore LOAD] No process state found in Firestore for processId:", processId);
     return null;
   } catch (error) {
-    console.error("[FirestoreLoad] Error loading state from Firestore:", error);
+    console.error("[ProcessStore Firestore LOAD] Error loading state from Firestore for processId:", processId, error);
     toast({
       title: "Erro ao Carregar Progresso da Nuvem",
       description: "Não foi possível carregar seu progresso da nuvem. Tentaremos usar dados locais, se disponíveis.",
@@ -202,11 +218,11 @@ async function loadStateFromFirestore(processId: string): Promise<Partial<Stored
 }
 
 export function saveProcessState(state: StoredProcessState | undefined | null) {
-  console.log("[LSSave] Attempting to save process state. Input state:", state ? JSON.parse(JSON.stringify(state)) : state);
+  console.log("[ProcessStore SAVE] Attempting to save process state. Input state:", state ? JSON.parse(JSON.stringify(state)) : state);
   if (typeof window === 'undefined') return;
 
   if (state === undefined || state === null) {
-    console.error("[LSSave] Attempted to save undefined or null state. Aborting save.");
+    console.error("[ProcessStore SAVE] Attempted to save undefined or null state. Aborting save.");
     toast({
       title: "Erro Interno ao Salvar",
       description: "Tentativa de salvar um estado inválido. Por favor, recarregue a página.",
@@ -217,34 +233,44 @@ export function saveProcessState(state: StoredProcessState | undefined | null) {
   }
 
   try {
-    let stateToSave = { ...state };
-    const activeId = getActiveProcessId();
+    let stateToSave: StoredProcessState = { ...state }; // Make a mutable copy
+    const activeIdFromStorage = getActiveProcessId();
+    console.log(`[ProcessStore SAVE] Current activeId from localStorage: ${activeIdFromStorage}. State's processId: ${stateToSave.processId}`);
 
-    if (activeId && stateToSave.processId !== activeId) {
-      console.warn(`[LSSave] State processId (${stateToSave.processId}) differs from activeId (${activeId}). Aligning to activeId.`);
-      stateToSave.processId = activeId;
+    if (activeIdFromStorage && stateToSave.processId !== activeIdFromStorage) {
+      console.warn(`[ProcessStore SAVE] State's processId (${stateToSave.processId}) differs from active localStorage ID (${activeIdFromStorage}). ALIGNING state's processId to active localStorage ID.`);
+      stateToSave.processId = activeIdFromStorage;
     }
-    if (!stateToSave.processId && activeId) {
-      console.log(`[LSSave] State has no processId, but activeId (${activeId}) exists. Assigning activeId.`);
-      stateToSave.processId = activeId;
+    if (!stateToSave.processId && activeIdFromStorage) {
+      console.log(`[ProcessStore SAVE] State has no processId, but active localStorage ID (${activeIdFromStorage}) exists. Assigning activeId to state.`);
+      stateToSave.processId = activeIdFromStorage;
     }
     
-    const cleanedStateForStorage = cleanUndefinedValues(ensureAllKeysPresent(stateToSave));
+    const cleanedStateForStorage = cleanUndefinedValues(ensureAllKeysPresent(stateToSave as Partial<StoredProcessState>)) as StoredProcessState | null;
+    
     if (!cleanedStateForStorage) {
-        console.error("[LSSave] Cleaned state for localStorage became null. Aborting save.");
+        console.error("[ProcessStore SAVE] Cleaned state for localStorage became null. Aborting save.");
         return;
     }
     
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(cleanedStateForStorage));
-    console.log("[LSSave] Process state saved to localStorage:", JSON.parse(JSON.stringify(cleanedStateForStorage)));
+    console.log("[ProcessStore SAVE] Process state saved to localStorage:", JSON.parse(JSON.stringify(cleanedStateForStorage)));
 
     if (cleanedStateForStorage.processId) {
+      // Ensure ACTIVE_PROCESS_ID_KEY is in sync with the processId being saved
+      if (cleanedStateForStorage.processId !== activeIdFromStorage) {
+        setActiveProcessId(cleanedStateForStorage.processId);
+      }
       storeStateInFirestore(cleanedStateForStorage);
     } else {
-      console.warn("[LSSave] No processId in cleaned state, skipping Firestore save.");
+      console.warn("[ProcessStore SAVE] Saving state to localStorage, but it has a null processId. Firestore sync will be skipped.", cleanedStateForStorage);
+      // If we are saving a state with a null processId, and there was an activeId, we should clear the activeId
+      if (activeIdFromStorage) {
+        clearActiveProcessId();
+      }
     }
   } catch (error: any) {
-    console.error("[LSSave] Error saving process state:", error);
+    console.error("[ProcessStore SAVE] Error saving process state:", error);
     let description = "Não foi possível salvar os dados atuais localmente.";
     if (error.name === 'QuotaExceededError' || (error.message && error.message.toLowerCase().includes('quota'))) {
       description = "O armazenamento local está cheio. Algumas informações podem não ter sido salvas localmente.";
@@ -259,102 +285,108 @@ export function saveProcessState(state: StoredProcessState | undefined | null) {
 }
 
 export async function loadProcessState(): Promise<StoredProcessState> {
-  console.log("[LSLoad] Attempting to load process state...");
+  console.log("[ProcessStore LOAD] Attempting to load process state...");
   if (typeof window === 'undefined') {
-    console.log("[LSLoad] Window not defined, returning initial state.");
+    console.log("[ProcessStore LOAD] Window not defined, returning initial state.");
     return ensureAllKeysPresent(initialStoredProcessState);
   }
 
   let mergedState: Partial<StoredProcessState> = {};
   const activeId = getActiveProcessId();
-  let sourceOfTruthLog = `ActiveID: ${activeId}. `;
+  let sourceOfTruthLog = `ActiveID from getActiveProcessId(): ${activeId}. `;
 
-  console.log(`[LSLoad] Active processId from ACTIVE_PROCESS_ID_KEY: ${activeId}`);
+  console.log(`[ProcessStore LOAD] Active processId from ACTIVE_PROCESS_ID_KEY: ${activeId}`);
 
   let firestoreData: Partial<StoredProcessState> | null = null;
   if (activeId) {
     firestoreData = await loadStateFromFirestore(activeId);
     if (firestoreData) {
-      sourceOfTruthLog += `Firestore (for ${activeId}) provided data. `;
+      sourceOfTruthLog += `Firestore (for activeId: ${activeId}) provided data. Merging. `;
       mergedState = { ...mergedState, ...firestoreData };
     } else {
-      sourceOfTruthLog += `Firestore (for ${activeId}) provided NO data. `;
+      sourceOfTruthLog += `Firestore (for activeId: ${activeId}) provided NO data. `;
     }
   } else {
-    sourceOfTruthLog += `No activeId. `;
+    sourceOfTruthLog += `No activeId from storage. Firestore load skipped. `;
   }
-  console.log(`[LSLoad] State after Firestore check:`, JSON.parse(JSON.stringify(mergedState)));
+  console.log(`[ProcessStore LOAD] State after Firestore check:`, mergedState ? JSON.parse(JSON.stringify(mergedState)) : mergedState);
 
 
   let localStorageRaw: string | null = null;
   try {
     localStorageRaw = localStorage.getItem(PROCESS_STATE_KEY);
-    console.log(`[LSLoad] Raw state from localStorage (PROCESS_STATE_KEY):`, localStorageRaw);
+    console.log(`[ProcessStore LOAD] Raw state from localStorage (PROCESS_STATE_KEY):`, localStorageRaw);
   } catch (error) {
-    console.error("[LSLoad] Error reading from localStorage:", error);
+    console.error("[ProcessStore LOAD] Error reading from localStorage:", error);
+    sourceOfTruthLog += `Error reading LS. `;
   }
 
   if (localStorageRaw && localStorageRaw !== "undefined" && localStorageRaw !== "null") {
     try {
       const localStorageParsed = JSON.parse(localStorageRaw) as Partial<StoredProcessState>;
-      console.log("[LSLoad] Parsed localStorage data:", JSON.parse(JSON.stringify(localStorageParsed)));
+      console.log("[ProcessStore LOAD] Parsed localStorage data:", localStorageParsed ? JSON.parse(JSON.stringify(localStorageParsed)) : localStorageParsed);
 
       if (activeId && localStorageParsed.processId === activeId) {
-        // LocalStorage data is for the current active process. Merge it on top of Firestore data.
-        sourceOfTruthLog += `LocalStorage (for ${activeId}) provided data, merging. `;
-        mergedState = { ...mergedState, ...localStorageParsed };
+        sourceOfTruthLog += `LocalStorage (for activeId: ${activeId}) matches. Merging over Firestore data. `;
+        mergedState = { ...mergedState, ...localStorageParsed }; // LS data for the active process takes precedence
       } else if (!activeId && localStorageParsed.processId) {
-        // No active session, but localStorage has a process. Resume it.
-        sourceOfTruthLog += `No activeId, but LocalStorage has process ${localStorageParsed.processId}. Resuming. `;
+        sourceOfTruthLog += `No activeId, but LocalStorage has process ${localStorageParsed.processId}. Resuming this LS process. `;
         mergedState = { ...localStorageParsed }; // Take LS as base
         setActiveProcessId(localStorageParsed.processId); // Make it active
       } else if (activeId && localStorageParsed.processId && localStorageParsed.processId !== activeId) {
-        sourceOfTruthLog += `LocalStorage has data for ${localStorageParsed.processId}, but active is ${activeId}. Ignoring LS. `;
-        // Stick with Firestore data for activeId or empty if Firestore had nothing for activeId
+        sourceOfTruthLog += `LocalStorage has data for ${localStorageParsed.processId}, but active is ${activeId}. LS data ignored for this load. `;
       } else if (!localStorageParsed.processId && activeId) {
-        sourceOfTruthLog += `LocalStorage data has no processId. Sticking with Firestore for ${activeId} or empty. `;
+        sourceOfTruthLog += `LocalStorage data has no processId, but activeId ${activeId} exists. LS data ignored. `;
+      } else if (!localStorageParsed.processId && !activeId) {
+        sourceOfTruthLog += `Neither LS nor activeId have a processId. LS data (empty processId) merged. `;
+        mergedState = { ...mergedState, ...localStorageParsed };
       } else {
-         sourceOfTruthLog += `LocalStorage data condition not met for merging or resuming. `;
+         sourceOfTruthLog += `LocalStorage data condition not met for merging or resuming explicitly. Merged (potentially empty) LS data. `;
+         mergedState = { ...mergedState, ...localStorageParsed };
       }
     } catch (error) {
-      console.error("[LSLoad] Error parsing localStorage state JSON:", error, "Raw string was:", localStorageRaw);
-      localStorage.removeItem(PROCESS_STATE_KEY);
+      console.error("[ProcessStore LOAD] Error parsing localStorage state JSON:", error, "Raw string was:", localStorageRaw);
+      localStorage.removeItem(PROCESS_STATE_KEY); // Remove corrupted data
       sourceOfTruthLog += `Corrupted LocalStorage, removed. `;
     }
   } else {
-    sourceOfTruthLog += `No valid LocalStorage data found. `;
+    sourceOfTruthLog += `No valid LocalStorage data found (raw: ${localStorageRaw}). `;
     if (localStorageRaw === "undefined" || localStorageRaw === "null") {
-        localStorage.removeItem(PROCESS_STATE_KEY);
+        localStorage.removeItem(PROCESS_STATE_KEY); // Clean up invalid string values
     }
   }
-  console.log(`[LSLoad] State after LocalStorage check:`, JSON.parse(JSON.stringify(mergedState)));
+  console.log(`[ProcessStore LOAD] State after LocalStorage merge:`, mergedState ? JSON.parse(JSON.stringify(mergedState)) : mergedState);
 
+  let finalState = ensureAllKeysPresent(cleanUndefinedValues(mergedState as StoredProcessState | null) || {});
 
-  let finalState = ensureAllKeysPresent(mergedState);
-  if (activeId && finalState.processId !== activeId) {
-    console.warn(`[LSLoad] Final state's processId ${finalState.processId} does not match activeId ${activeId}. Forcing to activeId.`);
-    finalState.processId = activeId;
+  // Re-check activeId against finalState.processId
+  const currentActiveId = getActiveProcessId(); // Get it again in case it was set by LS resume
+  if (finalState.processId && currentActiveId && finalState.processId !== currentActiveId) {
+    console.warn(`[ProcessStore LOAD] Discrepancy: finalState.processId (${finalState.processId}) vs currentActiveId (${currentActiveId}). Prioritizing currentActiveId from storage.`);
+    finalState.processId = currentActiveId; // Prioritize the one from storage if a conflict arises after merging
+    finalState = ensureAllKeysPresent(cleanUndefinedValues(finalState as StoredProcessState | null) || {}); // Re-ensure with the forced ID
+  } else if (!finalState.processId && currentActiveId) {
+     console.warn(`[ProcessStore LOAD] finalState had no processId, but currentActiveId (${currentActiveId}) exists. Restoring activeId to finalState.`);
+    finalState.processId = currentActiveId;
+    finalState = ensureAllKeysPresent(cleanUndefinedValues(finalState as StoredProcessState | null) || {}); // Re-ensure
   }
 
 
   if (finalState.processId) {
-    // Ensure the currently active processId is what's in the state before saving
-    if (!getActiveProcessId()) {
+    if (getActiveProcessId() !== finalState.processId) { // If active ID key is stale or missing, update it
         setActiveProcessId(finalState.processId);
-    } else if (getActiveProcessId() !== finalState.processId) {
-        // This case should ideally not happen if logic is correct, but as a safeguard:
-        console.warn(`[LSLoad] Mismatch: active_id is ${getActiveProcessId()}, finalState.processId is ${finalState.processId}. Prioritizing active_id.`);
-        finalState.processId = getActiveProcessId();
     }
+    // Save the cleaned, merged state back to localStorage to ensure consistency for next load
     localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(finalState));
   } else {
-     console.log(`[LSLoad] No processId in finalState after all checks. Clearing localStorage and activeId.`);
-     localStorage.removeItem(PROCESS_STATE_KEY);
-     clearActiveProcessId();
+     console.warn(`[ProcessStore LOAD] No processId in finalState after all checks. Active process ID will be cleared.`);
+     localStorage.removeItem(PROCESS_STATE_KEY); // Clear state if no processId
+     clearActiveProcessId(); // Clear active ID if no process can be identified
+     finalState = ensureAllKeysPresent({}); // Return a truly initial state
   }
   
-  console.log(`[LSLoad] Source of Truth determination: ${sourceOfTruthLog}`);
-  console.log("[LSLoad] Final loaded state being returned:", JSON.parse(JSON.stringify(finalState)));
+  console.log(`[ProcessStore LOAD] Source of Truth log: ${sourceOfTruthLog}`);
+  console.log("[ProcessStore LOAD] Final loaded state being returned:", finalState ? JSON.parse(JSON.stringify(finalState)) : finalState);
   return finalState;
 }
 
@@ -363,9 +395,9 @@ export function clearProcessState() {
   try {
     localStorage.removeItem(PROCESS_STATE_KEY);
     clearActiveProcessId();
-    console.log("[ClearState] Local process state and activeProcessId cleared.");
+    console.log("[ProcessStore ClearState] Local process state and activeProcessId cleared.");
   } catch (error) {
-    console.error("[ClearState] Error clearing process state from localStorage:", error);
+    console.error("[ProcessStore ClearState] Error clearing process state from localStorage:", error);
   }
 }
 
@@ -423,5 +455,3 @@ export function loadPrintData(): PrintData | null {
   }
   return null;
 }
-
-    

@@ -12,6 +12,57 @@ import { StoredProcessState, loadProcessState, saveProcessState, initialStoredPr
 
 const printGlobalStyles = `
   @media print {
+    body {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+    }
+    .print-hidden {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    .printable-area {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+      min-height: 100% !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0.5in !important;
+      background-color: white !important;
+      color: black !important;
+      box-shadow: none !important;
+      border: none !important;
+      font-size: 11pt !important; /* Added !important */
+    }
+    .printable-area * {
+      visibility: visible !important;
+      color: black !important;
+      background-color: transparent !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
+    .printable-area .contract-text-content {
+      font-size: 10pt !important;
+      line-height: 1.4 !important;
+    }
+    .printable-area h1, .printable-area h2, .printable-area h3, .printable-area h4, .printable-area h5, .printable-area h6 {
+      color: black !important;
+    }
+    .printable-area .text-primary {
+       color: black !important;
+    }
+     .printable-area .text-muted-foreground {
+       color: #444 !important;
+     }
+    html, body {
+      height: auto !important;
+      overflow: visible !important;
+      background: white !important;
+    }
     .document-to-print {
       page-break-before: always !important;
     }
@@ -32,31 +83,38 @@ export default function PrintContractPage() {
       setIsLoading(true);
       console.log("[PrintContractPage] Attempting to load process state...");
       const data = await loadProcessState();
-      console.log('[PrintContractPage] Loaded processState by loadProcessState():', data ? JSON.parse(JSON.stringify(data)) : 'data_is_null_or_undefined');
-      
-      if (data) {
-        console.log('[PrintContractPage] Value of data.extractedData:', data.extractedData ? JSON.parse(JSON.stringify(data.extractedData)) : data.extractedData);
-        console.log('[PrintContractPage] Value of data.buyerInfo:', data.buyerInfo ? JSON.parse(JSON.stringify(data.buyerInfo)) : data.buyerInfo);
-        console.log('[PrintContractPage] Value of data.internalTeamMemberInfo:', data.internalTeamMemberInfo ? JSON.parse(JSON.stringify(data.internalTeamMemberInfo)) : data.internalTeamMemberInfo);
-        console.log('[PrintContractPage] Value of data.processId:', data.processId);
+      // Use JSON.stringify for robust logging of the potentially complex 'data' object
+      console.log('[PrintContractPage] Loaded processState by loadProcessState():', data ? JSON.parse(JSON.stringify(data)) : data);
+
+      if (!data || !data.processId) { // Check for processId first
+        console.error('[PrintContractPage] CRITICAL: processId is missing from loaded state. Redirecting.', data ? JSON.parse(JSON.stringify(data)) : data);
+        toast({
+          title: 'Erro de Sessão',
+          description: 'Não foi possível encontrar os dados do processo atual. Por favor, inicie novamente.',
+          variant: 'destructive',
+          duration: 7000,
+        });
+        router.replace('/processo/dados-iniciais'); // Redirect if no processId
+        setIsLoading(false);
+        return;
       }
 
-      const isExtractedDataMissing = !data || !data.extractedData || (typeof data.extractedData === 'object' && Object.keys(data.extractedData).length === 0 && !(data.extractedData instanceof Array && data.extractedData.length > 0) );
-      const isBuyerInfoMissing = !data || !data.buyerInfo || Object.values(data.buyerInfo).every(val => val === '' || val === null || val === undefined);
-      const isInternalTeamMemberInfoMissing = !data || !data.internalTeamMemberInfo || Object.values(data.internalTeamMemberInfo).every(val => val === '' || val === null || val === undefined);
+      // Now check other critical fields only if processId is present
+      const isExtractedDataMissing = !data.extractedData || (typeof data.extractedData === 'object' && Object.keys(data.extractedData).length === 0 && !(data.extractedData instanceof Array && data.extractedData.length > 0) );
+      const isBuyerInfoMissing = !data.buyerInfo || Object.values(data.buyerInfo).every(val => val === '' || val === null || val === undefined);
+      const isInternalTeamMemberInfoMissing = !data.internalTeamMemberInfo || Object.values(data.internalTeamMemberInfo).every(val => val === '' || val === null || val === undefined);
 
-      if (data && data.processId && !isExtractedDataMissing && !isBuyerInfoMissing && !isInternalTeamMemberInfoMissing) {
+      if (!isExtractedDataMissing && !isBuyerInfoMissing && !isInternalTeamMemberInfoMissing) {
         setCurrentProcessState(data);
       } else {
         let missingPartsDescription = [];
-        if (!data || !data.processId) missingPartsDescription.push("ID do Processo (processId)");
         if (isExtractedDataMissing) missingPartsDescription.push("Dados Extraídos do Contrato (extractedData)");
         if (isBuyerInfoMissing) missingPartsDescription.push("Informações do Comprador (buyerInfo)");
         if (isInternalTeamMemberInfoMissing) missingPartsDescription.push("Informações do Responsável Interno (internalTeamMemberInfo)");
         
-        const description = `Dados essenciais não encontrados. Detalhes: ${missingPartsDescription.length > 0 ? missingPartsDescription.join('; ') + '.' : 'Verifique os dados.'} (Debug: processId: ${data?.processId || 'N/A'}, extractedData: ${isExtractedDataMissing ? 'faltando' : 'presente'}, buyerInfo: ${isBuyerInfoMissing ? 'faltando' : 'presente'}, internalTeamMemberInfo: ${isInternalTeamMemberInfoMissing ? 'faltando' : 'presente'}). Verifique as etapas anteriores ou se o processo foi reiniciado.`;
+        const description = `Dados essenciais para impressão não encontrados: ${missingPartsDescription.join('; ')}. Verifique as etapas anteriores ou se o processo foi reiniciado.`;
         
-        console.error('[PrintContractPage] Toasting error due to missing data. Description:', description, 'Full data object:', data ? JSON.parse(JSON.stringify(data)) : 'data_is_null_or_undefined');
+        console.error('[PrintContractPage] Essential data for printing (other than processId) missing. Description:', description, 'Full data object:', data ? JSON.parse(JSON.stringify(data)) : 'data_is_null_or_undefined');
 
         toast({
           title: 'Erro ao Carregar Dados para Impressão',
@@ -64,7 +122,8 @@ export default function PrintContractPage() {
           variant: 'destructive',
           duration: 10000,
         });
-        // router.replace('/processo/revisao-envio'); // Manter comentado para depuração
+        // Consider redirecting to revisao-envio if processId is present but other data is missing
+        // router.replace('/processo/revisao-envio');
       }
       setIsLoading(false);
     };
@@ -72,8 +131,8 @@ export default function PrintContractPage() {
   }, [router, toast]);
 
   const handleProceedToSignedUpload = async () => {
-    const stateToUpdate = currentProcessState ? { ...currentProcessState } : await loadProcessState();
-    if (!stateToUpdate.processId) {
+    const stateToUpdate = currentProcessState ? { ...currentProcessState } : await loadProcessState(); // Fallback, though currentProcessState should be set
+    if (!stateToUpdate || !stateToUpdate.processId) { // Added null check for stateToUpdate
         toast({ title: "Erro de Processo", description: "ID do processo não encontrado. Não é possível prosseguir.", variant: "destructive" });
         return;
     }
@@ -124,6 +183,9 @@ export default function PrintContractPage() {
     );
   }
 
+  // This block is reached if isLoading is false.
+  // If currentProcessState is null at this point (e.g., due to redirect logic in useEffect),
+  // this condition will catch it.
   if (!currentProcessState || !currentProcessState.processId || !currentProcessState.extractedData || !currentProcessState.buyerInfo || !currentProcessState.internalTeamMemberInfo) {
      console.error('[PrintContractPage] Critical data missing for printing. Current state at render:', {
         hasProcessState: !!currentProcessState,
@@ -133,14 +195,16 @@ export default function PrintContractPage() {
         hasInternalTeamMemberInfo: !!currentProcessState?.internalTeamMemberInfo && Object.values(currentProcessState.internalTeamMemberInfo).some(v => !!v),
         fullStateForDebugging: currentProcessState ? JSON.parse(JSON.stringify(currentProcessState)) : null
     });
+    // The redirect in useEffect should handle cases where processId is missing.
+    // This UI is a fallback if other data (extractedData, buyerInfo, etc.) is missing *despite* having a processId.
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
           <CardHeader className="items-center p-8">
-            <CardTitle className="text-2xl text-destructive font-headline">Erro Crítico de Carregamento</CardTitle>
+            <CardTitle className="text-2xl text-destructive font-headline">Erro ao Carregar Dados</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-6">Não foi possível carregar os dados completos do contrato para impressão. Verifique as etapas anteriores ou reinicie o processo. Verifique o console para mais detalhes.</p>
+            <p className="text-muted-foreground mb-6">Não foi possível carregar todos os dados do contrato para impressão. Verifique as etapas anteriores ou reinicie o processo. Detalhes podem estar no console.</p>
             <Button onClick={() => router.push('/processo/dados-iniciais')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
               <ArrowLeft className="mr-2 h-5 w-5" /> Voltar ao Início
             </Button>
@@ -333,5 +397,3 @@ export default function PrintContractPage() {
     </>
   );
 }
-
-    
