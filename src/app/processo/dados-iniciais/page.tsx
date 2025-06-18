@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo } from "@/lib/process-store";
-import { ArrowRight, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon, Loader2, Briefcase } from "lucide-react"; // Added Briefcase
+import { ArrowRight, FileSearch, FileText as FileTextIcon, ChevronRight, UserCog, Users as PlayersIcon, Loader2, Briefcase, CheckCircle2 } from "lucide-react";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 
 const players = [
@@ -197,7 +197,12 @@ export default function DadosIniciaisPage() {
     setProcessState(updatedState); 
 
     toast({
-      title: "Etapa 1 Concluída!",
+      title: (
+        <div className="flex items-center">
+          <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
+          Etapa 1 Concluída!
+        </div>
+      ),
       description: "Dados iniciais validados e salvos. Carregando próxima etapa...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });

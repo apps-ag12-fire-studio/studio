@@ -211,7 +211,16 @@ export default function FotoContratoPage() {
     const newState = { ...processState, currentStep: "/processo/documentos" };
     await saveProcessState(newState);
     setProcessState(newState); // Update local state after save
-    toast({ title: "Etapa 2 Concluída!", description: "Contrato processado. Carregando próxima etapa...", className: "bg-green-600 text-primary-foreground border-green-700" });
+    toast({ 
+      title: (
+        <div className="flex items-center">
+          <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
+          Etapa 2 Concluída!
+        </div>
+      ), 
+      description: "Contrato processado. Carregando próxima etapa...", 
+      className: "bg-green-600 text-primary-foreground border-green-700" 
+    });
     router.push("/processo/documentos");
   };
 

@@ -24,7 +24,7 @@ import {
   addUploadedFileToFirestore // Import new function
 } from "@/lib/process-store";
 import { extractBuyerDocumentData, type ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2, Building, UserCircle, FileBadge, FileBadge2, CheckCircle2 } from "lucide-react";
 import { storage } from "@/lib/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
@@ -305,7 +305,16 @@ export default function DocumentosPage() {
     const newState = { ...processState, currentStep: "/processo/revisao-envio" };
     await saveProcessState(newState);
     setProcessState(newState); // Update local state after save
-    toast({ title: "Etapa 3 Concluída!", description: "Documentos e informações salvos.", className: "bg-green-600 text-primary-foreground border-green-700" });
+    toast({ 
+      title: (
+        <div className="flex items-center">
+          <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
+          Etapa 3 Concluída!
+        </div>
+      ), 
+      description: "Documentos e informações salvos.", 
+      className: "bg-green-600 text-primary-foreground border-green-700" 
+    });
     router.push("/processo/revisao-envio");
   };
 
