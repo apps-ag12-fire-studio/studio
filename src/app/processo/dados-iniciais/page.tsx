@@ -58,7 +58,7 @@ const contractTemplates: ContractTemplate[] = [
       prazoContrato: "[XX] dias/semanas/meses, iniciando-se em [DATA INICIAL]",
       localEDataAssinatura: "[Local], [Data]",
       foroEleito: "[CIDADE/UF]",
-      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: O presente contrato tem por objeto a prestação dos seguintes serviços: [DESCREVER O SERVIÇO]. Cláusula 4 – Obrigações das Partes: O Contratado deverá entregar os serviços descritos com qualidade e pontualidade. O Contratante deverá efetuar os pagamentos nos prazos combinados. Cláusula 5 – Rescisão: Este contrato poderá ser rescindido por qualquer das partes mediante aviso prévio de [X] dias."
+      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: O presente contrato tem por objeto a prestação dos seguintes serviços: [DESCREVER O SERVIÇO]. Cláusula 4 – Obrigações das Partes: O Contratado deverá entregar os serviços descritos com qualidade e pontualidade. O Contratante deverá efectuar os pagamentos nos prazos combinados. Cláusula 5 – Rescisão: Este contrato poderá ser rescindido por qualquer das partes mediante aviso prévio de [X] dias."
     })
   },
   {
@@ -133,7 +133,6 @@ export default function DadosIniciaisPage() {
       selectedContractTemplateName: value === 'existing' ? processState.selectedContractTemplateName : null,
     };
     setProcessState(newState);
-    // No need to call saveProcessState here if it's called on handleNext or blur/unmount
   };
 
   const handlePlayerSelect = (playerName: string) => {
@@ -165,7 +164,7 @@ export default function DadosIniciaisPage() {
       selectedContractTemplateName: template.displayName,
     };
     setProcessState(newState);
-    saveProcessState(newState); // Save after significant action
+    saveProcessState(newState); 
     toast({ 
       title: "Modelo Carregado com Sucesso!", 
       description: `O modelo "${template.displayName}" para ${processState.selectedPlayer} foi carregado.`, 
@@ -192,15 +191,15 @@ export default function DadosIniciaisPage() {
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateStep()) return;
     setIsLoading(true);
 
     const nextPath = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/documentos";
     const updatedState = { ...processState, currentStep: nextPath };
     
-    saveProcessState(updatedState); // Save state before navigating
-    setProcessState(updatedState); // Update local state if saveProcessState doesn't do it synchronously for UI
+    await saveProcessState(updatedState); 
+    setProcessState(updatedState); 
 
     toast({
       title: "Etapa 1 Concluída!",
@@ -210,12 +209,16 @@ export default function DadosIniciaisPage() {
     router.push(nextPath);
   };
 
-  // Save state on component unmount or input blur for critical fields
   useEffect(() => {
+    const currentProcessState = processState; // Capture current state for cleanup
     return () => {
-      saveProcessState(processState);
+      // Only save if not navigating away intentionally by "handleNext" or "handlePlayerSelect", etc.
+      // This is a simplified check; more robust handling might be needed if there are other ways to unmount.
+      if (!isLoading) { 
+         saveProcessState(currentProcessState);
+      }
     };
-  }, [processState]);
+  }, [processState, isLoading]);
 
 
   if (isStateLoading) {
