@@ -19,7 +19,7 @@ import {
     DocumentFile,
     addUploadedFileToFirestore 
 } from "@/lib/process-store";
-import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud, CheckCircle2 } from "lucide-react"; // Added CheckCircle2
+import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud, CheckCircle2 } from "lucide-react";
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore'; 
 import { firebaseApp, storage as firebaseStorage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
@@ -207,6 +207,18 @@ export default function FotoContratoAssinadoPage() {
       };
 
       const docRef = await addDoc(collection(db, "submittedContracts"), submissionData);
+
+      const confirmationDetails = {
+        processId: finalStateForSubmission.processId,
+        buyerName: finalStateForSubmission.buyerInfo?.nome,
+        internalName: finalStateForSubmission.internalTeamMemberInfo?.nome,
+        playerName: finalStateForSubmission.selectedPlayer,
+        contractObjectName: finalStateForSubmission.extractedData?.objetoDoContrato,
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('contratoFacilConfirmationDetails', JSON.stringify(confirmationDetails));
+      }
+
 
       console.log("\n--- [FotoContratoAssinado] SIMULANDO ENVIO DE EMAIL FINAL ---");
       const recipients = ['financeiro@empresa.com', 'juridico@empresa.com'];
