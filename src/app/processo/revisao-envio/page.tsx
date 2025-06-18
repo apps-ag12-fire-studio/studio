@@ -19,7 +19,8 @@ import {
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info } from "lucide-react";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info, Edit3 } from "lucide-react";
+import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog";
 
 
 const attemptToPreFillInfo = (
@@ -119,16 +120,22 @@ const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolea
 
 const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo'] | undefined): boolean => {
   if (!data) return true;
-  return !data.nome || !data.cpf || !data.telefone || !data.email;
+  // Cargo is optional for "empty" check if we want the section to show
+  return !data.nome && !data.cpf && !data.telefone && !data.email;
 };
 
 
 const getMissingFieldsList = (state: StoredProcessState): string[] => {
   const missingFields: string[] = [];
 
-  if (isInternalTeamMemberInfoEmpty(state.internalTeamMemberInfo)) {
-    missingFields.push("Informações do Responsável Interno (Nome, CPF, Telefone, E-mail) - Etapa 1: Dados Iniciais.");
+  if (isInternalTeamMemberInfoEmpty(state.internalTeamMemberInfo)) { // Check for essential fields
+    if (!state.internalTeamMemberInfo?.nome) missingFields.push("Nome do Responsável Interno - Etapa 1.");
+    if (!state.internalTeamMemberInfo?.cpf) missingFields.push("CPF do Responsável Interno - Etapa 1.");
+    if (!state.internalTeamMemberInfo?.telefone) missingFields.push("Telefone do Responsável Interno - Etapa 1.");
+    if (!state.internalTeamMemberInfo?.email) missingFields.push("E-mail do Responsável Interno - Etapa 1.");
+    // Cargo is optional, not a blocker for printing
   }
+
 
   if (state.contractSourceType === 'existing') {
     if (!state.selectedPlayer) {
@@ -162,10 +169,10 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
     }
   } else { // PJ
     if (!state.companyInfo?.razaoSocial) {
-      missingFields.push("Razão Social da empresa não informada - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
+      missingFields.push("Razão Social da empresa não informada - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
     }
     if (!state.companyInfo?.cnpj) {
-      missingFields.push("CNPJ da empresa não informado - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
+      missingFields.push("CNPJ da empresa não informado - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
     }
 
     if (!state.cartaoCnpjFile?.previewUrl) {
@@ -180,16 +187,16 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
   }
 
   if (!state.buyerInfo?.nome) {
-    missingFields.push("Nome do comprador/representante não informado - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
+    missingFields.push("Nome do comprador/representante não informado - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
   }
   if (!state.buyerInfo?.cpf) {
-    missingFields.push("CPF do comprador/representante não informado - Etapa 3 (Documentos) ou preencha aqui (Etapa 4).");
+    missingFields.push("CPF do comprador/representante não informado - Etapa 3 (Documentos) ou preencha/edite aqui (Etapa 4).");
   }
   if (!state.buyerInfo?.telefone) {
-    missingFields.push("Telefone do comprador/representante não informado - Preencha aqui (Etapa 4).");
+    missingFields.push("Telefone do comprador/representante não informado - Preencha/edite aqui (Etapa 4).");
   }
   if (!state.buyerInfo?.email) {
-    missingFields.push("E-mail do comprador/representante não informado - Preencha aqui (Etapa 4).");
+    missingFields.push("E-mail do comprador/representante não informado - Preencha/edite aqui (Etapa 4).");
   }
   return missingFields;
 };
@@ -200,10 +207,20 @@ export default function RevisaoEnvioPage() {
   const { toast } = useToast();
   const [processState, setProcessState] = useState<StoredProcessState>(initialStoredProcessState);
   const [isStateLoading, setIsStateLoading] = useState(true);
+  
+  // Local copies for direct binding to forms, which then update processState
   const [currentBuyerInfo, setCurrentBuyerInfo] = useState<BuyerInfo>({ ...initialStoredProcessState.buyerInfo });
   const [currentCompanyInfo, setCurrentCompanyInfo] = useState<CompanyInfo | null>(null);
+  const [currentInternalTeamMemberInfo, setCurrentInternalTeamMemberInfo] = useState<BuyerInfo>({ ...initialStoredProcessState.internalTeamMemberInfo });
+
+
   const [isPreparingPrint, setIsPreparingPrint] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+
+  // Dialog states
+  const [isEditResponsavelOpen, setIsEditResponsavelOpen] = useState(false);
+  const [isEditCompradorOpen, setIsEditCompradorOpen] = useState(false);
+  const [isEditEmpresaOpen, setIsEditEmpresaOpen] = useState(false);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -231,6 +248,10 @@ export default function RevisaoEnvioPage() {
             ? { ...loadedProcessState.companyInfo } 
             : { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) })
         : null;
+      let tempInternalTeamMemberInfo = loadedProcessState.internalTeamMemberInfo
+          ? { ...loadedProcessState.internalTeamMemberInfo }
+          : { ...initialStoredProcessState.internalTeamMemberInfo };
+
 
       const { buyerInfo: preFilledBuyer, companyInfo: preFilledCompany } = attemptToPreFillInfo(
         loadedProcessState,
@@ -241,21 +262,19 @@ export default function RevisaoEnvioPage() {
       const buyerActuallyChanged = JSON.stringify(preFilledBuyer) !== JSON.stringify(tempBuyerInfo);
       const companyActuallyChanged = loadedProcessState.buyerType === 'pj' && JSON.stringify(preFilledCompany) !== JSON.stringify(tempCompanyInfo);
 
-      if (buyerActuallyChanged) {
-        tempBuyerInfo = preFilledBuyer;
-      }
-      if (companyActuallyChanged && loadedProcessState.buyerType === 'pj') {
-        tempCompanyInfo = preFilledCompany;
-      }
+      if (buyerActuallyChanged) tempBuyerInfo = preFilledBuyer;
+      if (companyActuallyChanged && loadedProcessState.buyerType === 'pj') tempCompanyInfo = preFilledCompany;
       
       setCurrentBuyerInfo(tempBuyerInfo);
       setCurrentCompanyInfo(tempCompanyInfo);
+      setCurrentInternalTeamMemberInfo(tempInternalTeamMemberInfo);
 
       setProcessState(prev => ({
         ...prev,
         ...loadedProcessState,
         buyerInfo: tempBuyerInfo,
         companyInfo: tempCompanyInfo,
+        internalTeamMemberInfo: tempInternalTeamMemberInfo,
       }));
       
       setIsStateLoading(false);
@@ -263,32 +282,92 @@ export default function RevisaoEnvioPage() {
     loadInitialData();
   }, [router, toast]);
 
-
   const handleBuyerInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const { value } = e.target;
-    setCurrentBuyerInfo(prev => {
-      const newInfo = { ...prev, [field]: value };
-      setProcessState(currentMainState => ({
-        ...currentMainState,
-        buyerInfo: newInfo
-      }));
-      return newInfo;
-    });
+    const newInfo = { ...(currentBuyerInfo || initialStoredProcessState.buyerInfo), [field]: value };
+    setCurrentBuyerInfo(newInfo);
+    setProcessState(currentMainState => ({
+      ...currentMainState,
+      buyerInfo: newInfo
+    }));
   };
 
   const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
     if (processState.buyerType === 'pj') {
       const { value } = e.target;
-      setCurrentCompanyInfo(prev => {
-        const newInfo = prev ? { ...prev, [field]: value } : { razaoSocial: '', nomeFantasia: '', cnpj: '', [field]: value };
-         setProcessState(currentMainState => ({
-          ...currentMainState,
-          companyInfo: newInfo
-        }));
-        return newInfo;
-      });
+      const newInfo = currentCompanyInfo ? { ...currentCompanyInfo, [field]: value } : { razaoSocial: '', nomeFantasia: '', cnpj: '', [field]: value };
+      setCurrentCompanyInfo(newInfo);
+      setProcessState(currentMainState => ({
+        ...currentMainState,
+        companyInfo: newInfo
+      }));
     }
   };
+  
+  const handleInternalTeamMemberInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
+    const { value } = e.target;
+    const newInfo = { ...(currentInternalTeamMemberInfo || initialStoredProcessState.internalTeamMemberInfo), [field]: value };
+    setCurrentInternalTeamMemberInfo(newInfo);
+    setProcessState(currentMainState => ({
+        ...currentMainState,
+        internalTeamMemberInfo: newInfo,
+    }));
+  };
+
+  // Save handlers for dialogs
+  const handleSaveResponsavel = (updatedData: Record<string, string>) => {
+    const newInternalInfo = {
+        ...processState.internalTeamMemberInfo,
+        ...updatedData,
+    } as BuyerInfo;
+    setCurrentInternalTeamMemberInfo(newInternalInfo);
+    setProcessState(prev => ({ ...prev, internalTeamMemberInfo: newInternalInfo }));
+    toast({ title: "Responsável Interno Atualizado", description: "Informações salvas localmente." });
+  };
+
+  const handleSaveComprador = (updatedData: Record<string, string>) => {
+    const newBuyerInfo = {
+        ...currentBuyerInfo,
+        ...updatedData,
+    } as BuyerInfo;
+    setCurrentBuyerInfo(newBuyerInfo);
+    setProcessState(prev => ({ ...prev, buyerInfo: newBuyerInfo }));
+    toast({ title: "Dados do Comprador Atualizados", description: "Informações salvas localmente." });
+  };
+
+  const handleSaveEmpresa = (updatedData: Record<string, string>) => {
+    if (processState.buyerType === 'pj') {
+        const newCompanyInfo = {
+            ...(currentCompanyInfo || initialStoredProcessState.companyInfo!),
+            ...updatedData,
+        } as CompanyInfo;
+        setCurrentCompanyInfo(newCompanyInfo);
+        setProcessState(prev => ({ ...prev, companyInfo: newCompanyInfo }));
+        toast({ title: "Dados da Empresa Atualizados", description: "Informações salvas localmente." });
+    }
+  };
+
+  const responsavelFields: FieldConfig[] = [
+    { id: 'nome', label: 'Nome Completo', value: currentInternalTeamMemberInfo.nome, type: 'text' },
+    { id: 'cpf', label: 'CPF', value: currentInternalTeamMemberInfo.cpf, type: 'text' },
+    { id: 'telefone', label: 'Telefone', value: currentInternalTeamMemberInfo.telefone, type: 'tel' },
+    { id: 'email', label: 'E-mail', value: currentInternalTeamMemberInfo.email, type: 'email' },
+    { id: 'cargo', label: 'Cargo', value: currentInternalTeamMemberInfo.cargo || '', type: 'text' },
+  ];
+
+  const compradorFields: FieldConfig[] = [
+    { id: 'nome', label: 'Nome Completo', value: currentBuyerInfo.nome, type: 'text' },
+    { id: 'cpf', label: 'CPF', value: currentBuyerInfo.cpf, type: 'text' },
+    { id: 'telefone', label: 'Telefone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel' },
+    { id: 'email', label: 'E-mail', value: currentBuyerInfo.email, type: 'email' },
+  ];
+
+  const empresaFields: FieldConfig[] = currentCompanyInfo ? [
+    { id: 'razaoSocial', label: 'Razão Social', value: currentCompanyInfo.razaoSocial, type: 'text' },
+    { id: 'nomeFantasia', label: 'Nome Fantasia (Opcional)', value: currentCompanyInfo.nomeFantasia || '', type: 'text' },
+    { id: 'cnpj', label: 'CNPJ', value: currentCompanyInfo.cnpj, type: 'text' },
+  ] : [];
+
 
   const isPrintDisabled = useCallback(() => {
     return false; 
@@ -302,7 +381,7 @@ export default function RevisaoEnvioPage() {
         title: "Dados Incompletos para Impressão",
         description: (
           <div className="max-h-60 overflow-y-auto">
-            <p className="mb-2 font-semibold">Por favor, verifique e complete os seguintes itens. Use o botão "Voltar" para navegar para as etapas anteriores, se necessário:</p>
+            <p className="mb-2 font-semibold">Por favor, verifique e complete os seguintes itens. Use o botão "Voltar" ou os ícones de edição para navegar/corrigir:</p>
             <ul className="list-disc list-inside space-y-1 text-sm">
               {missingFields.map((field, index) => (
                 <li key={index}>{field}</li>
@@ -344,19 +423,28 @@ export default function RevisaoEnvioPage() {
   const handleBack = async () => {
     setIsNavigating(true);
     const stateToSave: StoredProcessState = {
-        ...processState,
+        ...processState, // This already has the latest from setCurrentBuyerInfo etc.
     };
     await saveProcessState(stateToSave); 
     router.push("/processo/documentos");
   };
 
+  // Save entire processState whenever it changes significantly, or on unmount.
   useEffect(() => {
+    const currentProcessStateForEffect = processState;
+    const saveDebounced = setTimeout(async () => {
+        if (!isNavigating && !isPreparingPrint && !isStateLoading) {
+            await saveProcessState(currentProcessStateForEffect);
+        }
+    }, 1000); // Debounce for 1 second
+
     return () => {
-      if (!isNavigating && !isPreparingPrint) {
-        saveProcessState(processState);
+      clearTimeout(saveDebounced);
+      if (!isNavigating && !isPreparingPrint && !isStateLoading) {
+        // saveProcessState(currentProcessStateForEffect); // Save immediately on unmount if not navigating
       }
     };
-  }, [processState, isNavigating, isPreparingPrint]);
+  }, [processState, isNavigating, isPreparingPrint, isStateLoading]);
 
 
   if (isStateLoading) {
@@ -384,56 +472,44 @@ export default function RevisaoEnvioPage() {
 
       {processState.buyerType === 'pj' && (
          <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
-            <CardHeader className="p-6">
-                <CardTitle className="flex items-center text-xl font-headline text-primary"><Building className="mr-3 h-6 w-6" />Informações da Empresa</CardTitle>
-                <CardDescription className="text-foreground/70 pt-1">Confirme ou preencha os dados da empresa. Alguns campos podem ter sido pré-preenchidos pela IA (análise do Cartão CNPJ ou Contrato Principal).</CardDescription>
+            <CardHeader className="p-6 flex flex-row items-center justify-between">
+                <div className="flex items-center">
+                    <Building className="mr-3 h-6 w-6 text-primary" />
+                    <CardTitle className="text-xl font-headline text-primary">Informações da Empresa</CardTitle>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsEditEmpresaOpen(true)} className="text-primary/70 hover:text-primary">
+                    <Edit3 className="h-5 w-5" />
+                </Button>
             </CardHeader>
-            <CardContent className="space-y-4 p-6 pt-0">
-                <div>
-                    <Label htmlFor="razaoSocial">Razão Social</Label>
-                    <Input id="razaoSocial" value={currentCompanyInfo?.razaoSocial || ''} onChange={(e) => handleCompanyInputChange(e, 'razaoSocial')} placeholder="Razão Social da Empresa" className="mt-1 bg-input"/>
-                </div>
-                <div>
-                    <Label htmlFor="nomeFantasia">Nome Fantasia (Opcional)</Label>
-                    <Input id="nomeFantasia" value={currentCompanyInfo?.nomeFantasia || ''} onChange={(e) => handleCompanyInputChange(e, 'nomeFantasia')} placeholder="Nome Fantasia" className="mt-1 bg-input"/>
-                </div>
-                <div>
-                    <Label htmlFor="cnpj">CNPJ</Label>
-                    <Input id="cnpj" value={currentCompanyInfo?.cnpj || ''} onChange={(e) => handleCompanyInputChange(e, 'cnpj')} placeholder="00.000.000/0000-00" className="mt-1 bg-input"/>
-                </div>
+            <CardContent className="space-y-2 p-6 pt-0">
+                <p className="text-foreground/80"><strong>Razão Social:</strong> {currentCompanyInfo?.razaoSocial || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>Nome Fantasia:</strong> {currentCompanyInfo?.nomeFantasia || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>CNPJ:</strong> {currentCompanyInfo?.cnpj || 'Não informado'}</p>
+                <CardDescription className="text-foreground/70 pt-2 text-xs">Confirme ou edite os dados da empresa. Alguns campos podem ter sido pré-preenchidos pela IA.</CardDescription>
             </CardContent>
         </Card>
       )}
 
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm mt-8">
-        <CardHeader className="p-6">
-          <CardTitle className="flex items-center text-2xl font-headline text-primary">
-            <UserRound className="mr-3 h-7 w-7" />
-            {processState.buyerType === 'pf' ? "Informações do Comprador" : "Informações do Representante Legal"}
-          </CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">
-            Confirme ou preencha os dados. Alguns campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou do contrato principal. Utilize os documentos anexados na etapa anterior como referência.
-          </CardDescription>
+        <CardHeader className="p-6 flex flex-row items-center justify-between">
+            <div className="flex items-center">
+                 <UserRound className="mr-3 h-7 w-7 text-primary" />
+                <CardTitle className="text-2xl font-headline text-primary">
+                    {processState.buyerType === 'pf' ? "Informações do Comprador" : "Informações do Representante Legal"}
+                </CardTitle>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setIsEditCompradorOpen(true)} className="text-primary/70 hover:text-primary">
+                <Edit3 className="h-5 w-5" />
+            </Button>
         </CardHeader>
-        <CardContent className="space-y-6 p-6 pt-0">
-          <div>
-            <Label htmlFor="comprador-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
-            <Input id="comprador-nome" value={currentBuyerInfo.nome} onChange={(e) => handleBuyerInputChange(e, 'nome')} placeholder="Nome completo" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="comprador-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
-              <Input id="comprador-cpf" value={currentBuyerInfo.cpf} onChange={(e) => handleBuyerInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-            </div>
-            <div>
-              <Label htmlFor="comprador-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone (WhatsApp)</Label>
-              <Input id="comprador-telefone" type="tel" value={currentBuyerInfo.telefone} onChange={(e) => handleBuyerInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="comprador-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
-            <Input id="comprador-email" type="email" value={currentBuyerInfo.email} onChange={(e) => handleBuyerInputChange(e, 'email')} placeholder="seu.email@dominio.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" />
-          </div>
+        <CardContent className="space-y-2 p-6 pt-0">
+            <p className="text-foreground/80"><strong>Nome Completo:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
+            <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
+            <p className="text-foreground/80"><strong>Telefone (WhatsApp):</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
+            <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
+            <CardDescription className="text-foreground/70 pt-2 text-xs">
+            Confirme ou edite os dados. Alguns campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou do contrato principal.
+          </CardDescription>
         </CardContent>
       </Card>
 
@@ -462,37 +538,52 @@ export default function RevisaoEnvioPage() {
 
           {processState.internalTeamMemberInfo && (
             <>
-              <div className="space-y-1">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Responsável Interno</h3>
-                <p className="text-foreground/80"><strong>Nome:</strong> {processState.internalTeamMemberInfo.nome || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>CPF:</strong> {processState.internalTeamMemberInfo.cpf || 'Não informado'}</p>
-                 <p className="text-foreground/80"><strong>Telefone:</strong> {processState.internalTeamMemberInfo.telefone || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>E-mail:</strong> {processState.internalTeamMemberInfo.email || 'Não informado'}</p>
+             <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                    <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Responsável Interno</h3>
+                    <Button variant="ghost" size="icon" onClick={() => setIsEditResponsavelOpen(true)} className="text-primary/70 hover:text-primary -mr-2">
+                        <Edit3 className="h-5 w-5" />
+                    </Button>
+                </div>
+                <p className="text-foreground/80"><strong>Nome:</strong> {currentInternalTeamMemberInfo.nome || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>CPF:</strong> {currentInternalTeamMemberInfo.cpf || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>Telefone:</strong> {currentInternalTeamMemberInfo.telefone || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>E-mail:</strong> {currentInternalTeamMemberInfo.email || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>Cargo:</strong> {currentInternalTeamMemberInfo.cargo || 'Não informado'}</p>
               </div>
               <hr className="border-border/30"/>
             </>
           )}
-
-          {processState.buyerType === 'pj' && processState.companyInfo && ( 
+          
+          {/* Company Info displayed here if PJ, now uses currentCompanyInfo for direct display */}
+          {processState.buyerType === 'pj' && ( 
             <>
               <div className="space-y-1">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><Building className="mr-2 h-5 w-5" />Dados da Empresa</h3>
-                <p className="text-foreground/80"><strong>Razão Social:</strong> {processState.companyInfo.razaoSocial || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>Nome Fantasia:</strong> {processState.companyInfo.nomeFantasia || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>CNPJ:</strong> {processState.companyInfo.cnpj || 'Não informado'}</p>
+                 <div className="flex items-center justify-between">
+                    <h3 className="flex items-center text-lg font-semibold text-primary/90"><Building className="mr-2 h-5 w-5" />Dados da Empresa</h3>
+                    {/* Edit button for company info already exists above, this is display only */}
+                </div>
+                <p className="text-foreground/80"><strong>Razão Social:</strong> {currentCompanyInfo?.razaoSocial || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>Nome Fantasia:</strong> {currentCompanyInfo?.nomeFantasia || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>CNPJ:</strong> {currentCompanyInfo?.cnpj || 'Não informado'}</p>
               </div>
               <hr className="border-border/30"/>
             </>
           )}
 
+          {/* Buyer/Representative info displayed here, uses currentBuyerInfo */}
           <div className="space-y-1">
-            <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"}</h3>
-            <p className="text-foreground/80"><strong>Nome:</strong> {processState.buyerInfo.nome || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>CPF:</strong> {processState.buyerInfo.cpf || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>Telefone:</strong> {processState.buyerInfo.telefone || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>E-mail:</strong> {processState.buyerInfo.email || 'Não informado'}</p>
+             <div className="flex items-center justify-between">
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"}</h3>
+                 {/* Edit button for buyer/rep info already exists above, this is display only */}
+            </div>
+            <p className="text-foreground/80"><strong>Nome:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
+            <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
+            <p className="text-foreground/80"><strong>Telefone:</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
+            <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
           </div>
           <hr className="border-border/30"/>
+
 
           {processState.contractSourceType === 'new' && processState.contractPhotoName && (
             <>
@@ -566,13 +657,37 @@ export default function RevisaoEnvioPage() {
           <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Documentos
         </Button>
       </div>
+
+      {/* Dialogs for Editing */}
+      <EditInfoDialog
+        isOpen={isEditResponsavelOpen}
+        setIsOpen={setIsEditResponsavelOpen}
+        dialogTitle="Editar Responsável Interno"
+        fieldsConfig={responsavelFields}
+        onSaveHandler={handleSaveResponsavel}
+        initialData={currentInternalTeamMemberInfo}
+      />
+
+      <EditInfoDialog
+        isOpen={isEditCompradorOpen}
+        setIsOpen={setIsEditCompradorOpen}
+        dialogTitle={processState.buyerType === 'pf' ? "Editar Dados do Comprador" : "Editar Dados do Representante Legal"}
+        fieldsConfig={compradorFields}
+        onSaveHandler={handleSaveComprador}
+        initialData={currentBuyerInfo}
+      />
+
+      {processState.buyerType === 'pj' && currentCompanyInfo && (
+        <EditInfoDialog
+            isOpen={isEditEmpresaOpen}
+            setIsOpen={setIsEditEmpresaOpen}
+            dialogTitle="Editar Informações da Empresa"
+            fieldsConfig={empresaFields}
+            onSaveHandler={handleSaveEmpresa}
+            initialData={currentCompanyInfo}
+        />
+      )}
     </>
   );
 }
     
-
-
-    
-
-
-
