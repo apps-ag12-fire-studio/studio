@@ -611,17 +611,17 @@ export default function RevisaoEnvioPage() {
             <Button
                 type="button"
                 onClick={handlePrepareForPrint}
-                className="w-full sm:flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted"
+                className="w-full sm:flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-sm sm:text-base py-3 px-3 sm:py-4 sm:px-4 whitespace-normal text-center rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted"
                 disabled={isStateLoading || isPreparingPrint || isNavigating || isPrintDisabled()}
             >
                 {isPreparingPrint ? (
                   <>
-                    <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Preparando...
                   </>
                 ) : (
                   <>
-                    <Printer className="mr-2 h-6 w-6" /> Preparar Contrato para Impressão
+                    <Printer className="mr-2 h-5 w-5" /> Preparar Contrato para Impressão
                   </>
                 )}
             </Button>
@@ -670,5 +670,3 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-
-    
