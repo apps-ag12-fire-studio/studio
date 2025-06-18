@@ -50,10 +50,11 @@ Instruções:
 1.  **Verifique a Presença de QR Code:** Primeiramente, examine a imagem em busca de um QR Code.
 2.  **Priorize o QR Code:** Se um QR Code for encontrado e puder ser decodificado, as informações extraídas dele devem ser consideradas a fonte primária.
 3.  **Extração Visual (Fallback):** Se não houver QR Code, ou se ele estiver ilegível/danificado, ou não contiver todas as informações necessárias, extraia as informações do texto visível no documento.
-4.  **Fidelidade:** Em todos os casos, priorize a fidelidade aos dados originais.
-5.  **Campo RG - Instrução Específica:** Ao extrair o RG, concentre-se apenas nos números, letras e informações do órgão emissor/UF que são CLARAMENTE LEGÍVEIS. IGNORE e NÃO REPRODUZA longas sequências de asteriscos (***) ou outros caracteres de mascaramento. Se o número estiver quase totalmente obscurecido ou ilegível, deixe o campo 'rg' vazio.
-6.  **Extração de Endereço:** Se o documento for um comprovante de endereço ou contiver informações de endereço, extraia os componentes do endereço nos campos apropriados (logradouro, bairro, cidade, estado, cep). Tente identificar tipos de logradouro como Rua (R.), Avenida (Av.), Viela, Estrada, Setor, Esquina, Centro, etc.
-7.  **Campos Opcionais:** Se alguma informação não estiver claramente disponível ou não existir no documento, deixe o campo opcional correspondente vazio.
+4.  **Foco no Documento:** A imagem fornecida pode conter bordas ou fundo ao redor do documento real. Concentre sua análise estritamente no conteúdo do documento em si, ignorando o máximo possível as áreas de fundo ou bordas vazias.
+5.  **Fidelidade:** Em todos os casos, priorize a fidelidade aos dados originais.
+6.  **Campo RG - Instrução Específica:** Ao extrair o RG, concentre-se apenas nos números, letras e informações do órgão emissor/UF que são CLARAMENTE LEGÍVEIS. IGNORE e NÃO REPRODUZA longas sequências de asteriscos (***) ou outros caracteres de mascaramento. Se o número estiver quase totalmente obscurecido ou ilegível, deixe o campo 'rg' vazio.
+7.  **Extração de Endereço:** Se o documento for um comprovante de endereço ou contiver informações de endereço, extraia os componentes do endereço nos campos apropriados (logradouro, bairro, cidade, estado, cep). Tente identificar tipos de logradouro como Rua (R.), Avenida (Av.), Viela, Estrada, Setor, Esquina, Centro, etc.
+8.  **Campos Opcionais:** Se alguma informação não estiver claramente disponível ou não existir no documento, deixe o campo opcional correspondente vazio.
 
 Analise a imagem do documento cuidadosamente e preencha os campos do schema de saída com a maior precisão possível.
 
