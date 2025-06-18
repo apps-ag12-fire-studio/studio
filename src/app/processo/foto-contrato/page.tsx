@@ -17,10 +17,10 @@ import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckC
 import { storage } from "@/lib/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
-const generateUniqueFileName = (file: File, prefix: string = 'unknown') => {
+const generateUniqueFileName = (file: File, folderPrefix: string) => {
   const timestamp = new Date().getTime();
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  return `${prefix}/${timestamp}-${saneFilename}`;
+  return `${folderPrefix}/${timestamp}-${saneFilename}`;
 };
 
 export default function FotoContratoPage() {
@@ -59,11 +59,10 @@ export default function FotoContratoPage() {
           const oldPhotoRef = storageRef(storage, processState.contractPhotoStoragePath);
           await deleteObject(oldPhotoRef);
         } catch (deleteError) {
-          // console.warn("[FotoContrato] Could not delete old contract photo from Firebase Storage:", deleteError);
         }
       }
-
-      const filePath = generateUniqueFileName(file, 'original_contracts');
+      const baseFolder = `user-${processState.processId || 'unknown_process'}/original_contracts`;
+      const filePath = generateUniqueFileName(file, baseFolder);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
 
@@ -174,7 +173,7 @@ export default function FotoContratoPage() {
          toast({ title: "Análise do Contrato Concluída!", description: "Dados extraídos do contrato com sucesso.", className: "bg-secondary text-secondary-foreground border-secondary" });
       }
     } catch (error: any) {
-      const newState = { ...processState, extractedData: null }; // Clear extracted data on error
+      const newState = { ...processState, extractedData: null }; 
       setProcessState(newState);
       saveProcessState(newState);
       toast({ title: "Erro na Análise do Contrato", description: `Não foi possível extrair os dados com IA. (Erro: ${error.message})`, variant: "destructive" });
@@ -190,8 +189,8 @@ export default function FotoContratoPage() {
         toast({ title: "Etapas Incompletas (Novo Contrato)", description: "Capture/envie, verifique e analise a foto do contrato.", variant: "destructive" });
         return false;
       }
-    } else { // 'existing' contract type
-      if (!processState.extractedData) { // Ensure model data is loaded
+    } else { 
+      if (!processState.extractedData) { 
         toast({ title: "Etapas Incompletas (Contrato Existente)", description: "Modelo de contrato não carregado. Volte para Dados Iniciais e selecione um.", variant: "destructive" });
         return false;
       }
@@ -211,13 +210,13 @@ export default function FotoContratoPage() {
 
   const handleBack = () => {
     setIsNavigating(true);
-    saveProcessState(processState); // Save current state before going back
+    saveProcessState(processState); 
     router.push("/processo/dados-iniciais");
   };
 
-  useEffect(() => { // Save state on unmount
+  useEffect(() => { 
     return () => {
-      if (!isNavigating) { // Avoid double save if navigating via buttons
+      if (!isNavigating) { 
         saveProcessState(processState);
       }
     };
@@ -359,7 +358,7 @@ export default function FotoContratoPage() {
             </CardFooter>
           </Card>
         )}
-        
+
         {isExtractingData && processState.contractSourceType === 'new' && (
           <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
             <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">

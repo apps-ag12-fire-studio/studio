@@ -1,22 +1,25 @@
 rules_version = '2';
+
 service firebase.storage {
-  match /b/{bucket}/o {
+  match /b/{bucket}/o { // Matches all files in your bucket
 
-    // Permite uploads para fotos de contratos originais (antes da assinatura)
-    match /original_contracts/{allPaths=**} {
-      allow read, write: if true;
+    // Permite acesso a arquivos dentro de pastas de usuários/processos.
+    // Exemplos de caminhos que esta regra cobrirá:
+    // - user-someProcessId/original_contracts/arquivo.jpg
+    // - user-someProcessId/docs/rgFrente/arquivo.jpg
+    // - user-someProcessId/signed_contracts/arquivo.jpg
+    // - user-unknown_process/docs/comprovanteEndereco/arquivo.jpg (se processId for nulo)
+    match /user-{userIdentifier}/{category}/{allPaths=**} {
+      allow read, write: if true; // Para desenvolvimento. Restrinja para produção!
+                                   // Ex: if request.auth != null; (se userIdentifier for um UID de usuário autenticado)
     }
 
-    // Permite uploads para documentos do comprador
-    match /buyer_documents/{allPaths=**} {
-      allow read, write: if true;
-    }
-
-    // Permite uploads para fotos de contratos assinados
-    match /signed_contracts/{allPaths=**} {
-      allow read, write: if true;
-    }
-
-    // IMPORTANTE: Qualquer outro caminho não especificado acima será negado por padrão.
+    // Se você tiver arquivos importantes em caminhos antigos como /original_contracts (sem o prefixo user-),
+    // você pode temporariamente adicionar as regras antigas de volta abaixo para permitir acesso a eles,
+    // mas o ideal é que todos os novos uploads sigam a estrutura user-{userIdentifier}.
+    // Exemplo de regra antiga para compatibilidade:
+    // match /buyer_documents/{allPaths=**} {
+    //   allow read, write: if true;
+    // }
   }
 }

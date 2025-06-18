@@ -9,12 +9,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Progress } from "@/components/ui/progress"; 
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  StoredProcessState, 
-  loadProcessState, 
-  saveProcessState, 
+import {
+  StoredProcessState,
+  loadProcessState,
+  saveProcessState,
   initialStoredProcessState,
   DocumentFile,
   BuyerType,
@@ -27,15 +27,15 @@ import { ArrowRight, ArrowLeft, Paperclip, FileText, Trash2, ScanSearch, Loader2
 import { storage } from "@/lib/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
-const generateUniqueFileName = (file: File, docType: string, prefix: string = 'buyer_documents') => {
+const generateUniqueFileName = (file: File, docType: string, folderPrefix: string) => {
   const timestamp = new Date().getTime();
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  return `${prefix}/${docType}/${timestamp}-${saneFilename}`;
+  return `${folderPrefix}/${docType}/${timestamp}-${saneFilename}`;
 };
 
-type DocumentSlotKey = Extract<keyof StoredProcessState, 
-  | "rgAntigoFrente" | "rgAntigoVerso" 
-  | "cnhAntigaFrente" | "cnhAntigaVerso" 
+type DocumentSlotKey = Extract<keyof StoredProcessState,
+  | "rgAntigoFrente" | "rgAntigoVerso"
+  | "cnhAntigaFrente" | "cnhAntigaVerso"
   | "cartaoCnpjFile" | "docSocioFrente" | "docSocioVerso" | "comprovanteEndereco"
 >;
 
@@ -61,18 +61,16 @@ export default function DocumentosPage() {
     const loadInitialState = async () => {
       setIsStateLoading(true);
       const loadedState = await loadProcessState();
-      
-      // Ensure companyInfo is initialized if buyerType is 'pj' but companyInfo is null/undefined
+
       if (loadedState.buyerType === 'pj' && !loadedState.companyInfo) {
         loadedState.companyInfo = { ...initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' } };
       }
-      
+
       setProcessState(loadedState);
 
       if (loadedState.buyerType === 'pf') {
         if (loadedState.rgAntigoFrente || loadedState.rgAntigoVerso) setSelectedPfDocType('rgAntigo');
         else if (loadedState.cnhAntigaFrente || loadedState.cnhAntigaVerso) setSelectedPfDocType('cnhAntiga');
-        // else, it remains '' which is fine if no documents were previously selected/uploaded
       }
       setIsStateLoading(false);
     };
@@ -81,11 +79,11 @@ export default function DocumentosPage() {
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, docKey: DocumentSlotKey) => {
     const file = event.target.files?.[0];
-    const inputElement = event.target; 
+    const inputElement = event.target;
 
     if (file) {
-      setUploadingDocKey(docKey); 
-      setUploadProgress(prev => ({ ...prev, [docKey]: 0 })); 
+      setUploadingDocKey(docKey);
+      setUploadProgress(prev => ({ ...prev, [docKey]: 0 }));
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       const currentDoc = processState[docKey] as DocumentFile | null;
@@ -97,13 +95,13 @@ export default function DocumentosPage() {
           console.warn(`[${docKey}] Could not delete old file from Firebase Storage:`, deleteError);
         }
       }
-
-      const filePath = generateUniqueFileName(file, docKey, `user-${processState.processId || 'unknown'}/docs`);
+      const baseFolder = `user-${processState.processId || 'unknown_process'}/docs`;
+      const filePath = generateUniqueFileName(file, docKey, baseFolder);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
 
       uploadTask.on('state_changed',
-        (snapshot: UploadTaskSnapshot) => { 
+        (snapshot: UploadTaskSnapshot) => {
           const { bytesTransferred, totalBytes } = snapshot;
           let calculatedProgress = 0;
           if (totalBytes > 0) {
@@ -111,31 +109,31 @@ export default function DocumentosPage() {
           }
           setUploadProgress(prev => ({ ...prev, [docKey]: Math.round(calculatedProgress) }));
         },
-        (error: FirebaseStorageError) => { 
+        (error: FirebaseStorageError) => {
           console.error(`[${docKey}] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
-          toast({ 
-            title: "Erro no Upload", 
-            description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`, 
+          toast({
+            title: "Erro no Upload",
+            description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`,
             variant: "destructive",
-            duration: 7000 
+            duration: 7000
           });
           setUploadingDocKey(null);
-          setUploadProgress(prev => ({ ...prev, [docKey]: null })); 
+          setUploadProgress(prev => ({ ...prev, [docKey]: null }));
           const newState = { ...processState, [docKey]: null };
           setProcessState(newState);
           saveProcessState(newState);
-          if (inputElement) inputElement.value = ""; 
+          if (inputElement) inputElement.value = "";
         },
-        async () => { 
+        async () => {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             const newState = {
               ...processState,
               [docKey]: {
                 name: file.name,
-                previewUrl: downloadURL, 
-                storagePath: filePath,   
-                analysisResult: null     
+                previewUrl: downloadURL,
+                storagePath: filePath,
+                analysisResult: null
               } as DocumentFile
             };
             setProcessState(newState);
@@ -144,25 +142,25 @@ export default function DocumentosPage() {
           } catch (error: any) {
             console.error(`[${docKey}] Error getting download URL for ${file.name}:`, error);
             toast({ title: "Erro Pós-Upload", description: `Falha ao obter URL do arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
-            setUploadProgress(prev => ({ ...prev, [docKey]: null })); 
-             const newState = { ...processState, [docKey]: { 
-                name: (processState[docKey] as DocumentFile)?.name || file.name, 
-                previewUrl: null, 
-                storagePath: filePath, 
+            setUploadProgress(prev => ({ ...prev, [docKey]: null }));
+             const newState = { ...processState, [docKey]: {
+                name: (processState[docKey] as DocumentFile)?.name || file.name,
+                previewUrl: null,
+                storagePath: filePath,
                 analysisResult: null
               } as DocumentFile };
             setProcessState(newState);
             saveProcessState(newState);
-            if (inputElement) inputElement.value = ""; 
+            if (inputElement) inputElement.value = "";
           } finally {
-            setUploadingDocKey(null); 
+            setUploadingDocKey(null);
           }
         }
       );
     } else {
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc && inputElement && inputElement.files && inputElement.files.length === 0) {
-        removeDocument(docKey); 
+        removeDocument(docKey);
       }
     }
   };
@@ -181,24 +179,24 @@ export default function DocumentosPage() {
     }
 
     const newState = { ...processState, [docKey]: null };
-    if(uploadingDocKey === docKey) { 
+    if(uploadingDocKey === docKey) {
         setUploadingDocKey(null);
     }
     setUploadProgress(prev => ({...prev, [docKey]: null}));
     setProcessState(newState);
     saveProcessState(newState);
-    
+
     const inputElement = fileInputRefs.current[docKey];
     if (inputElement) {
-        inputElement.value = ""; 
+        inputElement.value = "";
     }
   };
 
   const handleAnalyzeDocument = async (docKey: DocumentSlotKey) => {
     const currentDocInState = processState[docKey] as DocumentFile | null;
-    const photoDownloadUrl = currentDocInState?.previewUrl; 
+    const photoDownloadUrl = currentDocInState?.previewUrl;
     const docName = currentDocInState?.name;
-    
+
     if (!photoDownloadUrl) {
       toast({ title: "Arquivo não encontrado", description: "Carregue um arquivo para ser analisado.", variant: "destructive"});
       setAnalyzingDocKey(null);
@@ -207,20 +205,20 @@ export default function DocumentosPage() {
 
     setAnalyzingDocKey(docKey);
     try {
-      const result = await extractBuyerDocumentData({ photoDataUri: photoDownloadUrl }); 
-      
+      const result = await extractBuyerDocumentData({ photoDataUri: photoDownloadUrl });
+
       const newState = {
         ...processState,
         [docKey]: {
-          ...(currentDocInState!), // Assert non-null as photoDownloadUrl exists
+          ...(currentDocInState!),
           analysisResult: result,
-        } as DocumentFile, 
+        } as DocumentFile,
       };
       setProcessState(newState);
       saveProcessState(newState);
 
-      toast({ 
-        title: `Análise de ${docName || docKey} Concluída!`, 
+      toast({
+        title: `Análise de ${docName || docKey} Concluída!`,
         description: "Dados extraídos do documento. Verifique abaixo.",
         className: "bg-secondary text-secondary-foreground border-secondary"
       });
@@ -243,16 +241,16 @@ export default function DocumentosPage() {
       };
       setProcessState(newState);
       saveProcessState(newState);
-      toast({ 
-        title: `Erro na Análise de ${docName || docKey}`, 
+      toast({
+        title: `Erro na Análise de ${docName || docKey}`,
         description: userFriendlyErrorMessage,
-        variant: "destructive" 
+        variant: "destructive"
       });
     } finally {
       setAnalyzingDocKey(null);
     }
   };
-  
+
   const validateStep = useCallback(() => {
     if (processState.buyerType === 'pf') {
       if (!selectedPfDocType) {
@@ -298,7 +296,7 @@ export default function DocumentosPage() {
     if (!validateStep()) return;
     setIsNavigating(true);
     const newState = { ...processState, currentStep: "/processo/revisao-envio" };
-    saveProcessState(newState); 
+    saveProcessState(newState);
     setProcessState(newState);
     toast({ title: "Etapa 3 Concluída!", description: "Documentos e informações salvos.", className: "bg-green-600 text-primary-foreground border-green-700" });
     router.push("/processo/revisao-envio");
@@ -307,7 +305,7 @@ export default function DocumentosPage() {
   const handleBack = () => {
     setIsNavigating(true);
     saveProcessState(processState);
-    const prevStep = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/dados-iniciais"; 
+    const prevStep = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/dados-iniciais";
     router.push(prevStep);
   };
 
@@ -316,7 +314,6 @@ export default function DocumentosPage() {
       ...processState,
       buyerType: value,
       companyInfo: value === 'pj' ? (processState.companyInfo || { ...initialStoredProcessState.companyInfo! }) : null,
-      // Clear PF docs if switching to PJ, and PJ docs if switching to PF
       rgAntigoFrente: value === 'pj' ? null : processState.rgAntigoFrente,
       rgAntigoVerso: value === 'pj' ? null : processState.rgAntigoVerso,
       cnhAntigaFrente: value === 'pj' ? null : processState.cnhAntigaFrente,
@@ -327,9 +324,8 @@ export default function DocumentosPage() {
     };
     setProcessState(newState);
     if (value === 'pj') {
-      setSelectedPfDocType(''); 
+      setSelectedPfDocType('');
     }
-    // saveProcessState(newState); // Save on major state change like this
   };
 
   const handlePfDocTypeChange = (value: PfDocumentType) => {
@@ -344,28 +340,25 @@ export default function DocumentosPage() {
       let shouldClear = true;
       if (value === 'rgAntigo' && (key === 'rgAntigoFrente' || key === 'rgAntigoVerso')) shouldClear = false;
       else if (value === 'cnhAntiga' && (key === 'cnhAntigaFrente' || key === 'cnhAntigaVerso')) shouldClear = false;
-      
+
       if (shouldClear && newState[key]) {
-        // Instead of null, maybe keep analysisResult if only type changes? For now, clear.
         newState[key] = null;
       }
     });
     setProcessState(newState);
-    // saveProcessState(newState);
   };
-  
+
   const handleCompanyInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof CompanyInfo) => {
     const newState = {
       ...processState,
       companyInfo: {
-        ...(processState.companyInfo as CompanyInfo), 
+        ...(processState.companyInfo as CompanyInfo),
         [field]: e.target.value,
       }
     };
     setProcessState(newState);
-    // Debounced save or save on blur/next might be better than on every keystroke
   };
-  
+
   const handleBuyerInfoChange = (e: ChangeEvent<HTMLInputElement>, field: keyof BuyerInfo) => {
     const newState = {
       ...processState,
@@ -377,7 +370,7 @@ export default function DocumentosPage() {
     setProcessState(newState);
   };
 
-  useEffect(() => { // Save state on unmount or when certain critical parts change
+  useEffect(() => { 
     return () => {
       if (!isNavigating) {
         saveProcessState(processState);
@@ -388,10 +381,10 @@ export default function DocumentosPage() {
   const renderDocumentSlot = (docKey: DocumentSlotKey, label: string) => {
     const currentDoc = processState[docKey] as DocumentFile | null;
     const isCurrentlyUploadingThisSlot = uploadingDocKey === docKey;
-    const currentUploadPercent = uploadProgress[docKey]; 
+    const currentUploadPercent = uploadProgress[docKey];
     const isCurrentlyAnalyzing = analyzingDocKey === docKey;
     const displayDocName = currentDoc?.name;
-    const displayPreviewUrl = currentDoc?.previewUrl; 
+    const displayPreviewUrl = currentDoc?.previewUrl;
     const isPdf = displayDocName?.toLowerCase().endsWith('.pdf') || displayPreviewUrl?.startsWith('data:application/pdf') || currentDoc?.storagePath?.toLowerCase().endsWith('.pdf');
 
 
@@ -400,7 +393,7 @@ export default function DocumentosPage() {
         <Label htmlFor={docKey} className="text-base font-medium text-foreground/90">{label}</Label>
         {isCurrentlyUploadingThisSlot && typeof currentUploadPercent === 'number' && (
           <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
-            <Loader2 className="h-6 w-6 animate-spin" /> 
+            <Loader2 className="h-6 w-6 animate-spin" />
             <span>Enviando {currentUploadPercent}%...</span>
             <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
           </div>
@@ -424,18 +417,18 @@ export default function DocumentosPage() {
             accept={docKey === 'cartaoCnpjFile' || docKey === 'comprovanteEndereco' ? "image/*,application/pdf" : "image/*"}
             onChange={(e) => handleFileChange(e, docKey)}
             className="file:mr-4 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30"
-            disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || isNavigating || isStateLoading} 
+            disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || isNavigating || isStateLoading}
           />
         )}
-        {displayDocName && !isCurrentlyUploadingThisSlot && ( 
+        {displayDocName && !isCurrentlyUploadingThisSlot && (
           <div className="flex items-center justify-between mt-2">
             <span className="text-xs text-muted-foreground truncate max-w-[calc(100%-150px)]">{displayDocName}</span>
             <div className="flex items-center space-x-2">
-              {!isPdf && ( 
-                <Button 
-                  type="button" variant="outline" size="sm" 
+              {!isPdf && (
+                <Button
+                  type="button" variant="outline" size="sm"
                   onClick={() => handleAnalyzeDocument(docKey)}
-                  disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || (!displayPreviewUrl) || isNavigating || isStateLoading} 
+                  disabled={isCurrentlyAnalyzing || uploadingDocKey !== null || (!displayPreviewUrl) || isNavigating || isStateLoading}
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
                   {isCurrentlyAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
@@ -448,7 +441,7 @@ export default function DocumentosPage() {
             </div>
           </div>
         )}
-        {currentDoc?.analysisResult && !isCurrentlyUploadingThisSlot && ( 
+        {currentDoc?.analysisResult && !isCurrentlyUploadingThisSlot && (
            <div className="mt-2 p-3 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-x-auto">
             <p className="font-semibold text-primary/80">Dados Extraídos por IA:</p>
             {(currentDoc.analysisResult as any).error ? <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p> : <>
@@ -463,7 +456,7 @@ export default function DocumentosPage() {
       </div>
     );
   };
-  
+
   const renderCurrentPfDocumentSlots = () => {
     if (processState.buyerType !== 'pf' || !selectedPfDocType) return null;
 
@@ -495,7 +488,7 @@ export default function DocumentosPage() {
       </div>
     );
   }
-  
+
   const globalDisableCondition = isNavigating || uploadingDocKey !== null || analyzingDocKey !== null || isStateLoading;
 
   return (
@@ -557,7 +550,7 @@ export default function DocumentosPage() {
           </CardContent>
         </Card>
       )}
-      
+
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-xl font-headline text-primary">
@@ -566,7 +559,7 @@ export default function DocumentosPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
-          {processState.buyerType === 'pj' && processState.buyerInfo && ( 
+          {processState.buyerType === 'pj' && processState.buyerInfo && (
             <>
               <div>
                 <Label htmlFor="repNome">Nome Completo do Representante</Label>
@@ -610,20 +603,20 @@ export default function DocumentosPage() {
       </Card>
 
       <div className="flex justify-between mt-8">
-        <Button 
-          onClick={handleBack} 
+        <Button
+          onClick={handleBack}
           variant="outline"
           disabled={globalDisableCondition}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
           <ArrowLeft className="mr-2 h-5 w-5" /> Voltar
         </Button>
-        <Button 
-          onClick={handleNext} 
+        <Button
+          onClick={handleNext}
           disabled={globalDisableCondition}
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          {isNavigating && !globalDisableCondition ? ( 
+          {isNavigating && !globalDisableCondition ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Aguarde...
