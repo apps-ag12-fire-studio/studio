@@ -226,53 +226,45 @@ export default function RevisaoEnvioPage() {
   useEffect(() => {
     const loadInitialData = async () => {
       setIsStateLoading(true);
-      console.log('[RevisaoEnvioPage] loadInitialData - Starting to load process state...');
       let loadedState = await loadProcessState();
-      console.log('[RevisaoEnvioPage] loadInitialData - Loaded state from loadProcessState():', JSON.parse(JSON.stringify(loadedState)));
 
-      // Initialize local editing states from the loaded global state
       let initialBuyerForEditing = loadedState.buyerInfo ? { ...loadedState.buyerInfo } : { ...initialStoredProcessState.buyerInfo };
       let initialCompanyForEditing = loadedState.buyerType === 'pj'
         ? (loadedState.companyInfo ? { ...loadedState.companyInfo } : { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) })
         : null;
 
-      // Attempt pre-fill only if key fields are still at their initial (empty) values
-      const buyerInfoNeedsPrefill = !initialBuyerForEditing.nome && !initialBuyerForEditing.cpf;
-      const companyInfoNeedsPrefill = loadedState.buyerType === 'pj' && initialCompanyForEditing && !initialCompanyForEditing.razaoSocial && !initialCompanyForEditing.cnpj;
+      const buyerInfoNeedsPrefill = !initialBuyerForEditing.nome || !initialBuyerForEditing.cpf || !initialBuyerForEditing.email || !initialBuyerForEditing.telefone;
+      const companyInfoNeedsPrefill = loadedState.buyerType === 'pj' && initialCompanyForEditing && (!initialCompanyForEditing.razaoSocial || !initialCompanyForEditing.cnpj);
 
       let updatedGlobalState = { ...loadedState };
 
       if (buyerInfoNeedsPrefill || companyInfoNeedsPrefill) {
-        console.log('[RevisaoEnvioPage] loadInitialData - Attempting to pre-fill info...');
         const { buyerInfo: preFilledBuyer, companyInfo: preFilledCompany } = attemptToPreFillInfo(
           loadedState,
           initialBuyerForEditing,
           initialCompanyForEditing
         );
+        
+        const buyerChangedByPrefill = JSON.stringify(preFilledBuyer) !== JSON.stringify(initialBuyerForEditing);
+        const companyChangedByPrefill = loadedState.buyerType === 'pj' && JSON.stringify(preFilledCompany) !== JSON.stringify(initialCompanyForEditing);
 
-        // Only update if pre-fill actually changed something from the loaded state
-        const buyerChanged = JSON.stringify(preFilledBuyer) !== JSON.stringify(initialBuyerForEditing);
-        const companyChanged = JSON.stringify(preFilledCompany) !== JSON.stringify(initialCompanyForEditing);
-
-        if (buyerChanged) {
-          initialBuyerForEditing = preFilledBuyer;
-          updatedGlobalState.buyerInfo = preFilledBuyer;
-           console.log('[RevisaoEnvioPage] loadInitialData - Pre-filled Buyer Info updated local editing state and global state draft:', JSON.parse(JSON.stringify(preFilledBuyer)));
+        if (buyerChangedByPrefill) {
+            initialBuyerForEditing = preFilledBuyer;
         }
-        if (companyChanged && loadedState.buyerType === 'pj') {
-          initialCompanyForEditing = preFilledCompany;
-          updatedGlobalState.companyInfo = preFilledCompany;
-          console.log('[RevisaoEnvioPage] loadInitialData - Pre-filled Company Info updated local editing state and global state draft:', JSON.parse(JSON.stringify(preFilledCompany)));
+        if (companyChangedByPrefill && loadedState.buyerType === 'pj') {
+            initialCompanyForEditing = preFilledCompany;
         }
       }
       
       setCurrentBuyerInfo(initialBuyerForEditing);
       setCurrentCompanyInfo(initialCompanyForEditing);
-      setProcessState(updatedGlobalState); // Set the potentially updated global state
 
-      console.log('[RevisaoEnvioPage] loadInitialData - Final processState set:', JSON.parse(JSON.stringify(updatedGlobalState)));
-      console.log('[RevisaoEnvioPage] loadInitialData - Final currentBuyerInfo set:', JSON.parse(JSON.stringify(initialBuyerForEditing)));
-      console.log('[RevisaoEnvioPage] loadInitialData - Final currentCompanyInfo set:', initialCompanyForEditing ? JSON.parse(JSON.stringify(initialCompanyForEditing)) : null);
+      setProcessState(current => ({
+          ...current, // Start with current state from loadProcessState or previous setProcessState
+          ...loadedState, // Then apply loaded state
+          buyerInfo: initialBuyerForEditing, // Ensure these are set from potentially pre-filled values
+          companyInfo: initialCompanyForEditing, // Ensure these are set from potentially pre-filled values
+      }));
       
       setIsStateLoading(false);
     };
@@ -284,7 +276,6 @@ export default function RevisaoEnvioPage() {
     const { value } = e.target;
     setCurrentBuyerInfo(prev => {
       const newInfo = { ...prev, [field]: value };
-      // Update the main processState as well
       setProcessState(currentMainState => ({
         ...currentMainState,
         buyerInfo: newInfo
@@ -308,18 +299,13 @@ export default function RevisaoEnvioPage() {
   };
 
   const isPrintDisabled = useCallback(() => {
-    // const stateForValidation: StoredProcessState = {
-    //   ...processState, // Already contains updated buyerInfo and companyInfo from input handlers
-    // };
-    // return getMissingFieldsList(stateForValidation).length > 0;
-    return false; // Temporarily disabled for debugging
+    // Temporarily disable validation for debugging
+    // return getMissingFieldsList(processState).length > 0;
+    return false;
   }, [processState]);
 
   const showPendingChecks = () => {
-    const stateForValidation: StoredProcessState = {
-      ...processState, // processState is updated directly by input handlers
-    };
-    const missingFields = getMissingFieldsList(stateForValidation);
+    const missingFields = getMissingFieldsList(processState);
 
     if (missingFields.length > 0) {
       toast({
@@ -350,11 +336,21 @@ export default function RevisaoEnvioPage() {
 
   const handlePrepareForPrint = async () => {
     setIsPreparingPrint(true);
-    // processState should already be up-to-date from input handlers
-    const stateToSave = { ...processState, currentStep: "/print-contract" };
-    console.log('[RevisaoEnvioPage] State being saved before navigating to print:', JSON.parse(JSON.stringify(stateToSave)));
+    const stateToSave: StoredProcessState = {
+      ...processState,
+      buyerInfo: currentBuyerInfo, // Ensure the latest edited buyerInfo is included
+      companyInfo: currentCompanyInfo, // Ensure the latest edited companyInfo is included
+      currentStep: "/print-contract"
+    };
+
+    console.log('[RevisaoEnvioPage] Preparing for print. State to save:');
+    console.log(`  Process ID: ${stateToSave.processId}`);
+    console.log('  InternalTeamMemberInfo:', JSON.stringify(stateToSave.internalTeamMemberInfo, null, 2));
+    console.log('  ExtractedData:', JSON.stringify(stateToSave.extractedData, null, 2));
+    console.log('  BuyerInfo:', JSON.stringify(stateToSave.buyerInfo, null, 2));
+    console.log('  CompanyInfo:', JSON.stringify(stateToSave.companyInfo, null, 2));
     
-    await saveProcessState(stateToSave); // Await the save operation
+    await saveProcessState(stateToSave);
     
     toast({ title: "Etapa 4 Concluída!", description: "Informações salvas. Carregando contrato para impressão...", className: "bg-green-600 text-primary-foreground border-green-700"});
     router.push('/print-contract');
@@ -362,20 +358,27 @@ export default function RevisaoEnvioPage() {
 
   const handleBack = async () => {
     setIsNavigating(true);
-    // processState should already be up-to-date from input handlers
-    await saveProcessState(processState); 
+    const stateToSave: StoredProcessState = {
+        ...processState,
+        buyerInfo: currentBuyerInfo,
+        companyInfo: currentCompanyInfo,
+    };
+    await saveProcessState(stateToSave); 
     router.push("/processo/documentos");
   };
 
-  // Save on unmount
   useEffect(() => {
     return () => {
       if (!isNavigating && !isPreparingPrint) {
-        // processState should already be up-to-date from input handlers
-        saveProcessState(processState);
+        const stateToSaveOnUnmount: StoredProcessState = {
+          ...processState,
+          buyerInfo: currentBuyerInfo,
+          companyInfo: currentCompanyInfo,
+        };
+        saveProcessState(stateToSaveOnUnmount);
       }
     };
-  }, [processState, isNavigating, isPreparingPrint]);
+  }, [processState, currentBuyerInfo, currentCompanyInfo, isNavigating, isPreparingPrint]);
 
 
   if (isStateLoading) {
@@ -479,7 +482,7 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
-          {processState.buyerType === 'pj' && processState.companyInfo && ( // Check processState.companyInfo for display
+          {processState.buyerType === 'pj' && processState.companyInfo && ( 
             <>
               <div className="space-y-1">
                 <h3 className="flex items-center text-lg font-semibold text-primary/90"><Building className="mr-2 h-5 w-5" />Dados da Empresa</h3>
@@ -588,5 +591,4 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-
     
