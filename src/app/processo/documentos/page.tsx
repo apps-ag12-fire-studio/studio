@@ -370,7 +370,7 @@ export default function DocumentosPage() {
     setProcessState(newState);
   };
 
-  useEffect(() => { 
+  useEffect(() => {
     return () => {
       if (!isNavigating) {
         saveProcessState(processState);
@@ -393,7 +393,7 @@ export default function DocumentosPage() {
       const MAX_TOTAL_CHARS = 700;
       let accumulatedChars = 0;
 
-      const fieldsToShow = [
+      let fieldsToDisplayOrder = [
         { label: "Nome", value: analysisData.nomeCompleto },
         { label: "CPF", value: analysisData.cpf },
         { label: "Data Nasc.", value: analysisData.dataNascimento },
@@ -406,28 +406,41 @@ export default function DocumentosPage() {
         { label: "CEP", value: analysisData.cep },
       ];
 
-      for (const field of fieldsToShow) {
+      if (docKey === 'comprovanteEndereco') {
+        fieldsToDisplayOrder = [
+          { label: "Logradouro", value: analysisData.logradouro },
+          { label: "Bairro", value: analysisData.bairro },
+          { label: "Cidade", value: analysisData.cidade },
+          { label: "Estado", value: analysisData.estado },
+          { label: "CEP", value: analysisData.cep },
+          { label: "Nome Titular", value: analysisData.nomeCompleto },
+          { label: "CPF Titular", value: analysisData.cpf },
+          { label: "RG Titular", value: analysisData.rg },
+        ];
+      }
+
+      for (const field of fieldsToDisplayOrder) {
         if (field.value) {
-          const fieldString = `${field.label}: ${field.value}\n`; 
+          const fieldString = `${field.label}: ${field.value}\n`;
           if (accumulatedChars + fieldString.length > MAX_TOTAL_CHARS && accumulatedChars > 0) {
             elementsToRender.push(
-              <p key="truncation-message" className="text-muted-foreground italic break-all">
+              <p key="truncation-message" className="text-muted-foreground italic break-all text-xs">
                 ... (mais dados extraídos, exibição limitada)
               </p>
             );
-            break; 
+            break;
           }
           elementsToRender.push(
-            <p key={field.label} className="break-all">
+            <p key={field.label} className="break-all text-xs">
               <strong>{field.label}:</strong> {field.value}
             </p>
           );
           accumulatedChars += fieldString.length;
 
           if (accumulatedChars >= MAX_TOTAL_CHARS) {
-            if (elementsToRender.length < fieldsToShow.filter(f => f.value).length) {
+            if (elementsToRender.length < fieldsToDisplayOrder.filter(f => f.value).length) {
                  elementsToRender.push(
-                    <p key="truncation-message-after-fill" className="text-muted-foreground italic break-all">
+                    <p key="truncation-message-after-fill" className="text-muted-foreground italic break-all text-xs">
                     ... (mais dados podem ter sido omitidos)
                     </p>
                 );
@@ -435,6 +448,13 @@ export default function DocumentosPage() {
             break;
           }
         }
+      }
+      if (elementsToRender.length === 0) {
+        elementsToRender.push(
+          <p key="no-data-extracted" className="text-muted-foreground italic text-xs">
+            A IA analisou o documento, mas não extraiu dados para os campos esperados.
+          </p>
+        );
       }
     }
 
@@ -494,7 +514,7 @@ export default function DocumentosPage() {
         )}
         {currentDoc?.analysisResult && !isCurrentlyUploadingThisSlot && (
            <div className="mt-2 p-3 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-x-auto">
-            <p className="font-semibold text-primary/80">Dados Extraídos por IA:</p>
+            <p className="font-semibold text-primary/80 text-sm">Dados Extraídos por IA:</p>
             {(currentDoc.analysisResult as any).error ? (
                 <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p>
             ) : (
