@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon, QrCode, Edit3, CheckCircle2, MapPin } from 'lucide-react';
-import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from '@/lib/process-store';
+import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from "@/lib/process-store";
 import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog";
 
 // Componente para o rodapé de impressão personalizado
@@ -29,7 +29,7 @@ const PrintFooter = ({ processId }: { processId: string | null }) => {
       <Image 
         src={qrCodeUrl} 
         alt={`QR Code para verificação do Processo ID ${processId}`} 
-        width={80} // This width/height is for the <Image> component, actual print size via CSS
+        width={80} 
         height={80}
         className="qr-code-image"
         unoptimized 
@@ -50,75 +50,112 @@ export default function PrintContractPage() {
 
 
   useEffect(() => {
-    const fetchDataAndUpdateSignatureDate = async () => {
+    const fetchDataAndUpdateSignature = async () => {
       setIsLoading(true);
-      let loadedData = await loadProcessState();
-      let newSigningString = ""; // Initialize to ensure it's always defined
-      
-      if (loadedData?.extractedData) {
-        const today = new Date().toLocaleDateString('pt-BR');
-        let currentSigningString = loadedData.extractedData.localEDataAssinatura || "";
-        newSigningString = currentSigningString; // Default to current if no changes needed
-        let locationPartForToast = "[Local Padrão]"; // Default for toast
+      let loadedData = await loadProcessState(); // Step 1: Load current state
+      const today = new Date().toLocaleDateString('pt-BR');
+      let finalSigningString = ""; // This will be the string set in the contract
+      let locationDisplayForContract = ""; // What actually goes into contract's location part
+      let geoStatusMessageForToast = "A geolocalização não foi solicitada ou falhou. A Cidade/Estado são baseados no modelo do contrato ou requerem entrada manual."; // Default toast message part
 
-        const datePlaceholderRegex = /\[Data.*?\]|Data Atual/i;
+      // Step 2: Define how to construct the signing string based on contract's current location and geo attempt
+      const updateSigningStringAndDetermineDisplay = (
+        currentContractLocationString: string | undefined, 
+        geoAttemptSuccessful: boolean, 
+        coordinates?: GeolocationCoordinates
+      ) => {
+        let determinedLocationPart = currentContractLocationString ? currentContractLocationString.split(',')[0].trim() : "";
+        const isGenericLocationInContract = !determinedLocationPart || /\[local.*?\]/i.test(determinedLocationPart) || determinedLocationPart.trim() === "";
 
-        if (datePlaceholderRegex.test(currentSigningString)) {
-          newSigningString = currentSigningString.replace(datePlaceholderRegex, today);
-          locationPartForToast = newSigningString.split(',')[0].trim();
-        } else if (currentSigningString.trim() === "" || currentSigningString.toLowerCase().includes("[local]")) {
-          newSigningString = `[Local da Assinatura], ${today}`;
-          locationPartForToast = "[Local da Assinatura]";
-        } else if (currentSigningString.includes(',')) {
-            const parts = currentSigningString.split(',');
-            const locationPart = parts.slice(0, -1).join(',').trim();
-            if (locationPart) {
-                 newSigningString = `${locationPart}, ${today}`;
-                 locationPartForToast = locationPart;
-            } else { // Only one part, assume it's location
-                newSigningString = `${currentSigningString.trim()}, ${today}`;
-                locationPartForToast = currentSigningString.trim();
-            }
-        } else if (currentSigningString.trim() !== "") {
-          newSigningString = `${currentSigningString.trim()}, ${today}`;
-          locationPartForToast = currentSigningString.trim();
-        }
-
-        if (newSigningString !== currentSigningString) {
-          loadedData = {
-            ...loadedData,
-            extractedData: {
-              ...(loadedData.extractedData!),
-              localEDataAssinatura: newSigningString,
-            },
-          };
-          console.log(`[PrintContractPage] Auto-updating localEDataAssinatura to: ${newSigningString}`);
-          
-          if (typeof window !== 'undefined' && !localStorage.getItem('geolocationToastShownForPrintContractPage')) {
-            toast({
-                title: "Local e Data da Assinatura",
-                description: `Data atualizada para ${today}. O local ("${locationPartForToast}") é baseado no modelo do contrato. A cidade e estado não são preenchidos automaticamente por geolocalização nesta versão.`,
-                duration: 10000, 
-            });
-            localStorage.setItem('geolocationToastShownForPrintContractPage', 'true');
+        if (isGenericLocationInContract) {
+          if (geoAttemptSuccessful && coordinates) {
+            locationDisplayForContract = `Local (GPS Detectado)`; // For contract
+          } else {
+            locationDisplayForContract = "[Local da Assinatura]"; // Fallback for contract
           }
+        } else { // Specific location already in contract
+          locationDisplayForContract = determinedLocationPart;
         }
-      }
+        finalSigningString = `${locationDisplayForContract}, ${today}`;
+      };
       
-      if (loadedData) {
-        console.log('[PrintContractPage] Loaded data by loadProcessState() before setting local states:', loadedData ? JSON.parse(JSON.stringify(loadedData)) : String(loadedData));
-        setCurrentBuyerInfo(loadedData.buyerInfo || initialStoredProcessState.buyerInfo);
-      }
+      // Step 3: Define what to do after geolocation attempt (success or failure)
+      const processLoadedDataAfterGeoAttempt = async (
+          geoSuccess: boolean, 
+          coordinates?: GeolocationCoordinates, 
+          customGeoErrorMessage?: string
+        ) => {
+        
+        if (geoSuccess && coordinates) {
+            geoStatusMessageForToast = `Coordenadas GPS obtidas (${coordinates.latitude.toFixed(2)}, ${coordinates.longitude.toFixed(2)}). A Cidade/Estado exatas ainda requerem confirmação manual ou um serviço de geocodificação reversa (não configurado).`;
+        } else if (customGeoErrorMessage) {
+            geoStatusMessageForToast = customGeoErrorMessage;
+        } // else default geoStatusMessageForToast remains
 
-      setCurrentProcessState(loadedData); 
+        updateSigningStringAndDetermineDisplay(loadedData?.extractedData?.localEDataAssinatura, geoSuccess, coordinates);
+
+        let stateWasModified = false;
+        if (loadedData && loadedData.extractedData && finalSigningString && finalSigningString !== loadedData.extractedData.localEDataAssinatura) {
+            loadedData = {
+                ...loadedData,
+                extractedData: {
+                    ...(loadedData.extractedData!),
+                    localEDataAssinatura: finalSigningString,
+                },
+            };
+            stateWasModified = true;
+        }
+        
+        if (loadedData) {
+            console.log('[PrintContractPage] Loaded data by loadProcessState() before setting local states:', loadedData ? JSON.parse(JSON.stringify(loadedData)) : String(loadedData));
+            setCurrentBuyerInfo(loadedData.buyerInfo || initialStoredProcessState.buyerInfo);
+        }
+        setCurrentProcessState(loadedData); 
       
-      if (loadedData && newSigningString && newSigningString !== (loadedData.extractedData?.localEDataAssinatura || "") && loadedData.processId) {
-        await saveProcessState(loadedData);
-      }
+        if (stateWasModified && loadedData?.processId) { // Save only if modified and processId exists
+          await saveProcessState(loadedData);
+        }
 
-      setIsLoading(false);
+        if (typeof window !== 'undefined' && !localStorage.getItem('geolocationToastShownForPrintContractPage_v2')) {
+            toast({
+                title: "Local e Data da Assinatura Atualizados",
+                description: `Data: ${today}. Local no contrato: "${locationDisplayForContract}". ${geoStatusMessageForToast}`,
+                duration: 12000, // Increased duration for better readability
+            });
+            localStorage.setItem('geolocationToastShownForPrintContractPage_v2', 'true');
+        }
+        setIsLoading(false);
+      };
+
+      // Step 4: Attempt geolocation
+      if (navigator.geolocation) {
+        console.log("[Geolocation] Attempting to get current position...");
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log("[Geolocation] Success:", position.coords);
+            processLoadedDataAfterGeoAttempt(true, position.coords);
+          },
+          (error) => {
+            console.warn("[Geolocation] Error Code:", error.code, "Message:", error.message);
+            let userFriendlyError = `Falha ao obter geolocalização (Erro ${error.code}). A Cidade/Estado são baseados no modelo ou requerem entrada manual.`;
+            if (error.code === error.PERMISSION_DENIED) {
+              userFriendlyError = "Permissão de geolocalização negada. A Cidade/Estado são baseados no modelo ou requerem entrada manual.";
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+              userFriendlyError = "Informação de localização indisponível. A Cidade/Estado são baseados no modelo ou requerem entrada manual.";
+            } else if (error.code === error.TIMEOUT) {
+              userFriendlyError = "Tempo esgotado para obter geolocalização. A Cidade/Estado são baseados no modelo ou requerem entrada manual.";
+            }
+            processLoadedDataAfterGeoAttempt(false, undefined, userFriendlyError);
+          },
+          { timeout: 10000, enableHighAccuracy: false } 
+        );
+      } else {
+        console.warn("[Geolocation] Not supported by this browser.");
+        processLoadedDataAfterGeoAttempt(false, undefined, "Geolocalização não é suportada neste navegador. A Cidade/Estado são baseados no modelo ou requerem entrada manual.");
+      }
     };
-    fetchDataAndUpdateSignatureDate();
+
+    fetchDataAndUpdateSignature();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
@@ -240,7 +277,7 @@ export default function PrintContractPage() {
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
           <CardContent className="p-10 text-center flex flex-col items-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground">Carregando dados do contrato...</p>
+            <p className="text-lg text-muted-foreground">Carregando dados e geolocalização...</p>
           </CardContent>
         </Card>
       </div>
@@ -357,8 +394,9 @@ export default function PrintContractPage() {
 
 
   const renderCompradorInfo = () => {
-    const displayAddress = `${currentBuyerInfo.logradouro || '[Logradouro]'}, ${currentBuyerInfo.bairro || '[Bairro]'}\n${currentBuyerInfo.cidade || '[Cidade]'} - ${currentBuyerInfo.estado || '[UF]'}, CEP: ${currentBuyerInfo.cep || '[CEP]'}`;
-    const fullAddressPlaceholder = '[ENDEREÇO COMPLETO DO COMPRADOR: Logradouro, Bairro, Cidade, UF, CEP]';
+    const displayAddress = `${currentBuyerInfo.logradouro || '[Logradouro]'},\n${currentBuyerInfo.bairro || '[Bairro]'}\n${currentBuyerInfo.cidade || '[Cidade]'} - ${currentBuyerInfo.estado || '[UF]'},\nCEP: ${currentBuyerInfo.cep || '[CEP]'}`;
+    const fullAddressPlaceholder = '[ENDEREÇO COMPLETO DO COMPRADOR:\nLogradouro, Bairro,\nCidade - UF, CEP: CEP]';
+
 
     if (buyerType === 'pj' && companyInfo && currentBuyerInfo) {
       return (
@@ -366,7 +404,7 @@ export default function PrintContractPage() {
           <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA JURÍDICA):</p>
           <p><strong>Razão Social:</strong> {companyInfo.razaoSocial || '[RAZÃO SOCIAL DA EMPRESA]'}</p>
           <p><strong>CNPJ:</strong> {companyInfo.cnpj || '[CNPJ DA EMPRESA]'}</p>
-          <p><strong>Endereço (Sede):</strong> {currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</p>
+          <p><strong>Endereço (Sede):</strong> <span className="whitespace-pre-line">{currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</span></p>
           <p><strong>Representada por:</strong> {currentBuyerInfo.nome || '[NOME DO REPRESENTANTE]'}</p>
           <p><strong>CPF do Representante:</strong> {currentBuyerInfo.cpf || '[CPF DO REPRESENTANTE]'}</p>
           <p><strong>E-mail:</strong> {currentBuyerInfo.email || '[E-MAIL DO REPRESENTANTE]'}</p>
@@ -381,7 +419,8 @@ export default function PrintContractPage() {
         <p><strong>CPF:</strong> {currentBuyerInfo?.cpf || '[CPF DO COMPRADOR]'}</p>
         <p><strong>E-mail:</strong> {currentBuyerInfo?.email || '[E-MAIL DO COMPRADOR]'}</p>
         <p><strong>Telefone:</strong> {currentBuyerInfo?.telefone || '[TELEFONE DO COMPRADOR]'}</p>
-        <p><strong>Endereço:</strong> {currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</p>
+        <p><strong>Endereço:</strong> <span className="whitespace-pre-line">{currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</span></p>
+
       </>
     );
   };
@@ -566,3 +605,4 @@ export default function PrintContractPage() {
     
 
     
+
