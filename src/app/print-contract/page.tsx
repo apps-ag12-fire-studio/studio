@@ -15,6 +15,7 @@ export default function PrintContractPage() {
   const { toast } = useToast();
   const [currentProcessState, setCurrentProcessState] = useState<StoredProcessState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPrinting, setIsPrinting] = useState(false); // New state for print loading
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,6 +36,39 @@ export default function PrintContractPage() {
     };
     fetchData();
   }, []); 
+
+  // Effect to handle print events
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setIsPrinting(false);
+    };
+
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
+
+  const handleInitiatePrint = () => {
+    setIsPrinting(true);
+    // Allow state to update and render loader before blocking with window.print()
+    requestAnimationFrame(() => {
+      try {
+        window.print();
+      } catch (error) {
+        console.error("Error calling window.print():", error);
+        toast({
+            title: "Erro ao Imprimir",
+            description: "Não foi possível abrir a caixa de diálogo de impressão.",
+            variant: "destructive"
+        });
+        setIsPrinting(false); // Reset if window.print() itself throws an error
+      }
+      // Note: setIsPrinting(false) will be called by the 'afterprint' event listener.
+      // If 'afterprint' is unreliable on some browsers, a timeout could be a fallback here,
+      // but 'afterprint' is generally the preferred method.
+    });
+  };
 
   const handleProceedToSignedUpload = async () => {
     if (!currentProcessState || !currentProcessState.processId) {
@@ -124,7 +158,7 @@ export default function PrintContractPage() {
     !currentProcessState.internalTeamMemberInfo.cpf || 
     !currentProcessState.internalTeamMemberInfo.email || 
     !currentProcessState.internalTeamMemberInfo.telefone ||
-    !currentProcessState.internalTeamMemberInfo.cargo;
+    !currentProcessState.internalTeamMemberInfo.cargo; // Added cargo check
   const buyerInfoMissing = !currentProcessState.buyerInfo || !currentProcessState.buyerInfo.nome || !currentProcessState.buyerInfo.cpf || !currentProcessState.buyerInfo.email || !currentProcessState.buyerInfo.telefone;
   const companyInfoMissingForPJ = currentProcessState.buyerType === 'pj' && (!currentProcessState.companyInfo || !currentProcessState.companyInfo.razaoSocial || !currentProcessState.companyInfo.cnpj);
 
@@ -242,8 +276,8 @@ export default function PrintContractPage() {
           Passo 5: Impressão do Contrato e Documentos
         </p>
       </header>
-      <div className="printable-page-wrapper"> {/* Wrapper for print content targeting */}
-        <div className="w-full max-w-3xl space-y-8 mx-auto my-0 print:my-0 print:mx-auto print:space-y-0"> {/* Reset margins for print */}
+      <div className="printable-page-wrapper">
+        <div className="w-full max-w-3xl space-y-8 mx-auto my-0 print:my-0 print:mx-auto print:space-y-0">
           <div className="print-hidden text-center mb-6">
               <h1 className="text-3xl font-headline text-primary text-glow-gold">Pré-visualização do Contrato e Documentos</h1>
               <p className="text-muted-foreground mt-2">Este conjunto está pronto para impressão. Após imprimir e assinar, anexe a foto do contrato assinado.</p>
@@ -358,8 +392,20 @@ export default function PrintContractPage() {
           </Card>
 
           <div className="mt-8 w-full max-w-3xl flex flex-col sm:flex-row gap-4 print-hidden">
-            <Button onClick={() => window.print()} className="flex-1 bg-gradient-to-br from-blue-600 to-blue-800 hover:from-blue-600/90 hover:to-blue-800/90 text-lg py-4 rounded-lg text-white shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
-              <Printer className="mr-2 h-5 w-5" /> Imprimir Tudo
+            <Button 
+                onClick={handleInitiatePrint} 
+                disabled={isPrinting}
+                className="flex-1 bg-gradient-to-br from-blue-600 to-blue-800 hover:from-blue-600/90 hover:to-blue-800/90 text-lg py-4 rounded-lg text-white shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isPrinting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Preparando Impressão...
+                </>
+              ) : (
+                <>
+                  <Printer className="mr-2 h-5 w-5" /> Imprimir Tudo
+                </>
+              )}
             </Button>
             <Button onClick={handleProceedToSignedUpload} className="flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-4 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
                <FilePenLine className="mr-2 h-5 w-5" /> Contrato Assinado - Anexar Foto
@@ -375,6 +421,5 @@ export default function PrintContractPage() {
     </>
   );
 }
-
 
     
