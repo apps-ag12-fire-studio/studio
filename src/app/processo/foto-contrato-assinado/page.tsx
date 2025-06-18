@@ -17,19 +17,19 @@ import {
     initialStoredProcessState, 
     clearProcessState, 
     DocumentFile,
-    addUploadedFileToFirestore // Import new function
+    addUploadedFileToFirestore 
 } from "@/lib/process-store";
-import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud } from "lucide-react";
-import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore'; // Keep addDoc for submittedContracts
+import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, UploadCloud, CheckCircle2 } from "lucide-react"; // Added CheckCircle2
+import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore'; 
 import { firebaseApp, storage as firebaseStorage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
 const db = getFirestore(firebaseApp);
 
-const generateUniqueFileName = (file: File, processId: string) => { // Updated parameters
+const generateUniqueFileName = (file: File, processId: string) => { 
   const timestamp = new Date().getTime();
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  // New path structure
+  
   return `processos/${processId}/${timestamp}-signed-${saneFilename}`;
 };
 
@@ -86,7 +86,7 @@ export default function FotoContratoAssinadoPage() {
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
-    if (file && processState.processId) { // Ensure processId exists
+    if (file && processState.processId) { 
       setIsUploadingSignedContract(true);
       setSignedContractUploadProgress(0);
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
@@ -95,13 +95,13 @@ export default function FotoContratoAssinadoPage() {
         try {
           const oldPhotoRef = storageRef(firebaseStorage, processState.signedContractPhotoStoragePath);
           await deleteObject(oldPhotoRef);
-          // Note: Deleting from Firestore 'arquivos' array on re-upload is complex. New uploads will add.
+          
         } catch (deleteError) {
           console.warn("[FotoContratoAssinado] Could not delete old signed contract photo:", deleteError);
         }
       }
       
-      const filePath = generateUniqueFileName(file, processState.processId); // Updated path
+      const filePath = generateUniqueFileName(file, processState.processId); 
       const fileRef = storageRef(firebaseStorage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
 
@@ -125,7 +125,7 @@ export default function FotoContratoAssinadoPage() {
         async () => {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            // Add to 'arquivos' array in Firestore
+            
             if (processState.processId) {
                 await addUploadedFileToFirestore(processState.processId, file, downloadURL, filePath);
             }
@@ -159,7 +159,7 @@ export default function FotoContratoAssinadoPage() {
         if (photoInputRef.current) photoInputRef.current.value = "";
       const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: undefined, signedContractPhotoStoragePath: null};
       setProcessState(newState);
-      saveProcessState(newState); // Save if file is cleared
+      saveProcessState(newState); 
     }
   };
 
@@ -177,7 +177,7 @@ export default function FotoContratoAssinadoPage() {
 
   const isInternalTeamMemberInfoEmpty = (data: StoredProcessState['internalTeamMemberInfo'] | undefined): boolean => {
     if (!data) return true;
-    // Check all fields including cargo
+    
     return !data.nome && !data.cpf && !data.email && !data.telefone && !data.cargo;
   }
 
@@ -187,25 +187,23 @@ export default function FotoContratoAssinadoPage() {
     setIsSubmitting(true);
     try {
       const finalStateForSubmission = { ...processState, currentStep: '/confirmation' };
-      await saveProcessState(finalStateForSubmission); // Ensure the latest state (with signed contract photo) is saved to 'processos'
+      await saveProcessState(finalStateForSubmission); 
 
-      // Structure for 'submittedContracts' collection (can be different from 'processos')
+      
       const submissionData = {
         submissionTimestamp: Timestamp.now(),
         processId: finalStateForSubmission.processId, 
-        // Include relevant data from finalStateForSubmission, similar to before
-        // This can include direct fields or a snapshot of the clientState or parts of it
+        
         responsavelInterno: finalStateForSubmission.internalTeamMemberInfo,
         buyerInfo: finalStateForSubmission.buyerInfo,
         companyInfo: finalStateForSubmission.companyInfo,
         contractSourceType: finalStateForSubmission.contractSourceType,
         selectedPlayer: finalStateForSubmission.selectedPlayer,
         extractedContractData: finalStateForSubmission.extractedData,
-        // URLs for key documents might be useful here for quick access
+        
         originalContractPhotoUrl: finalStateForSubmission.contractSourceType === 'new' ? finalStateForSubmission.contractPhotoPreview : null,
         signedContractPhotoUrl: finalStateForSubmission.signedContractPhotoPreview,
-        // Optionally, include the full 'arquivos' array from Firestore if needed for the submitted record
-        // For simplicity, keeping this structure concise. The full file list is in 'processos/{processId}/arquivos'.
+        
       };
 
       const docRef = await addDoc(collection(db, "submittedContracts"), submissionData);
@@ -217,11 +215,16 @@ export default function FotoContratoAssinadoPage() {
       console.log("--- [FotoContratoAssinado] FIM DA SIMULAÇÃO DE EMAIL FINAL ---\n");
 
       toast({
-        title: "Processo Enviado com Sucesso!",
+        title: (
+          <div className="flex items-center">
+            <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
+            Processo Enviado com Sucesso!
+          </div>
+        ),
         description: `Contrato assinado e documentos enviados para Firestore (ID: ${docRef.id}). Você será redirecionado.`,
-        className: "bg-green-600 text-primary-foreground border-green-700", // Changed className for green success
+        className: "bg-green-600 text-primary-foreground border-green-700", 
       });
-      clearProcessState(); // Clears localStorage for the next process
+      clearProcessState(); 
       router.push("/confirmation");
 
     } catch (error: any) {
@@ -238,7 +241,7 @@ export default function FotoContratoAssinadoPage() {
     router.push("/print-contract");
   };
 
-  // Effect for saving state on unmount or when processState changes and user is not navigating
+  
   useEffect(() => {
     const currentProcessStateForEffect = processState;
     const saveOnUnmountOrChange = async () => {
@@ -253,7 +256,7 @@ export default function FotoContratoAssinadoPage() {
 
     return () => {
         clearTimeout(timerId);
-        if (!isSubmitting) { // isSubmitting is true during handleBack or handleSubmit
+        if (!isSubmitting) { 
             saveOnUnmountOrChange();
         }
     };

@@ -19,7 +19,7 @@ import {
 } from "@/lib/process-store";
 import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
-import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info, Edit3 } from "lucide-react";
+import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info, Edit3, CheckCircle2 } from "lucide-react"; // Added CheckCircle2
 import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog";
 
 
@@ -286,7 +286,16 @@ export default function RevisaoEnvioPage() {
     };
     setProcessState(updatedFullProcessState); 
     await saveProcessState(updatedFullProcessState); 
-    toast({ title: "Responsável Interno Atualizado", description: "Informações salvas e sincronizadas com o servidor." });
+    toast({ 
+        title: (
+          <div className="flex items-center">
+            <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
+            Responsável Interno Atualizado
+          </div>
+        ), 
+        description: "Informações salvas e sincronizadas com o servidor.",
+        className: "bg-secondary text-secondary-foreground border-secondary"
+    });
   };
 
   const handleSaveComprador = async (updatedData: Record<string, string>) => {
@@ -302,7 +311,16 @@ export default function RevisaoEnvioPage() {
     };
     setProcessState(updatedFullProcessState); 
     await saveProcessState(updatedFullProcessState); 
-    toast({ title: "Dados do Comprador Atualizados", description: "Informações salvas e sincronizadas com o servidor." });
+    toast({ 
+        title: (
+          <div className="flex items-center">
+            <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
+            Dados do Comprador Atualizados
+          </div>
+        ), 
+        description: "Informações salvas e sincronizadas com o servidor.",
+        className: "bg-secondary text-secondary-foreground border-secondary"
+    });
   };
 
   const handleSaveEmpresa = async (updatedData: Record<string, string>) => {
@@ -319,7 +337,16 @@ export default function RevisaoEnvioPage() {
         };
         setProcessState(updatedFullProcessState); 
         await saveProcessState(updatedFullProcessState); 
-        toast({ title: "Dados da Empresa Atualizados", description: "Informações salvas e sincronizadas com o servidor." });
+        toast({ 
+            title: (
+              <div className="flex items-center">
+                <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
+                Dados da Empresa Atualizados
+              </div>
+            ), 
+            description: "Informações salvas e sincronizadas com o servidor.",
+            className: "bg-secondary text-secondary-foreground border-secondary"
+        });
     }
   };
 
@@ -346,7 +373,7 @@ export default function RevisaoEnvioPage() {
 
 
   const isPrintDisabled = useCallback(() => {
-    if (isStateLoading) return true; // Disable if state is still loading
+    if (isStateLoading) return true; 
     return getMissingFieldsList(processState).length > 0;
   }, [processState, isStateLoading]);
 
@@ -371,7 +398,12 @@ export default function RevisaoEnvioPage() {
       });
     } else {
       toast({
-        title: "Tudo Certo!",
+        title: (
+          <div className="flex items-center">
+            <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
+            Tudo Certo!
+          </div>
+        ),
         description: "Todos os dados necessários estão preenchidos. Você pode prosseguir para a impressão.",
         className: "bg-green-600 text-primary-foreground border-green-700",
         duration: 5000,
@@ -399,7 +431,16 @@ export default function RevisaoEnvioPage() {
 
     await saveProcessState(stateToSave);
 
-    toast({ title: "Etapa 4 Concluída!", description: "Informações salvas. Carregando contrato para impressão...", className: "bg-green-600 text-primary-foreground border-green-700"});
+    toast({ 
+        title: (
+            <div className="flex items-center">
+                <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
+                Etapa 4 Concluída!
+            </div>
+        ), 
+        description: "Informações salvas. Carregando contrato para impressão...", 
+        className: "bg-green-600 text-primary-foreground border-green-700"
+    });
     router.push('/print-contract');
   };
 

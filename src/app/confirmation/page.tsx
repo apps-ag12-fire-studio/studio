@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Home } from "lucide-react"; // Removed Sparkles as it's not used here
+import { CheckCircle2, Home } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
