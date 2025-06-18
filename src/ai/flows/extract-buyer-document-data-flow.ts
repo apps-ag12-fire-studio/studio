@@ -25,7 +25,7 @@ const ExtractBuyerDocumentDataOutputSchema = z.object({
   cpf: z.string().optional().describe('Número do Cadastro de Pessoas Físicas (CPF) do titular, se visível ou contido no QR Code. Formatar como XXX.XXX.XXX-XX se possível.'),
   dataNascimento: z.string().optional().describe('Data de nascimento do titular, no formato DD/MM/AAAA, se visível ou contida no QR Code.'),
   nomeMae: z.string().optional().describe('Nome completo da mãe do titular, se visível ou contido no QR Code (comum em RGs).'),
-  rg: z.string().optional().describe('Número do Registro Geral (RG) ou Carteira de Identidade, incluindo órgão emissor e UF se disponíveis (ex: 12.345.678-9 SSP/SP), se visível ou contido no QR Code.'),
+  rg: z.string().optional().describe('Número do Registro Geral (RG) ou Carteira de Identidade. Extraia apenas os dígitos e informações do órgão emissor/UF que são claramente legíveis. Se partes estiverem obscurecidas por asteriscos ou ilegíveis, extraia apenas o que for visível. Se o campo inteiro for ilegível ou consistir principalmente de caracteres de mascaramento, omita este campo. Exemplo de extração ideal: "12.345.678-9 SSP/SP".'),
 });
 export type ExtractBuyerDocumentDataOutput = z.infer<typeof ExtractBuyerDocumentDataOutputSchema>;
 
@@ -46,7 +46,8 @@ Instruções:
 2.  **Priorize o QR Code:** Se um QR Code for encontrado e puder ser decodificado, as informações extraídas dele (como nome, CPF, data de nascimento, RG, nome da mãe) devem ser consideradas a fonte primária e mais confiável de dados. Preencha os campos do schema de saída com base nesses dados.
 3.  **Extração Visual (Fallback):** Se não houver QR Code, ou se ele estiver ilegível, danificado ou não contiver todas as informações necessárias, extraia as informações faltantes do texto visível no documento.
 4.  **Fidelidade:** Em todos os casos (QR Code ou visual), priorize a fidelidade aos dados originais.
-5.  **Campos Opcionais:** Se alguma informação não estiver claramente disponível (seja no QR Code ou no texto) ou não existir no documento, deixe o campo opcional correspondente vazio ou não o inclua na resposta.
+5.  **Campo RG - Instrução Específica:** Ao extrair o RG, concentre-se apenas nos números, letras e informações do órgão emissor/UF que são CLARAMENTE LEGÍVEIS. IGNORE e NÃO REPRODUZA longas sequências de asteriscos (***) ou outros caracteres de mascaramento que possam estar na imagem para ocultar partes do número. Se o número estiver quase totalmente obscurecido ou ilegível, deixe o campo 'rg' vazio. O objetivo é capturar o valor real do RG, não a sua representação mascarada.
+6.  **Campos Opcionais:** Se alguma informação não estiver claramente disponível (seja no QR Code ou no texto) ou não existir no documento, deixe o campo opcional correspondente vazio ou não o inclua na resposta.
 
 Analise a imagem do documento cuidadosamente e preencha os campos do schema de saída com a maior precisão possível, seguindo as prioridades acima.
 
@@ -55,7 +56,7 @@ Extraia informações sobre:
 - CPF do titular (formate como XXX.XXX.XXX-XX se possível).
 - Data de nascimento (formate como DD/MM/AAAA).
 - Nome da mãe do titular.
-- Número do RG (incluindo órgão emissor e UF, se disponível).
+- Número do RG (incluindo órgão emissor e UF, se disponível, e seguindo a instrução específica para RG).
 
 Documento (Imagem): {{media url=photoDataUri}}`,
   config: {
@@ -94,3 +95,4 @@ const extractBuyerDocumentDataFlow = ai.defineFlow(
     return output;
   }
 );
+
