@@ -1,25 +1,26 @@
-rules_version = '2';
 
+rules_version = '2';
 service firebase.storage {
-  match /b/{bucket}/o { // Matches all files in your bucket
+  match /b/{bucket}/o {
 
     // Permite acesso a arquivos dentro de pastas de usuários/processos.
+    // O primeiro segmento do caminho será algo como "user-processId123" ou "user-unknown_process".
+    // O segundo segmento 'category' será "original_contracts", "docs", ou "signed_contracts".
+    // 'allPaths=**' captura o restante do caminho, incluindo subpastas de documentos e o nome do arquivo.
+    //
     // Exemplos de caminhos que esta regra cobrirá:
     // - user-someProcessId/original_contracts/arquivo.jpg
     // - user-someProcessId/docs/rgFrente/arquivo.jpg
-    // - user-someProcessId/signed_contracts/arquivo.jpg
-    // - user-unknown_process/docs/comprovanteEndereco/arquivo.jpg (se processId for nulo)
-    match /user-{userIdentifier}/{category}/{allPaths=**} {
+    // - user-unknown_process/signed_contracts/arquivo.jpg
+    match /{userProcessFolder}/{category}/{allPaths=**} {
       allow read, write: if true; // Para desenvolvimento. Restrinja para produção!
-                                   // Ex: if request.auth != null; (se userIdentifier for um UID de usuário autenticado)
     }
 
-    // Se você tiver arquivos importantes em caminhos antigos como /original_contracts (sem o prefixo user-),
-    // você pode temporariamente adicionar as regras antigas de volta abaixo para permitir acesso a eles,
-    // mas o ideal é que todos os novos uploads sigam a estrutura user-{userIdentifier}.
-    // Exemplo de regra antiga para compatibilidade:
-    // match /buyer_documents/{allPaths=**} {
-    //   allow read, write: if true;
-    // }
+    // Regras antigas (opcional, para compatibilidade se arquivos já existirem nesses caminhos)
+    // Se você tiver certeza de que não há arquivos nos caminhos antigos ou não precisa mais deles,
+    // pode remover estas regras comentadas para manter as regras mais limpas.
+    // match /original_contracts/{allPaths=**} { allow read, write: if true; }
+    // match /buyer_documents/{allPaths=**} { allow read, write: if true; }
+    // match /signed_contracts/{allPaths=**} { allow read, write: if true; }
   }
 }
