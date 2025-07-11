@@ -296,7 +296,6 @@ body {
   .custom-print-footer .qr-code-image {
     width: 80px !important;
     height: 80px !important;
-    /* display: block !important; REMOVED to allow flex alignment */
     margin-left: 15px !important; /* Increased margin for better separation */
     flex-shrink: 0 !important; /* Prevent QR code from shrinking */
   }
@@ -315,8 +314,3 @@ body {
      display: none !important;
   }
 }
-    
-
-
-    
-

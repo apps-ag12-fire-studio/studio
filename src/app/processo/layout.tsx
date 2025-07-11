@@ -2,7 +2,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Users, Banknote, Scale, FileText, LifeBuoy, Laptop } from "lucide-react"; // Added Laptop
+import { Users, Banknote, Scale, FileText, LifeBuoy, Laptop } from "lucide-react";
 
 export default function ProcessoLayout({
   children,
@@ -14,7 +14,7 @@ export default function ProcessoLayout({
     {label: "Financeiro", icon: Banknote},
     {label: "Jurídico", icon: Scale},
     {label: "Contratual", icon: FileText},
-    {label: "Setor de Tecnologia", icon: Laptop}, // Added Setor de Tecnologia
+    {label: "Setor de Tecnologia", icon: Laptop},
     {label: "Suporte Geral", icon: LifeBuoy}
   ];
 

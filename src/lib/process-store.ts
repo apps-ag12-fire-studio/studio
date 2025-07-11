@@ -6,7 +6,7 @@ import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data
 import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
 import { toast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, Timestamp, updateDoc, arrayUnion, FieldValue } from 'firebase/firestore';
+import { doc, setDoc, getDoc, Timestamp, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export interface BuyerInfo {
   nome: string;
@@ -111,8 +111,6 @@ export const initialStoredProcessState: StoredProcessState = {
 
 const PROCESS_STATE_KEY = 'contratoFacilProcessState_v14_robust_parse';
 const ACTIVE_PROCESS_ID_KEY = 'contratoFacilActiveProcessId_v1';
-const PRINT_DATA_KEY = 'contractPrintData_v14_robust_parse';
-
 
 function getActiveProcessId(): string | null {
   if (typeof window !== 'undefined') {
@@ -193,7 +191,6 @@ async function storeStateInFirestore(state: StoredProcessState): Promise<void> {
         responsavelInterno?: BuyerInfo;
         status?: string;
         criadoEm?: Timestamp;
-        // 'arquivos' array is managed by addUploadedFileToFirestore
     } = {
       clientState: cleanedClientState,
       lastUpdated: Timestamp.now(),
@@ -211,7 +208,6 @@ async function storeStateInFirestore(state: StoredProcessState): Promise<void> {
       };
       dataToStore.status = "em_progresso";
       dataToStore.criadoEm = Timestamp.now();
-      // Initialize arquivos array if document is new
       await setDoc(docRef, { ...dataToStore, arquivos: [] });
       console.log(`[ProcessStore Firestore SAVE] New process document created and state saved to Firestore 'processos/${state.processId}'.`);
     } else {
@@ -335,27 +331,8 @@ async function loadStateFromFirestore(processId: string): Promise<Partial<Stored
       if (firestoreDocData.lastUpdated) {
         stateFromClientState.lastUpdated = firestoreDocData.lastUpdated;
       }
-      
-      stateFromClientState.internalTeamMemberInfo = {
-          ...initialStoredProcessState.internalTeamMemberInfo,
-          ...(loadedClientState.internalTeamMemberInfo || {})
-      };
 
-      stateFromClientState.buyerInfo = {
-           ...initialStoredProcessState.buyerInfo,
-           ...(loadedClientState.buyerInfo || {})
-      };
-
-      if (stateFromClientState.buyerType === 'pj') {
-           stateFromClientState.companyInfo = {
-               ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }),
-               ...(loadedClientState.companyInfo || {})
-           };
-       } else {
-           stateFromClientState.companyInfo = null;
-       }
-
-      console.log(`[ProcessStore Firestore LOAD] State loaded from Firestore 'processos/${processId}'. InternalTeamMemberInfo from clientState:`, stateFromClientState.internalTeamMemberInfo?.nome);
+      console.log(`[ProcessStore Firestore LOAD] State loaded from Firestore 'processos/${processId}'.`);
       return stateFromClientState;
     } else {
       console.log(`[ProcessStore Firestore LOAD] No document found in Firestore for 'processos/${processId}'.`);
@@ -376,19 +353,13 @@ export async function loadProcessState(): Promise<StoredProcessState> {
 
   let mergedStatePartial: Partial<StoredProcessState> = {};
   const activeId = getActiveProcessId();
-  let sourceOfTruthLog = `ActiveID from getActiveProcessId(): ${activeId}. `;
 
   let firestoreData: Partial<StoredProcessState> | null = null;
   if (activeId) {
     firestoreData = await loadStateFromFirestore(activeId);
     if (firestoreData) {
-      sourceOfTruthLog += `Firestore (for activeId: ${activeId}) provided data. Merging. `;
       mergedStatePartial = { ...mergedStatePartial, ...firestoreData };
-    } else {
-      sourceOfTruthLog += `Firestore (for activeId: ${activeId}) provided NO data. `;
     }
-  } else {
-    sourceOfTruthLog += `No activeId from storage. Firestore load skipped. `;
   }
 
   let localStorageRaw: string | null = null;
@@ -396,90 +367,43 @@ export async function loadProcessState(): Promise<StoredProcessState> {
     localStorageRaw = localStorage.getItem(PROCESS_STATE_KEY);
   } catch (error) {
     console.error("[ProcessStore LOAD] Error reading localStorage:", error);
-    sourceOfTruthLog += `Error reading LS. `;
   }
 
-  let valueToParseFromLocalStorage: string | null = null;
   if (localStorageRaw) {
-    const trimmedRaw = localStorageRaw.trim();
-    if (trimmedRaw === "undefined" || trimmedRaw === "null" || trimmedRaw === "") {
-      localStorage.removeItem(PROCESS_STATE_KEY);
-      sourceOfTruthLog += `Found '${trimmedRaw}' in LS, removed. `;
-    } else {
-      valueToParseFromLocalStorage = trimmedRaw;
-    }
-  }
-
-  if (valueToParseFromLocalStorage) {
     try {
-      const localStorageParsed = JSON.parse(valueToParseFromLocalStorage) as Partial<StoredProcessState>;
+      const localStorageParsed = JSON.parse(localStorageRaw) as Partial<StoredProcessState>;
       const lsProcessId = localStorageParsed.processId;
       const lsLastUpdated = (localStorageParsed.lastUpdated as any)?.seconds;
       const fsLastUpdated = (firestoreData?.lastUpdated as any)?.seconds;
-      sourceOfTruthLog += `LS processId: ${lsProcessId}, LS lastUpdated: ${lsLastUpdated}, FS lastUpdated: ${fsLastUpdated}. Parsable LS data found. `;
 
       if (activeId && lsProcessId === activeId) {
-        if (firestoreData && lsLastUpdated && fsLastUpdated && lsLastUpdated >= fsLastUpdated) {
-          sourceOfTruthLog += `LS (for activeId ${activeId}) is newer or same. Merging LS over FS. `;
+        if (!firestoreData || (lsLastUpdated && fsLastUpdated && lsLastUpdated >= fsLastUpdated)) {
           mergedStatePartial = { ...firestoreData, ...localStorageParsed };
-        } else if (firestoreData) {
-           sourceOfTruthLog += `FS (for activeId ${activeId}) is newer or LS timestamp missing. FS was already merged. `;
-        } else {
-           sourceOfTruthLog += `No FS data, using LS for activeId ${activeId}. `;
-           mergedStatePartial = { ...localStorageParsed };
         }
       } else if (!activeId && lsProcessId) {
-        sourceOfTruthLog += `No activeId, but LS has process ${lsProcessId}. Resuming this LS process. `;
         mergedStatePartial = { ...localStorageParsed };
         setActiveProcessId(lsProcessId);
-      } else if (activeId && lsProcessId && lsProcessId !== activeId) {
-        sourceOfTruthLog += `LS has data for ${lsProcessId}, but active is ${activeId}. LS data ignored for this load. FS data (if any) for activeId is used.`;
-      } else if (!lsProcessId && activeId) {
-         sourceOfTruthLog += `LS data has no processId, but activeId ${activeId} exists. LS data ignored. FS data (if any) for activeId is used.`;
-      } else if (!lsProcessId && !activeId) {
-        sourceOfTruthLog += `Neither LS nor activeId have a processId. LS data (empty processId) merged over initial. `;
-        mergedStatePartial = { ...initialStoredProcessState, ...localStorageParsed };
-      } else {
-         sourceOfTruthLog += `Fallback: LS data condition not met for explicit merging. Merging LS over current mergedState. `;
-         mergedStatePartial = { ...mergedStatePartial, ...localStorageParsed };
       }
     } catch (error) {
       console.error(`[ProcessStore LOAD] Error parsing localStorage data, removing corrupted key:`, error);
       localStorage.removeItem(PROCESS_STATE_KEY);
-      sourceOfTruthLog += `Corrupted LocalStorage (parse failed), removed. `;
     }
-  } else {
-    sourceOfTruthLog += `No valid parsable data from LS raw string ('${localStorageRaw}'). `;
   }
   
   let finalState = ensureAllKeysPresent(cleanUndefinedValues(mergedStatePartial as StoredProcessState | null) || initialStoredProcessState);
-  const currentActiveIdAfterPotentialResume = getActiveProcessId();
-  sourceOfTruthLog += `Current activeId after potential LS resume: ${currentActiveIdAfterPotentialResume}. Final state processId before override: ${finalState.processId}. `;
-
-  if (currentActiveIdAfterPotentialResume) {
-      if(finalState.processId !== currentActiveIdAfterPotentialResume) {
-          console.warn(`[ProcessStore LOAD] Overriding finalState.processId (${finalState.processId}) with currentActiveId (${currentActiveIdAfterPotentialResume}).`);
-          finalState.processId = currentActiveIdAfterPotentialResume;
-          sourceOfTruthLog += `State processId updated to ${currentActiveIdAfterPotentialResume}. `;
-      }
+  
+  const currentActiveIdAfterLoad = getActiveProcessId();
+  if (currentActiveIdAfterLoad) {
+    finalState.processId = currentActiveIdAfterLoad;
   } else if (finalState.processId) {
-      setActiveProcessId(finalState.processId);
-      sourceOfTruthLog += `Set activeId to finalState.processId ${finalState.processId}. `;
+    setActiveProcessId(finalState.processId);
   }
 
-  if (finalState.processId) {
-    localStorage.setItem(PROCESS_STATE_KEY, JSON.stringify(finalState));
-  } else {
-     localStorage.removeItem(PROCESS_STATE_KEY);
-     clearActiveProcessId();
+  if (!finalState.processId) {
      finalState = ensureAllKeysPresent(initialStoredProcessState);
-     sourceOfTruthLog += `Final state had no processId, reset to initial. `;
   }
   
-  console.log(`[ProcessStore LOAD] Source of Truth log: ${sourceOfTruthLog}`);
-  console.log("[ProcessStore LOAD] Final loaded state being returned (processId, currentStep, internalTeamMemberInfo.nome):", 
-    finalState ? { processId: finalState.processId, currentStep: finalState.currentStep, internalNome: finalState.internalTeamMemberInfo.nome } : String(finalState)
-  );
+  console.log("[ProcessStore LOAD] Final loaded state:", finalState);
   return finalState;
 }
 
@@ -493,71 +417,3 @@ export function clearProcessState() {
     console.error("[ProcessStore ClearState] Error clearing process state from localStorage:", error);
   }
 }
-
-export interface PrintData {
-  extractedData: ExtractContractDataOutput | null;
-  buyerInfo: BuyerInfo | null;
-  companyInfo: CompanyInfo | null;
-  buyerType: BuyerType;
-  selectedPlayer: string | null;
-  internalTeamMemberInfo: BuyerInfo | null;
-
-  rgAntigoFrenteUrl?: string | null;
-  rgAntigoVersoUrl?: string | null;
-  cnhAntigaFrenteUrl?: string | null;
-  cnhAntigaVersoUrl?: string | null;
-
-  cartaoCnpjFileUrl?: string | null;
-  docSocioFrenteUrl?: string | null;
-  docSocioVersoUrl?: string | null;
-
-  comprovanteEnderecoUrl?: string | null;
-}
-
-export function savePrintData(data: PrintData) {
-  try {
-    const cleanedData = cleanUndefinedValues(data);
-    if (!cleanedData) {
-        console.error("[SavePrintData] Cleaned print data became null. Aborting save.");
-        localStorage.removeItem(PRINT_DATA_KEY); 
-        return;
-    }
-    localStorage.setItem(PRINT_DATA_KEY, JSON.stringify(cleanedData));
-  } catch (error) {
-    console.error("Error saving print data to localStorage:", error);
-     toast({
-      title: "Erro ao Salvar Dados para Impressão",
-      description: "Não foi possível salvar os dados para impressão.",
-      variant: "destructive",
-    });
-  }
-}
-
-export function loadPrintData(): PrintData | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    let dataStringRaw = localStorage.getItem(PRINT_DATA_KEY);
-    let valueToParse: string | null = null;
-
-    if (dataStringRaw) {
-      const trimmedRaw = dataStringRaw.trim();
-      if (trimmedRaw === "undefined" || trimmedRaw === "null" || trimmedRaw === "") {
-        localStorage.removeItem(PRINT_DATA_KEY);
-      } else {
-        valueToParse = trimmedRaw;
-      }
-    }
-
-    if (valueToParse) {
-      const parsedData = JSON.parse(valueToParse) as PrintData;
-      parsedData.buyerType = parsedData.buyerType || 'pf';
-      parsedData.companyInfo = parsedData.companyInfo || null;
-      return cleanUndefinedValues(parsedData);
-    }
-  } catch (error) {
-    console.error("Error loading or parsing print data from localStorage:", error);
-    localStorage.removeItem(PRINT_DATA_KEY);
-  }
-  return null;
-}
-    

@@ -193,7 +193,7 @@ export default function DadosIniciaisPage() {
     const nextPath = processState.contractSourceType === 'new' ? "/processo/foto-contrato" : "/processo/documentos";
     const updatedState = { ...processState, currentStep: nextPath };
     
-    await saveProcessState(updatedState); // This now saves to Firestore 'processos' collection
+    await saveProcessState(updatedState);
     setProcessState(updatedState); 
 
     toast({
@@ -207,25 +207,18 @@ export default function DadosIniciaisPage() {
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push(nextPath);
-    // setIsLoading(false); // Not strictly needed if navigating away
   };
 
-  // Effect for saving state on unmount or when processState changes and user is not navigating
    useEffect(() => {
     const currentProcessStateForEffect = processState;
     const saveOnUnmount = async () => {
-      if (!isLoading && !isStateLoading) { // Only save if not actively loading/navigating
+      if (!isLoading && !isStateLoading) {
         await saveProcessState(currentProcessStateForEffect);
       }
     };
 
-    // Save when component unmounts (e.g. browser refresh/close)
-    // window.addEventListener('beforeunload', saveOnUnmount); // This can be problematic and block navigation
-
     return () => {
-      // window.removeEventListener('beforeunload', saveOnUnmount);
-      // Call save on unmount, but ensure it's not during an intentional navigation by handleNext
-      if (!isLoading) { // isLoading is true during handleNext's processing
+      if (!isLoading) {
           saveOnUnmount();
       }
     };
@@ -394,4 +387,3 @@ export default function DadosIniciaisPage() {
     </>
   );
 }
-

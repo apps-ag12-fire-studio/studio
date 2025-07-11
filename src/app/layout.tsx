@@ -2,8 +2,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-// import { AppFooter } from '@/components/layout/app-footer'; // Replaced by FooterWrapper
-import { FooterWrapper } from '@/components/layout/footer-wrapper'; // Added
+import { FooterWrapper } from '@/components/layout/footer-wrapper';
 import { Inter, Playfair_Display } from 'next/font/google';
 
 const inter = Inter({
@@ -36,7 +35,7 @@ export default function RootLayout({
           {children}
         </main>
         <Toaster />
-        <FooterWrapper /> {/* Replaced AppFooter with FooterWrapper */}
+        <FooterWrapper />
       </body>
     </html>
   );

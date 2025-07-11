@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CheckCircle2, Home, User, Briefcase, Award, MessageSquareText, DollarSign, Link2, QrCode } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Image from "next/image";
 
 interface ConfirmationDetails {
   processId: string | null;
@@ -13,7 +14,7 @@ interface ConfirmationDetails {
   internalName: string | null;
   playerName: string | null;
   contractObjectName: string | null;
-  contractValue: string | null; // Added contract value
+  contractValue: string | null;
 }
 
 export default function ConfirmationPage() {
@@ -26,7 +27,9 @@ export default function ConfirmationPage() {
         try {
           const parsedDetails = JSON.parse(detailsString);
           setDetails(parsedDetails);
-          // localStorage.removeItem('contratoFacilConfirmationDetails'); // Consider removing after use
+          // It's a good practice to clean up localStorage after reading the data
+          // to avoid it being reused on a subsequent visit to the page.
+          localStorage.removeItem('contratoFacilConfirmationDetails'); 
         } catch (error) {
           console.error("Error parsing confirmation details from localStorage:", error);
           localStorage.removeItem('contratoFacilConfirmationDetails'); 
@@ -138,4 +141,3 @@ export default function ConfirmationPage() {
     </div>
   );
 }
-

@@ -1,8 +1,6 @@
 
 "use client";
 
-import { StoredProcessState } from "@/lib/process-store"; // For type, not direct use
-
 interface AppFooterProps {
   processId?: string | null;
 }

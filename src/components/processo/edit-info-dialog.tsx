@@ -19,8 +19,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 export interface FieldConfig {
   id: string;
   label: string;
-  value: string; // Current value to prefill
-  type?: string; // e.g., 'text', 'email', 'tel', 'number'
+  value: string;
+  type?: string;
   placeholder?: string;
   required?: boolean;
 }
@@ -32,7 +32,7 @@ interface EditInfoDialogProps {
   dialogDescription?: string;
   fieldsConfig: FieldConfig[];
   onSaveHandler: (updatedData: Record<string, string>) => void;
-  initialData: Record<string, any> | null; // To prefill form on open
+  initialData: Record<string, any> | null;
 }
 
 export function EditInfoDialog({
@@ -54,7 +54,6 @@ export function EditInfoDialog({
       });
       setFormData(initialFormValues);
     } else if (!isOpen) {
-      // Reset form data when dialog closes to avoid stale data on reopen
       setFormData({});
     }
   }, [isOpen, initialData, fieldsConfig]);
@@ -76,7 +75,7 @@ export function EditInfoDialog({
           {dialogDescription && <DialogDescription className="text-foreground/70">{dialogDescription}</DialogDescription>}
         </DialogHeader>
         
-        <ScrollArea className="flex-grow overflow-y-auto p-6 pr-3"> {/* Adjusted padding for scrollbar */}
+        <ScrollArea className="flex-grow overflow-y-auto p-6 pr-3">
           <div className="space-y-6">
             {fieldsConfig.map((field) => (
               <div key={field.id} className="space-y-2">

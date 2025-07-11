@@ -15,7 +15,7 @@ import {
     loadProcessState, 
     saveProcessState, 
     initialStoredProcessState,
-    addUploadedFileToFirestore // Import new function
+    addUploadedFileToFirestore
 } from "@/lib/process-store";
 import { verifyContractPhoto, type VerifyContractPhotoOutput } from "@/ai/flows/verify-contract-photo";
 import { extractContractData, type ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
@@ -23,11 +23,9 @@ import { ArrowRight, ArrowLeft, Camera, Loader2, Sparkles, AlertTriangle, CheckC
 import { storage } from "@/lib/firebase";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject, type UploadTaskSnapshot, type FirebaseStorageError } from "firebase/storage";
 
-const generateUniqueFileName = (file: File, processId: string) => { // Updated parameters
+const generateUniqueFileName = (file: File, processId: string) => {
   const timestamp = new Date().getTime();
   const saneFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-  // New path structure as per request: processos/{processoId}/{timestamped_unique_filename}
-  // Assuming this photo is for the "original contract"
   return `processos/${processId}/${timestamp}-original-${saneFilename}`;
 };
 
@@ -57,7 +55,7 @@ export default function FotoContratoPage() {
   const handleContractPhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
-    if (file && processState.processId) { // Ensure processId exists
+    if (file && processState.processId) {
       setIsUploadingContractPhoto(true);
       setContractPhotoUploadProgress(0);
       toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
@@ -66,13 +64,12 @@ export default function FotoContratoPage() {
         try {
           const oldPhotoRef = storageRef(storage, processState.contractPhotoStoragePath);
           await deleteObject(oldPhotoRef);
-          // Note: Deleting from Firestore 'arquivos' array on re-upload is complex. New uploads will add.
         } catch (deleteError) {
           console.warn("Could not delete old contract photo from storage:", deleteError)
         }
       }
       
-      const filePath = generateUniqueFileName(file, processState.processId); // Updated path
+      const filePath = generateUniqueFileName(file, processState.processId);
       const fileRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileRef, file);
 
@@ -95,7 +92,6 @@ export default function FotoContratoPage() {
         async () => {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            // Add to 'arquivos' array in Firestore
             if(processState.processId) {
                 await addUploadedFileToFirestore(processState.processId, file, downloadURL, filePath);
             }
@@ -107,10 +103,10 @@ export default function FotoContratoPage() {
               contractPhotoStoragePath: filePath,
               photoVerificationResult: null,
               photoVerified: false,
-              extractedData: null, // Reset extracted data if new photo is uploaded
+              extractedData: null,
             };
             setProcessState(newState);
-            await saveProcessState(newState); // Save updated local state
+            await saveProcessState(newState);
             toast({ title: "Upload Concluído!", description: `${file.name} enviado e registrado.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
             toast({ title: "Erro Pós-Upload", description: `Falha ao processar o arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
@@ -131,7 +127,7 @@ export default function FotoContratoPage() {
        if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
       const newState = {...processState, contractPhotoPreview: null, contractPhotoName: undefined, contractPhotoStoragePath: null, photoVerified: false, photoVerificationResult: null, extractedData: null};
       setProcessState(newState);
-      saveProcessState(newState); // Save state if file is cleared
+      saveProcessState(newState);
     }
   };
 
@@ -210,7 +206,7 @@ export default function FotoContratoPage() {
     setIsNavigating(true);
     const newState = { ...processState, currentStep: "/processo/documentos" };
     await saveProcessState(newState);
-    setProcessState(newState); // Update local state after save
+    setProcessState(newState);
     toast({ 
       title: (
         <div className="flex items-center">
@@ -230,7 +226,6 @@ export default function FotoContratoPage() {
     router.push("/processo/dados-iniciais");
   };
 
-  // Effect for saving state on unmount or when processState changes and user is not navigating
   useEffect(() => {
     const currentProcessStateForEffect = processState;
     const saveOnUnmountOrChange = async () => {
@@ -419,7 +414,7 @@ export default function FotoContratoPage() {
           }
           className="bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 px-8 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
         >
-          {isNavigating && !globalDisableCondition ? ( // Show loader only if navigating AND not otherwise disabled
+          {isNavigating && !globalDisableCondition ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Aguarde...
@@ -434,4 +429,3 @@ export default function FotoContratoPage() {
     </>
   );
 }
-

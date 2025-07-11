@@ -73,4 +73,3 @@ const extractContractDataFlow = ai.defineFlow(
     return output;
   }
 );
-

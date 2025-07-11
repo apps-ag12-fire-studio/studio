@@ -4,7 +4,7 @@
 
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage"; // Ensure this is uncommented
+import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration using environment variables
 // IMPORTANT: Ensure these variables are set in your .env.local file
@@ -15,7 +15,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional, but good to include
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase
@@ -27,9 +27,9 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(firebaseApp);
-const storage = getStorage(firebaseApp); // Initialize Firebase Storage
+const storage = getStorage(firebaseApp);
 
-export { firebaseApp, db, storage }; // Export storage
+export { firebaseApp, db, storage };
 
 // Instructions for the user:
 // 1. Create a .env.local file in the root of your project (if it doesn't exist).
@@ -47,5 +47,3 @@ export { firebaseApp, db, storage }; // Export storage
 // NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
 // NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 // NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id (Optional)
-//
-    

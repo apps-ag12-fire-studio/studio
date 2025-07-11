@@ -14,7 +14,7 @@ export default function HomePage() {
   const handleStartProcess = () => {
     clearProcessState(); // Limpa qualquer estado de processo anterior, incluindo activeProcessId
 
-    const newProcessId = doc(collection(db, 'inProgressContracts')).id; // Gera um ID único
+    const newProcessId = doc(collection(db, 'processos')).id; // Gera um ID único
     setActiveProcessId(newProcessId);
 
     const initialState = { 

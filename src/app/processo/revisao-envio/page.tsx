@@ -5,8 +5,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   StoredProcessState,
@@ -17,8 +15,6 @@ import {
   CompanyInfo,
   DocumentFile,
 } from "@/lib/process-store";
-import type { ExtractContractDataOutput } from "@/ai/flows/extract-contract-data-flow";
-import type { ExtractBuyerDocumentDataOutput } from "@/ai/flows/extract-buyer-document-data-flow";
 import { ArrowLeft, Printer, ListChecks, FileText, UserRound, Camera, UserCog, Users as PlayersIcon, Building, Loader2, Info, Edit3, CheckCircle2, Home, MapPin } from "lucide-react"; 
 import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog";
 
@@ -34,10 +30,10 @@ const attemptToPreFillInfo = (
     fullProcessState.buyerType === 'pj' ? { ...(initialStoredProcessState.companyInfo || { razaoSocial: '', nomeFantasia: '', cnpj: '' }) } : null
   );
 
-  const getAnalysisDataFromDocKey = (docKey: keyof StoredProcessState): ExtractBuyerDocumentDataOutput | null => {
+  const getAnalysisDataFromDocKey = (docKey: keyof StoredProcessState) => {
     const docFile = fullProcessState[docKey] as DocumentFile | null;
     if (docFile?.analysisResult && !(docFile.analysisResult as any).error) {
-      return docFile.analysisResult as ExtractBuyerDocumentDataOutput;
+      return docFile.analysisResult;
     }
     return null;
   };
@@ -446,9 +442,7 @@ export default function RevisaoEnvioPage() {
     };
 
     console.log('[RevisaoEnvioPage] State being saved before navigating to print:', JSON.parse(JSON.stringify(stateToSave)));
-    console.log('[RevisaoEnvioPage] stateToSave.extractedData:', stateToSave.extractedData ? JSON.parse(JSON.stringify(stateToSave.extractedData)) : 'null');
-    console.log('[RevisaoEnvioPage] stateToSave.internalTeamMemberInfo:', stateToSave.internalTeamMemberInfo ? JSON.parse(JSON.stringify(stateToSave.internalTeamMemberInfo)) : 'null');
-
+    
     await saveProcessState(stateToSave);
 
     toast({ 
@@ -485,8 +479,6 @@ export default function RevisaoEnvioPage() {
 
     return () => {
       clearTimeout(saveDebounced);
-      if (!isNavigating && !isPreparingPrint && !isStateLoading) {
-      }
     };
   }, [processState, isNavigating, isPreparingPrint, isStateLoading]);
 
@@ -607,35 +599,6 @@ export default function RevisaoEnvioPage() {
             </>
           )}
 
-          {processState.buyerType === 'pj' && currentCompanyInfo && (
-            <>
-              <div className="space-y-1">
-                 <div className="flex items-center justify-between">
-                    <h3 className="flex items-center text-lg font-semibold text-primary/90"><Building className="mr-2 h-5 w-5" />Dados da Empresa</h3>
-                </div>
-                <p className="text-foreground/80"><strong>Razão Social:</strong> {currentCompanyInfo?.razaoSocial || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>Nome Fantasia:</strong> {currentCompanyInfo?.nomeFantasia || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>CNPJ:</strong> {currentCompanyInfo?.cnpj || 'Não informado'}</p>
-              </div>
-              <hr className="border-border/30"/>
-            </>
-          )}
-
-          {currentBuyerInfo && (
-            <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserRound className="mr-2 h-5 w-5" />{processState.buyerType === 'pf' ? "Dados do Comprador" : "Dados do Representante"}</h3>
-              </div>
-              <p className="text-foreground/80"><strong>Nome:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
-              <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
-              <p className="text-foreground/80"><strong>Telefone:</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
-              <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
-              <p className="text-foreground/80"><strong>Endereço:</strong> {currentBuyerInfo.logradouro ? `${currentBuyerInfo.logradouro}, ${currentBuyerInfo.bairro || ''} - ${currentBuyerInfo.cidade || ''}/${currentBuyerInfo.estado || ''}, CEP: ${currentBuyerInfo.cep || ''}` : 'Não informado'}</p>
-            </div>
-          )}
-           <hr className="border-border/30"/>
-
-
           {processState.contractSourceType === 'new' && processState.contractPhotoName && (
             <>
               <div className="space-y-1">
@@ -740,4 +703,3 @@ export default function RevisaoEnvioPage() {
     </>
   );
 }
-
