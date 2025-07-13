@@ -592,7 +592,7 @@ export default function PrintContractPage() {
       <EditInfoDialog
         isOpen={isEditCompradorOpen}
         setIsOpen={setIsEditCompradorOpen}
-        dialogTitle={buyerType === 'pf' ? "Edit Buyer Data" : "Edit Legal Representative Data"}
+        dialogTitle={processState.buyerType === 'pf' ? "Edit Buyer Data" : "Edit Legal Representative Data"}
         fieldsConfig={compradorFields}
         onSaveHandler={handleSaveComprador}
         initialData={currentBuyerInfo}
