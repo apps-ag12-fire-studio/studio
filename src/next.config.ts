@@ -4,6 +4,11 @@ import type {NextConfig} from 'next';
 // Forcing a change to trigger environment reload
 const nextConfig: NextConfig = {
   /* config options here */
+  experimental: {
+    // This allows the Next.js development server to accept requests
+    // from the Firebase Studio environment.
+    allowedDevOrigins: ["*.cloudworkstations.dev"],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
