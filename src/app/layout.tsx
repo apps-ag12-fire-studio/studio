@@ -19,8 +19,8 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'Contrato Fácil',
-  description: 'Capture a foto do contrato, analise-o e anexe os documentos necessários.',
+  title: 'Easy Contract',
+  description: 'Capture a photo of the contract, analyze it, and attach the necessary documents.',
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${playfairDisplay.variable}`}>
+    <html lang="en-US" className={`${inter.variable} ${playfairDisplay.variable}`}>
       <body className="font-body antialiased bg-background text-foreground" suppressHydrationWarning={true}>
         <main className="flex-grow">
           {children}

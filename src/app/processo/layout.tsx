@@ -9,13 +9,13 @@ export default function ProcessoLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const suporteItems = [
-    {label: "Time de Vendas", icon: Users},
-    {label: "Financeiro", icon: Banknote},
-    {label: "Jurídico", icon: Scale},
-    {label: "Contratual", icon: FileText},
-    {label: "Setor de Tecnologia", icon: Laptop},
-    {label: "Suporte Geral", icon: LifeBuoy}
+  const supportItems = [
+    {label: "Sales Team", icon: Users},
+    {label: "Financial", icon: Banknote},
+    {label: "Legal", icon: Scale},
+    {label: "Contractual", icon: FileText},
+    {label: "Tech Department", icon: Laptop},
+    {label: "General Support", icon: LifeBuoy}
   ];
 
   return (
@@ -24,9 +24,9 @@ export default function ProcessoLayout({
         {children}
         <footer className="text-center py-12 mt-10 border-t border-border/30 print-hidden">
             <div className="mb-8">
-                <h3 className="text-lg font-headline text-primary mb-4 uppercase tracking-wider">Precisa de Ajuda?</h3>
+                <h3 className="text-lg font-headline text-primary mb-4 uppercase tracking-wider">Need Help?</h3>
                 <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-                    {suporteItems.map(item => (
+                    {supportItems.map(item => (
                         <Button 
                           key={item.label} 
                           variant="outline" 

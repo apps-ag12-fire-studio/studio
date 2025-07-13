@@ -58,7 +58,7 @@ export default function FotoContratoPage() {
     if (file && processState.processId) {
       setIsUploadingContractPhoto(true);
       setContractPhotoUploadProgress(0);
-      toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+      toast({ title: "Upload Started", description: `Preparing to upload ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.contractPhotoStoragePath) {
         try {
@@ -81,7 +81,7 @@ export default function FotoContratoPage() {
           setContractPhotoUploadProgress(Math.round(calculatedProgress));
         },
         (error: FirebaseStorageError) => {
-          toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`, variant: "destructive", duration: 7000 });
+          toast({ title: "Upload Error", description: `Could not upload ${file.name}. (Error: ${error.code})`, variant: "destructive", duration: 7000 });
           setIsUploadingContractPhoto(false);
           setContractPhotoUploadProgress(null);
           if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
@@ -107,9 +107,9 @@ export default function FotoContratoPage() {
             };
             setProcessState(newState);
             await saveProcessState(newState);
-            toast({ title: "Upload Concluído!", description: `${file.name} enviado e registrado.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+            toast({ title: "Upload Complete!", description: `${file.name} has been uploaded and registered.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
-            toast({ title: "Erro Pós-Upload", description: `Falha ao processar o arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
+            toast({ title: "Post-Upload Error", description: `Failed to process the file ${file.name}. (Error: ${error.message})`, variant: "destructive"});
             setContractPhotoUploadProgress(null);
              const newState = {...processState, contractPhotoPreview: null, contractPhotoName: file.name, contractPhotoStoragePath: filePath, photoVerified: false, photoVerificationResult: null, extractedData: null};
             setProcessState(newState);
@@ -121,7 +121,7 @@ export default function FotoContratoPage() {
         }
       );
     } else if (!processState.processId) {
-        toast({ title: "Erro de Sessão", description: "ID do processo não encontrado. Não é possível fazer upload.", variant: "destructive"});
+        toast({ title: "Session Error", description: "Process ID not found. Cannot upload.", variant: "destructive"});
         if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
     } else {
        if (contractPhotoInputRef.current) contractPhotoInputRef.current.value = "";
@@ -133,7 +133,7 @@ export default function FotoContratoPage() {
 
   const handleVerifyPhoto = async () => {
     if (!processState.contractPhotoPreview) {
-      toast({ title: "Verificação Necessária", description: "Por favor, carregue a foto do contrato.", variant: "destructive" });
+      toast({ title: "Verification Required", description: "Please upload the contract photo.", variant: "destructive" });
       return;
     }
     setIsVerifyingPhoto(true);
@@ -143,15 +143,15 @@ export default function FotoContratoPage() {
       setProcessState(newState);
       await saveProcessState(newState);
       if (result.isCompleteAndClear) {
-        toast({ title: "Verificação da Foto Concluída!", description: "A imagem do contrato é nítida e completa.", className: "bg-secondary text-secondary-foreground border-secondary" });
+        toast({ title: "Photo Verification Complete!", description: "The contract image is clear and complete.", className: "bg-secondary text-secondary-foreground border-secondary" });
       } else {
-        toast({ title: "Falha na Verificação da Foto", description: result.reason || "A imagem do contrato não está ideal. Por favor, tente novamente.", variant: "destructive" });
+        toast({ title: "Photo Verification Failed", description: result.reason || "The contract image is not ideal. Please try again.", variant: "destructive" });
       }
     } catch (error: any) {
-      const newState = { ...processState, photoVerificationResult: { isCompleteAndClear: false, reason: `Erro ao verificar com IA: ${error.message}` }, photoVerified: false };
+      const newState = { ...processState, photoVerificationResult: { isCompleteAndClear: false, reason: `Error verifying with AI: ${error.message}` }, photoVerified: false };
       setProcessState(newState);
       await saveProcessState(newState);
-      toast({ title: "Erro na Verificação com IA", description: `Não foi possível concluir a verificação da foto. (Erro: ${error.message})`, variant: "destructive" });
+      toast({ title: "AI Verification Error", description: `Could not complete photo verification. (Error: ${error.message})`, variant: "destructive" });
     } finally {
       setIsVerifyingPhoto(false);
     }
@@ -159,11 +159,11 @@ export default function FotoContratoPage() {
 
   const handleExtractContractData = async () => {
     if (processState.contractSourceType === 'new' && (!processState.contractPhotoPreview || !processState.photoVerified)) {
-      toast({ title: "Ação Requerida", description: "Carregue e verifique a foto do contrato antes da análise.", variant: "destructive" });
+      toast({ title: "Action Required", description: "Upload and verify the contract photo before analysis.", variant: "destructive" });
       return;
     }
      if (processState.contractSourceType === 'new' && !processState.contractPhotoPreview) {
-      toast({ title: "Foto não encontrada", description: "Carregue a foto do contrato para análise.", variant: "destructive" });
+      toast({ title: "Photo not found", description: "Upload the contract photo for analysis.", variant: "destructive" });
       return;
     }
     setIsExtractingData(true);
@@ -173,13 +173,13 @@ export default function FotoContratoPage() {
          const newState = { ...processState, extractedData: result };
          setProcessState(newState);
          await saveProcessState(newState);
-         toast({ title: "Análise do Contrato Concluída!", description: "Dados extraídos do contrato com sucesso.", className: "bg-secondary text-secondary-foreground border-secondary" });
+         toast({ title: "Contract Analysis Complete!", description: "Data extracted from the contract successfully.", className: "bg-secondary text-secondary-foreground border-secondary" });
       }
     } catch (error: any) {
       const newState = { ...processState, extractedData: null }; 
       setProcessState(newState);
       await saveProcessState(newState);
-      toast({ title: "Erro na Análise do Contrato", description: `Não foi possível extrair os dados com IA. (Erro: ${error.message})`, variant: "destructive" });
+      toast({ title: "Contract Analysis Error", description: `Could not extract data with AI. (Error: ${error.message})`, variant: "destructive" });
     } finally {
       setIsExtractingData(false);
     }
@@ -189,12 +189,12 @@ export default function FotoContratoPage() {
     const { contractSourceType, photoVerified, extractedData, contractPhotoPreview } = processState;
     if (contractSourceType === 'new') {
       if (!contractPhotoPreview || !photoVerified || !extractedData) {
-        toast({ title: "Etapas Incompletas (Novo Contrato)", description: "Capture/envie, verifique e analise a foto do contrato.", variant: "destructive" });
+        toast({ title: "Incomplete Steps (New Contract)", description: "Capture/upload, verify, and analyze the contract photo.", variant: "destructive" });
         return false;
       }
     } else { 
       if (!processState.extractedData) { 
-        toast({ title: "Etapas Incompletas (Contrato Existente)", description: "Modelo de contrato não carregado. Volte para Dados Iniciais e selecione um.", variant: "destructive" });
+        toast({ title: "Incomplete Steps (Existing Contract)", description: "Contract template not loaded. Go back to Initial Data and select one.", variant: "destructive" });
         return false;
       }
     }
@@ -211,10 +211,10 @@ export default function FotoContratoPage() {
       title: (
         <div className="flex items-center">
           <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
-          Etapa 2 Concluída!
+          Step 2 Complete!
         </div>
       ), 
-      description: "Contrato processado. Carregando próxima etapa...", 
+      description: "Contract processed. Loading next step...", 
       className: "bg-green-600 text-primary-foreground border-green-700" 
     });
     router.push("/processo/documentos");
@@ -250,7 +250,7 @@ export default function FotoContratoPage() {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Carregando dados do processo...</p>
+        <p className="mt-4 text-muted-foreground">Loading process data...</p>
       </div>
     );
   }
@@ -262,13 +262,13 @@ export default function FotoContratoPage() {
     <>
       <header className="text-center py-8">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
-          Contrato Fácil
+          Easy Contract
         </div>
         <p className="mb-4 text-sm text-foreground/80">
-          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+          International Platform Financial - SAAS Solution with Artificial Intelligence in training by Antônio Fogaça.
         </p>
         <p className="text-xl text-muted-foreground font-headline">
-          Passo 2: Foto do Contrato Principal
+          Step 2: Main Contract Photo
         </p>
       </header>
       <div className="space-y-8">
@@ -276,12 +276,12 @@ export default function FotoContratoPage() {
           <>
             <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
               <CardHeader className="p-6">
-                <CardTitle className="flex items-center text-2xl font-headline text-primary"><Camera className="mr-3 h-7 w-7" />Foto do Contrato Principal</CardTitle>
-                <CardDescription className="text-foreground/70 pt-1">Envie uma imagem nítida e completa do contrato que será analisado.</CardDescription>
+                <CardTitle className="flex items-center text-2xl font-headline text-primary"><Camera className="mr-3 h-7 w-7" />Main Contract Photo</CardTitle>
+                <CardDescription className="text-foreground/70 pt-1">Upload a clear and complete image of the contract to be analyzed.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 p-6 pt-0">
                 <div>
-                  <Label htmlFor="contract-photo-input" className="mb-2 block text-sm font-medium uppercase tracking-wider text-foreground/90">Carregar foto do contrato</Label>
+                  <Label htmlFor="contract-photo-input" className="mb-2 block text-sm font-medium uppercase tracking-wider text-foreground/90">Upload contract photo</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       id="contract-photo-input"
@@ -295,22 +295,22 @@ export default function FotoContratoPage() {
                       disabled={globalDisableCondition}
                     />
                   </div>
-                  <p id="contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.contractPhotoName && `Atual: ${processState.contractPhotoName}`}</p>
+                  <p id="contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use the camera or select an image file. {processState.contractPhotoName && `Current: ${processState.contractPhotoName}`}</p>
                 </div>
                 {isUploadingContractPhoto && typeof contractPhotoUploadProgress === 'number' && (
                   <div className="mt-4 space-y-2">
                       <div className="flex items-center space-x-2 text-primary">
                           <Loader2 className="h-5 w-5 animate-spin" />
-                          <span>Enviando {contractPhotoUploadProgress}%...</span>
+                          <span>Uploading {contractPhotoUploadProgress}%...</span>
                       </div>
                       <Progress value={contractPhotoUploadProgress} className="w-full h-2 bg-primary/20" />
                   </div>
                 )}
                 {processState.contractPhotoPreview && !isUploadingContractPhoto && (
                   <div className="mt-4">
-                    <p className="text-sm font-medium mb-2 uppercase tracking-wider text-foreground/90">Pré-visualização:</p>
+                    <p className="text-sm font-medium mb-2 uppercase tracking-wider text-foreground/90">Preview:</p>
                     <div className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-dashed border-primary/30 bg-background/50 flex items-center justify-center" data-ai-hint="contract document">
-                      <Image src={processState.contractPhotoPreview} alt="Pré-visualização do contrato" layout="fill" objectFit="contain" />
+                      <Image src={processState.contractPhotoPreview} alt="Contract preview" layout="fill" objectFit="contain" />
                     </div>
                   </div>
                 )}
@@ -319,7 +319,7 @@ export default function FotoContratoPage() {
                 <CardFooter className="p-6">
                   <Button type="button" onClick={handleVerifyPhoto} disabled={globalDisableCondition} className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
                     <Sparkles className="mr-2 h-6 w-6" />
-                    Verificar Foto com IA
+                    Verify Photo with AI
                   </Button>
                 </CardFooter>
               )}
@@ -329,7 +329,7 @@ export default function FotoContratoPage() {
                 <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
                   <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
                       <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                      <p className="text-muted-foreground font-medium text-lg">Verificando qualidade da foto com IA...</p>
+                      <p className="text-muted-foreground font-medium text-lg">Verifying photo quality with AI...</p>
                   </CardContent>
               </Card>
             )}
@@ -339,14 +339,14 @@ export default function FotoContratoPage() {
                 <CardHeader className="p-6">
                   <CardTitle className="flex items-center font-headline text-xl">
                     {processState.photoVerificationResult.isCompleteAndClear ? <CheckCircle2 className="mr-3 h-7 w-7 text-green-400" /> : <AlertTriangle className="mr-3 h-7 w-7 text-red-400" />}
-                    Resultado da Verificação
+                    Verification Result
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 p-6 pt-0">
-                  <p className="text-base text-foreground/90">{processState.photoVerificationResult.reason || (processState.photoVerificationResult.isCompleteAndClear ? "A foto parece nítida e completa." : "A foto precisa de ajustes.")}</p>
+                  <p className="text-base text-foreground/90">{processState.photoVerificationResult.reason || (processState.photoVerificationResult.isCompleteAndClear ? "The photo appears clear and complete." : "The photo needs adjustments.")}</p>
                   {!processState.photoVerificationResult.isCompleteAndClear && (
                     <Button type="button" onClick={() => contractPhotoInputRef.current?.click()} variant="outline" className="w-full border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg" disabled={globalDisableCondition}>
-                      <Camera className="mr-2 h-5 w-5" /> Tentar Nova Foto
+                      <Camera className="mr-2 h-5 w-5" /> Try New Photo
                     </Button>
                   )}
                 </CardContent>
@@ -360,12 +360,12 @@ export default function FotoContratoPage() {
             <CardHeader className="p-6">
               <CardTitle className="flex items-center text-2xl font-headline text-primary">
                 <ScanText className="mr-3 h-7 w-7" />
-                {processState.extractedData ? "Reanalisar Contrato com IA" : "Análise do Contrato com IA"}
+                {processState.extractedData ? "Re-analyze Contract with AI" : "Analyze Contract with AI"}
               </CardTitle>
               <CardDescription className="text-foreground/70 pt-1">
                 {processState.extractedData
-                  ? "Dados já extraídos. Clique abaixo para reanalisar a foto do contrato com IA se necessário."
-                  : "Foto verificada. Prossiga para extrair informações chave do contrato com IA."
+                  ? "Data already extracted. Click below to re-analyze the contract photo with AI if needed."
+                  : "Photo verified. Proceed to extract key information from the contract with AI."
                 }
               </CardDescription>
             </CardHeader>
@@ -377,7 +377,7 @@ export default function FotoContratoPage() {
                 className="w-full bg-gradient-to-br from-accent to-blue-700 hover:from-accent/90 hover:to-blue-700/90 text-lg py-6 rounded-lg text-accent-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105"
               >
                   {isExtractingData ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" /> }
-                  {processState.extractedData ? "Reanalisar Contrato com IA" : "Analisar Contrato com IA"}
+                  {processState.extractedData ? "Re-analyze Contract with AI" : "Analyze Contract with AI"}
               </Button>
             </CardFooter>
           </Card>
@@ -388,7 +388,7 @@ export default function FotoContratoPage() {
             <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <p className="text-muted-foreground font-medium text-lg">
-                  Analisando contrato e extraindo dados com IA...
+                  Analyzing contract and extracting data with AI...
                 </p>
             </CardContent>
           </Card>
@@ -403,7 +403,7 @@ export default function FotoContratoPage() {
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
           { isNavigating && globalDisableCondition ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
-          { isNavigating && globalDisableCondition ? "Voltando..." : "Voltar" }
+          { isNavigating && globalDisableCondition ? "Going back..." : "Back" }
         </Button>
         <Button
           onClick={handleNext}
@@ -417,11 +417,11 @@ export default function FotoContratoPage() {
           {isNavigating && !globalDisableCondition ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Aguarde...
+              Please wait...
             </>
           ) : (
             <>
-              Próximo <ArrowRight className="ml-2 h-5 w-5" />
+              Next <ArrowRight className="ml-2 h-5 w-5" />
             </>
           )}
         </Button>

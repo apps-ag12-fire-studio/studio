@@ -128,31 +128,31 @@ const isExtractedDataEmpty = (data: StoredProcessState['extractedData']): boolea
 const getMissingFieldsList = (state: StoredProcessState): string[] => {
   const missingFields: string[] = [];
 
-  if (!state.internalTeamMemberInfo?.nome) missingFields.push("Nome do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
-  if (!state.internalTeamMemberInfo?.cpf) missingFields.push("CPF do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
-  if (!state.internalTeamMemberInfo?.telefone) missingFields.push("Telefone do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
-  if (!state.internalTeamMemberInfo?.email) missingFields.push("E-mail do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
-  if (!state.internalTeamMemberInfo?.cargo) missingFields.push("Cargo do Responsável Interno (Etapa 1 ou edite ✏️ na Revisão).");
+  if (!state.internalTeamMemberInfo?.nome) missingFields.push("Name of Internal Responsible (Step 1 or edit ✏️ in Review).");
+  if (!state.internalTeamMemberInfo?.cpf) missingFields.push("ID of Internal Responsible (Step 1 or edit ✏️ in Review).");
+  if (!state.internalTeamMemberInfo?.telefone) missingFields.push("Phone of Internal Responsible (Step 1 or edit ✏️ in Review).");
+  if (!state.internalTeamMemberInfo?.email) missingFields.push("Email of Internal Responsible (Step 1 or edit ✏️ in Review).");
+  if (!state.internalTeamMemberInfo?.cargo) missingFields.push("Role of Internal Responsible (Step 1 or edit ✏️ in Review).");
 
 
   if (state.contractSourceType === 'existing') {
     if (!state.selectedPlayer) {
-      missingFields.push("Player (Expert) não selecionado (Etapa 1: Dados Iniciais).");
+      missingFields.push("Player (Expert) not selected (Step 1: Initial Data).");
     }
     if (!state.extractedData || isExtractedDataEmpty(state.extractedData)) {
-      missingFields.push("Modelo de contrato não carregado para o Player (Etapa 1: Dados Iniciais).");
+      missingFields.push("Contract template not loaded for Player (Step 1: Initial Data).");
     }
   }
 
   if (state.contractSourceType === 'new') {
     if (!state.contractPhotoPreview) {
-      missingFields.push("Foto do contrato original não carregada (Etapa 2: Foto do Contrato).");
+      missingFields.push("Original contract photo not uploaded (Step 2: Contract Photo).");
     } else if (!state.photoVerified) {
-      missingFields.push("Foto do contrato original não verificada pela IA (Etapa 2: Foto do Contrato).");
+      missingFields.push("Original contract photo not verified by AI (Step 2: Contract Photo).");
     }
 
     if (state.photoVerified && (!state.extractedData || isExtractedDataEmpty(state.extractedData))) {
-      missingFields.push("Dados do contrato original não extraídos/preenchidos após verificação (Etapa 2: Foto do Contrato).");
+      missingFields.push("Original contract data not extracted/filled after verification (Step 2: Contract Photo).");
     }
   }
 
@@ -160,47 +160,47 @@ const getMissingFieldsList = (state: StoredProcessState): string[] => {
     const hasRgAntigo = state.rgAntigoFrente?.previewUrl && state.rgAntigoVerso?.previewUrl;
     const hasCnhAntiga = state.cnhAntigaFrente?.previewUrl && state.cnhAntigaVerso?.previewUrl;
     if (!(hasRgAntigo || hasCnhAntiga)) {
-      missingFields.push("Documento pessoal (RG Antigo ou CNH Antiga - frente e verso) não anexado (Etapa 3: Documentos).");
+      missingFields.push("Personal document (ID Card or Driver's License - front and back) not attached (Step 3: Documents).");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço pessoal não anexado (Etapa 3: Documentos).");
+      missingFields.push("Personal proof of address not attached (Step 3: Documents).");
     }
   } else { // PJ
     if (!state.companyInfo?.razaoSocial) {
-      missingFields.push("Razão Social da empresa (Etapa 3 ou edite ✏️ na Revisão).");
+      missingFields.push("Company Legal Name (Step 3 or edit ✏️ in Review).");
     }
     if (!state.companyInfo?.cnpj) {
-      missingFields.push("CNPJ da empresa (Etapa 3 ou edite ✏️ na Revisão).");
+      missingFields.push("Company Tax ID (Step 3 or edit ✏️ in Review).");
     }
 
     if (!state.cartaoCnpjFile?.previewUrl) {
-      missingFields.push("Cartão CNPJ não anexado (Etapa 3: Documentos).");
+      missingFields.push("Company Registration Doc not attached (Step 3: Documents).");
     }
     if (!(state.docSocioFrente?.previewUrl && state.docSocioVerso?.previewUrl)) {
-      missingFields.push("Documento do Sócio/Representante (frente e verso) não anexado (Etapa 3: Documentos).");
+      missingFields.push("Partner/Representative's ID (front and back) not attached (Step 3: Documents).");
     }
     if (!state.comprovanteEndereco?.previewUrl) {
-      missingFields.push("Comprovante de endereço da empresa não anexado (Etapa 3: Documentos).");
+      missingFields.push("Company proof of address not attached (Step 3: Documents).");
     }
   }
 
   if (!state.buyerInfo?.nome) {
-    missingFields.push("Nome do comprador/representante (Etapa 3 ou edite ✏️ na Revisão).");
+    missingFields.push("Buyer/Representative Name (Step 3 or edit ✏️ in Review).");
   }
   if (!state.buyerInfo?.cpf) {
-    missingFields.push("CPF do comprador/representante (Etapa 3 ou edite ✏️ na Revisão).");
+    missingFields.push("Buyer/Representative ID/SSN (Step 3 or edit ✏️ in Review).");
   }
   if (!state.buyerInfo?.telefone) {
-    missingFields.push("Telefone do comprador/representante (Edite ✏️ na Revisão).");
+    missingFields.push("Buyer/Representative Phone (Edit ✏️ in Review).");
   }
   if (!state.buyerInfo?.email) {
-    missingFields.push("E-mail do comprador/representante (Edite ✏️ na Revisão).");
+    missingFields.push("Buyer/Representative Email (Edit ✏️ in Review).");
   }
-  if (!state.buyerInfo?.logradouro) missingFields.push("Logradouro do comprador/representante (Edite ✏️ na Revisão).");
-  if (!state.buyerInfo?.bairro) missingFields.push("Bairro do comprador/representante (Edite ✏️ na Revisão).");
-  if (!state.buyerInfo?.cidade) missingFields.push("Cidade do comprador/representante (Edite ✏️ na Revisão).");
-  if (!state.buyerInfo?.estado) missingFields.push("Estado do comprador/representante (Edite ✏️ na Revisão).");
-  if (!state.buyerInfo?.cep) missingFields.push("CEP do comprador/representante (Edite ✏️ na Revisão).");
+  if (!state.buyerInfo?.logradouro) missingFields.push("Buyer/Representative Address Line (Edit ✏️ in Review).");
+  if (!state.buyerInfo?.bairro) missingFields.push("Buyer/Representative Neighborhood/Area (Edit ✏️ in Review).");
+  if (!state.buyerInfo?.cidade) missingFields.push("Buyer/Representative City (Edit ✏️ in Review).");
+  if (!state.buyerInfo?.estado) missingFields.push("Buyer/Representative State (Edit ✏️ in Review).");
+  if (!state.buyerInfo?.cep) missingFields.push("Buyer/Representative ZIP Code (Edit ✏️ in Review).");
   return missingFields;
 };
 
@@ -232,8 +232,8 @@ export default function RevisaoEnvioPage() {
       if (!loadedProcessState.processId) {
         console.error("[RevisaoEnvioPage] CRITICAL: Loaded state has no processId. Redirecting to start.");
         toast({
-          title: "Erro de Sessão",
-          description: "Não foi possível carregar os dados do processo (ID ausente). Por favor, inicie novamente.",
+          title: "Session Error",
+          description: "Could not load process data (ID missing). Please start over.",
           variant: "destructive",
           duration: 7000,
         });
@@ -301,10 +301,10 @@ export default function RevisaoEnvioPage() {
         title: (
           <div className="flex items-center">
             <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
-            Responsável Interno Atualizado
+            Internal Responsible Updated
           </div>
         ), 
-        description: "Informações salvas e sincronizadas com o servidor.",
+        description: "Information saved and synced with the server.",
         className: "bg-secondary text-secondary-foreground border-secondary"
     });
   };
@@ -326,10 +326,10 @@ export default function RevisaoEnvioPage() {
         title: (
           <div className="flex items-center">
             <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
-            Dados do Comprador Atualizados
+            Buyer Data Updated
           </div>
         ), 
-        description: "Informações salvas e sincronizadas com o servidor.",
+        description: "Information saved and synced with the server.",
         className: "bg-secondary text-secondary-foreground border-secondary"
     });
   };
@@ -352,39 +352,39 @@ export default function RevisaoEnvioPage() {
             title: (
               <div className="flex items-center">
                 <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
-                Dados da Empresa Atualizados
+                Company Data Updated
               </div>
             ), 
-            description: "Informações salvas e sincronizadas com o servidor.",
+            description: "Information saved and synced with the server.",
             className: "bg-secondary text-secondary-foreground border-secondary"
         });
     }
   };
 
   const responsavelFields: FieldConfig[] = [
-    { id: 'nome', label: 'Nome Completo', value: currentInternalTeamMemberInfo.nome, type: 'text', required: true },
-    { id: 'cpf', label: 'CPF', value: currentInternalTeamMemberInfo.cpf, type: 'text', required: true },
-    { id: 'telefone', label: 'Telefone', value: currentInternalTeamMemberInfo.telefone, type: 'tel', required: true },
+    { id: 'nome', label: 'Full Name', value: currentInternalTeamMemberInfo.nome, type: 'text', required: true },
+    { id: 'cpf', label: 'ID / Social Security', value: currentInternalTeamMemberInfo.cpf, type: 'text', required: true },
+    { id: 'telefone', label: 'Phone', value: currentInternalTeamMemberInfo.telefone, type: 'tel', required: true },
     { id: 'email', label: 'E-mail', value: currentInternalTeamMemberInfo.email, type: 'email', required: true },
-    { id: 'cargo', label: 'Cargo', value: currentInternalTeamMemberInfo.cargo || '', type: 'text', required: true },
+    { id: 'cargo', label: 'Role', value: currentInternalTeamMemberInfo.cargo || '', type: 'text', required: true },
   ];
 
   const compradorFields: FieldConfig[] = [
-    { id: 'nome', label: 'Nome Completo', value: currentBuyerInfo.nome, type: 'text', required: true },
-    { id: 'cpf', label: 'CPF', value: currentBuyerInfo.cpf, type: 'text', required: true },
-    { id: 'telefone', label: 'Telefone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel', required: true },
+    { id: 'nome', label: 'Full Name', value: currentBuyerInfo.nome, type: 'text', required: true },
+    { id: 'cpf', label: 'ID / SSN', value: currentBuyerInfo.cpf, type: 'text', required: true },
+    { id: 'telefone', label: 'Phone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel', required: true },
     { id: 'email', label: 'E-mail', value: currentBuyerInfo.email, type: 'email', required: true },
-    { id: 'logradouro', label: 'Logradouro (Rua, Av, Nº, Comp.)', value: currentBuyerInfo.logradouro || '', type: 'text', required: true },
-    { id: 'bairro', label: 'Bairro', value: currentBuyerInfo.bairro || '', type: 'text', required: true },
-    { id: 'cidade', label: 'Cidade', value: currentBuyerInfo.cidade || '', type: 'text', required: true },
-    { id: 'estado', label: 'Estado (UF)', value: currentBuyerInfo.estado || '', type: 'text', required: true },
-    { id: 'cep', label: 'CEP', value: currentBuyerInfo.cep || '', type: 'text', required: true },
+    { id: 'logradouro', label: 'Address (Street, No., Apt.)', value: currentBuyerInfo.logradouro || '', type: 'text', required: true },
+    { id: 'bairro', label: 'Neighborhood / Area', value: currentBuyerInfo.bairro || '', type: 'text', required: true },
+    { id: 'cidade', label: 'City', value: currentBuyerInfo.cidade || '', type: 'text', required: true },
+    { id: 'estado', label: 'State', value: currentBuyerInfo.estado || '', type: 'text', required: true },
+    { id: 'cep', label: 'ZIP Code', value: currentBuyerInfo.cep || '', type: 'text', required: true },
   ];
 
   const empresaFields: FieldConfig[] = currentCompanyInfo ? [
-    { id: 'razaoSocial', label: 'Razão Social', value: currentCompanyInfo.razaoSocial, type: 'text', required: true },
-    { id: 'nomeFantasia', label: 'Nome Fantasia (Opcional)', value: currentCompanyInfo.nomeFantasia || '', type: 'text' },
-    { id: 'cnpj', label: 'CNPJ', value: currentCompanyInfo.cnpj, type: 'text', required: true },
+    { id: 'razaoSocial', label: 'Legal Name', value: currentCompanyInfo.razaoSocial, type: 'text', required: true },
+    { id: 'nomeFantasia', label: 'Trade Name (Optional)', value: currentCompanyInfo.nomeFantasia || '', type: 'text' },
+    { id: 'cnpj', label: 'Company Tax ID', value: currentCompanyInfo.cnpj, type: 'text', required: true },
   ] : [];
 
 
@@ -398,10 +398,10 @@ export default function RevisaoEnvioPage() {
 
     if (missingFields.length > 0) {
       toast({
-        title: "Pendências Encontradas",
+        title: "Pending Items Found",
         description: (
           <div className="max-h-60 overflow-y-auto">
-            <p className="mb-2 font-semibold">Por favor, corrija os itens abaixo. Use os botões de edição (✏️) nesta página ou o botão 'Voltar' para as etapas anteriores:</p>
+            <p className="mb-2 font-semibold">Please correct the items below. Use the edit buttons (✏️) on this page or the 'Back' button for previous steps:</p>
             <ul className="list-disc list-inside space-y-1 text-sm">
               {missingFields.map((field, index) => (
                 <li key={index}>{field}</li>
@@ -417,10 +417,10 @@ export default function RevisaoEnvioPage() {
         title: (
           <div className="flex items-center">
             <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
-            Tudo Certo!
+            All Good!
           </div>
         ),
-        description: "Todos os dados necessários estão preenchidos. Você pode prosseguir para a impressão.",
+        description: "All necessary data is filled. You can proceed to printing.",
         className: "bg-green-600 text-primary-foreground border-green-700",
         duration: 5000,
       });
@@ -449,10 +449,10 @@ export default function RevisaoEnvioPage() {
         title: (
             <div className="flex items-center">
                 <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
-                Etapa 4 Concluída!
+                Step 4 Complete!
             </div>
         ), 
-        description: "Informações salvas. Carregando contrato para impressão...", 
+        description: "Information saved. Loading contract for printing...", 
         className: "bg-green-600 text-primary-foreground border-green-700"
     });
     router.push('/print-contract');
@@ -487,7 +487,7 @@ export default function RevisaoEnvioPage() {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Carregando dados do processo...</p>
+        <p className="mt-4 text-muted-foreground">Loading process data...</p>
       </div>
     );
   }
@@ -496,13 +496,13 @@ export default function RevisaoEnvioPage() {
     <>
       <header className="text-center py-8">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
-          Contrato Fácil
+          Easy Contract
         </div>
         <p className="mb-4 text-sm text-foreground/80">
-          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+          International Platform Financial - SAAS Solution with Artificial Intelligence in training by Antônio Fogaça.
         </p>
         <p className="text-xl text-muted-foreground font-headline">
-          Passo 4: {processState.buyerType === 'pj' ? 'Dados da Empresa, Representante' : 'Dados do Comprador'} e Revisão Final
+          Step 4: {processState.buyerType === 'pj' ? 'Company Data, Representative' : 'Buyer Data'} & Final Review
         </p>
       </header>
 
@@ -511,17 +511,17 @@ export default function RevisaoEnvioPage() {
             <CardHeader className="p-6 flex flex-row items-center justify-between">
                 <div className="flex items-center">
                     <Building className="mr-3 h-6 w-6 text-primary" />
-                    <CardTitle className="text-xl font-headline text-primary">Informações da Empresa</CardTitle>
+                    <CardTitle className="text-xl font-headline text-primary">Company Information</CardTitle>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setIsEditEmpresaOpen(true)} className="text-primary/70 hover:text-primary">
                     <Edit3 className="h-5 w-5" />
                 </Button>
             </CardHeader>
             <CardContent className="space-y-2 p-6 pt-0">
-                <p className="text-foreground/80"><strong>Razão Social:</strong> {currentCompanyInfo?.razaoSocial || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>Nome Fantasia:</strong> {currentCompanyInfo?.nomeFantasia || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>CNPJ:</strong> {currentCompanyInfo?.cnpj || 'Não informado'}</p>
-                <CardDescription className="text-foreground/70 pt-2 text-xs">Confirme ou edite os dados da empresa. Alguns campos podem ter sido pré-preenchidos pela IA.</CardDescription>
+                <p className="text-foreground/80"><strong>Legal Name:</strong> {currentCompanyInfo?.razaoSocial || 'Not provided'}</p>
+                <p className="text-foreground/80"><strong>Trade Name:</strong> {currentCompanyInfo?.nomeFantasia || 'Not provided'}</p>
+                <p className="text-foreground/80"><strong>Company Tax ID:</strong> {currentCompanyInfo?.cnpj || 'Not provided'}</p>
+                <CardDescription className="text-foreground/70 pt-2 text-xs">Confirm or edit the company data. Some fields may have been pre-filled by the AI.</CardDescription>
             </CardContent>
         </Card>
       )}
@@ -531,7 +531,7 @@ export default function RevisaoEnvioPage() {
             <div className="flex items-center">
                  <UserRound className="mr-3 h-7 w-7 text-primary" />
                 <CardTitle className="text-2xl font-headline text-primary">
-                    {processState.buyerType === 'pf' ? "Informações do Comprador" : "Informações do Representante Legal"}
+                    {processState.buyerType === 'pf' ? "Buyer Information" : "Legal Representative Information"}
                 </CardTitle>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsEditCompradorOpen(true)} className="text-primary/70 hover:text-primary">
@@ -539,42 +539,42 @@ export default function RevisaoEnvioPage() {
             </Button>
         </CardHeader>
         <CardContent className="space-y-2 p-6 pt-0">
-            <p className="text-foreground/80"><strong>Nome Completo:</strong> {currentBuyerInfo.nome || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>CPF:</strong> {currentBuyerInfo.cpf || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>Telefone (WhatsApp):</strong> {currentBuyerInfo.telefone || 'Não informado'}</p>
-            <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Não informado'}</p>
+            <p className="text-foreground/80"><strong>Full Name:</strong> {currentBuyerInfo.nome || 'Not provided'}</p>
+            <p className="text-foreground/80"><strong>ID / SSN:</strong> {currentBuyerInfo.cpf || 'Not provided'}</p>
+            <p className="text-foreground/80"><strong>Phone (WhatsApp):</strong> {currentBuyerInfo.telefone || 'Not provided'}</p>
+            <p className="text-foreground/80"><strong>E-mail:</strong> {currentBuyerInfo.email || 'Not provided'}</p>
             <div className="pt-2">
-                <h4 className="text-sm font-medium text-primary/80 flex items-center"><MapPin className="mr-1 h-4 w-4" /> Endereço:</h4>
+                <h4 className="text-sm font-medium text-primary/80 flex items-center"><MapPin className="mr-1 h-4 w-4" /> Address:</h4>
                 <p className="text-foreground/80 pl-5">
-                    {currentBuyerInfo.logradouro || '[Logradouro não informado]'}, {currentBuyerInfo.bairro || '[Bairro não informado]'}<br/>
-                    {currentBuyerInfo.cidade || '[Cidade não informada]'} - {currentBuyerInfo.estado || '[UF não informada]'}<br/>
-                    CEP: {currentBuyerInfo.cep || '[CEP não informado]'}
+                    {currentBuyerInfo.logradouro || '[Address not provided]'}, {currentBuyerInfo.bairro || '[Area not provided]'}<br/>
+                    {currentBuyerInfo.cidade || '[City not provided]'} - {currentBuyerInfo.estado || '[State not provided]'}<br/>
+                    ZIP Code: {currentBuyerInfo.cep || '[ZIP not provided]'}
                 </p>
             </div>
             <CardDescription className="text-foreground/70 pt-2 text-xs">
-            Confirme ou edite os dados. Alguns campos podem ter sido pré-preenchidos pela análise da IA dos documentos anexados ou do contrato principal.
+            Confirm or edit the data. Some fields may have been pre-filled by the AI analysis of the attached documents or the main contract.
           </CardDescription>
         </CardContent>
       </Card>
 
       <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
-          <CardTitle className="flex items-center text-2xl font-headline text-primary"><ListChecks className="mr-3 h-7 w-7" />Revisar Demais Informações</CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Confira os outros dados antes de prosseguir para impressão. As informações são atualizadas em tempo real conforme você edita os formulários acima.</CardDescription>
+          <CardTitle className="flex items-center text-2xl font-headline text-primary"><ListChecks className="mr-3 h-7 w-7" />Review Other Information</CardTitle>
+          <CardDescription className="text-foreground/70 pt-1">Check the other data before proceeding to print. The information is updated in real-time as you edit the forms above.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-6 pt-0">
           <div className="space-y-1">
-            <h3 className="flex items-center text-lg font-semibold text-primary/90"><ListChecks className="mr-2 h-5 w-5" />O Contrato que será assinado é:</h3>
-            <p className="text-foreground/80">{processState.contractSourceType === 'new' ? 'Um Novo Modelo de Contrato (Foto)' : 'Contrato Validado pela ADM (Modelo)'}</p>
+            <h3 className="flex items-center text-lg font-semibold text-primary/90"><ListChecks className="mr-2 h-5 w-5" />The Contract to be signed is:</h3>
+            <p className="text-foreground/80">{processState.contractSourceType === 'new' ? 'A New Contract Template (Photo)' : 'Admin Validated Contract (Template)'}</p>
           </div>
           <hr className="border-border/30"/>
 
           {processState.contractSourceType === 'existing' && processState.selectedPlayer && (
             <>
               <div className="space-y-1">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><PlayersIcon className="mr-2 h-5 w-5" />Player Selecionado</h3>
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><PlayersIcon className="mr-2 h-5 w-5" />Selected Player</h3>
                 <p className="text-foreground/80">{processState.selectedPlayer}</p>
-                {processState.selectedContractTemplateName && <p className="text-sm text-muted-foreground">Modelo: {processState.selectedContractTemplateName}</p>}
+                {processState.selectedContractTemplateName && <p className="text-sm text-muted-foreground">Template: {processState.selectedContractTemplateName}</p>}
               </div>
               <hr className="border-border/30"/>
             </>
@@ -584,16 +584,16 @@ export default function RevisaoEnvioPage() {
             <>
              <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                    <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Responsável Interno</h3>
+                    <h3 className="flex items-center text-lg font-semibold text-primary/90"><UserCog className="mr-2 h-5 w-5" />Internal Responsible</h3>
                     <Button variant="ghost" size="icon" onClick={() => setIsEditResponsavelOpen(true)} className="text-primary/70 hover:text-primary -mr-2">
                         <Edit3 className="h-5 w-5" />
                     </Button>
                 </div>
-                <p className="text-foreground/80"><strong>Nome:</strong> {currentInternalTeamMemberInfo.nome || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>CPF:</strong> {currentInternalTeamMemberInfo.cpf || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>Telefone:</strong> {currentInternalTeamMemberInfo.telefone || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>E-mail:</strong> {currentInternalTeamMemberInfo.email || 'Não informado'}</p>
-                <p className="text-foreground/80"><strong>Cargo:</strong> {currentInternalTeamMemberInfo.cargo || 'Não informado'}</p>
+                <p className="text-foreground/80"><strong>Name:</strong> {currentInternalTeamMemberInfo.nome || 'Not provided'}</p>
+                <p className="text-foreground/80"><strong>ID/SSN:</strong> {currentInternalTeamMemberInfo.cpf || 'Not provided'}</p>
+                <p className="text-foreground/80"><strong>Phone:</strong> {currentInternalTeamMemberInfo.telefone || 'Not provided'}</p>
+                <p className="text-foreground/80"><strong>E-mail:</strong> {currentInternalTeamMemberInfo.email || 'Not provided'}</p>
+                <p className="text-foreground/80"><strong>Role:</strong> {currentInternalTeamMemberInfo.cargo || 'Not provided'}</p>
               </div>
               <hr className="border-border/30"/>
             </>
@@ -602,11 +602,11 @@ export default function RevisaoEnvioPage() {
           {processState.contractSourceType === 'new' && processState.contractPhotoName && (
             <>
               <div className="space-y-1">
-                <h3 className="flex items-center text-lg font-semibold text-primary/90"><Camera className="mr-2 h-5 w-5" />Foto do Contrato Original</h3>
-                <p className="text-foreground/80"><strong>Arquivo:</strong> {processState.contractPhotoName}</p>
+                <h3 className="flex items-center text-lg font-semibold text-primary/90"><Camera className="mr-2 h-5 w-5" />Original Contract Photo</h3>
+                <p className="text-foreground/80"><strong>File:</strong> {processState.contractPhotoName}</p>
                 <p className={`text-sm ${processState.photoVerified ? 'text-green-400' : 'text-red-400'}`}>
-                  {processState.photoVerified ? 'Foto Verificada com Sucesso' :
-                    (processState.photoVerificationResult?.reason ? `Falha na Verificação: ${processState.photoVerificationResult.reason}` : 'Foto Não Verificada ou Com Falhas')}
+                  {processState.photoVerified ? 'Photo Successfully Verified' :
+                    (processState.photoVerificationResult?.reason ? `Verification Failed: ${processState.photoVerificationResult.reason}` : 'Photo Not Verified or Failed')}
                 </p>
               </div>
               <hr className="border-border/30"/>
@@ -615,10 +615,10 @@ export default function RevisaoEnvioPage() {
 
           {processState.extractedData && !isExtractedDataEmpty(processState.extractedData) && (
             <div className="space-y-1">
-              <h3 className="flex items-center text-lg font-semibold text-primary/90"><FileText className="mr-2 h-5 w-5" />Dados do Contrato {processState.contractSourceType === 'existing' ? `(Modelo de ${processState.selectedPlayer || 'Player não definido'})` : '(Extraídos da Foto)'}</h3>
+              <h3 className="flex items-center text-lg font-semibold text-primary/90"><FileText className="mr-2 h-5 w-5" />Contract Data {processState.contractSourceType === 'existing' ? `(Template from ${processState.selectedPlayer || 'Undefined Player'})` : '(Extracted from Photo)'}</h3>
               <ul className="list-disc list-inside text-foreground/80 space-y-1 pl-2 text-sm">
-                {processState.extractedData.objetoDoContrato && <li><strong>Objeto:</strong> {processState.extractedData.objetoDoContrato}</li>}
-                {processState.extractedData.valorPrincipal && <li><strong>Valor:</strong> {processState.extractedData.valorPrincipal}</li>}
+                {processState.extractedData.objetoDoContrato && <li><strong>Object:</strong> {processState.extractedData.objetoDoContrato}</li>}
+                {processState.extractedData.valorPrincipal && <li><strong>Value:</strong> {processState.extractedData.valorPrincipal}</li>}
               </ul>
             </div>
           )}
@@ -628,8 +628,8 @@ export default function RevisaoEnvioPage() {
 
       <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
          <CardHeader className="p-6">
-            <CardTitle className="flex items-center text-2xl font-headline text-primary"><Printer className="mr-3 h-7 w-7" />Preparar para Impressão</CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Gere o contrato para impressão física, assinatura e posterior anexo da foto do documento assinado.</CardDescription>
+            <CardTitle className="flex items-center text-2xl font-headline text-primary"><Printer className="mr-3 h-7 w-7" />Prepare for Printing</CardTitle>
+            <CardDescription className="text-foreground/70 pt-1">Generate the contract for physical printing, signing, and subsequent attachment of the signed document's photo.</CardDescription>
         </CardHeader>
         <CardFooter className="p-6 flex flex-col sm:flex-row gap-4">
             <Button
@@ -639,7 +639,7 @@ export default function RevisaoEnvioPage() {
                 className="w-full sm:w-auto border-blue-500/70 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
                 disabled={isStateLoading || isPreparingPrint || isNavigating}
             >
-                <Info className="mr-2 h-5 w-5" /> Verificar Pendências
+                <Info className="mr-2 h-5 w-5" /> Check for Pending Items
             </Button>
             <Button
                 type="button"
@@ -650,11 +650,11 @@ export default function RevisaoEnvioPage() {
                 {isPreparingPrint ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Preparando...
+                    Preparing...
                   </>
                 ) : (
                   <>
-                    <Printer className="mr-2 h-5 w-5" /> Preparar Contrato para Impressão
+                    <Printer className="mr-2 h-5 w-5" /> Prepare Contract for Printing
                   </>
                 )}
             </Button>
@@ -668,14 +668,14 @@ export default function RevisaoEnvioPage() {
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
           disabled={isStateLoading || isPreparingPrint || isNavigating}
         >
-          <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Documentos
+          <ArrowLeft className="mr-2 h-5 w-5" /> Back to Documents
         </Button>
       </div>
 
       <EditInfoDialog
         isOpen={isEditResponsavelOpen}
         setIsOpen={setIsEditResponsavelOpen}
-        dialogTitle="Editar Responsável Interno"
+        dialogTitle="Edit Internal Responsible"
         fieldsConfig={responsavelFields}
         onSaveHandler={handleSaveResponsavel}
         initialData={currentInternalTeamMemberInfo}
@@ -684,7 +684,7 @@ export default function RevisaoEnvioPage() {
       <EditInfoDialog
         isOpen={isEditCompradorOpen}
         setIsOpen={setIsEditCompradorOpen}
-        dialogTitle={processState.buyerType === 'pf' ? "Editar Dados do Comprador" : "Editar Dados do Representante Legal"}
+        dialogTitle={processState.buyerType === 'pf' ? "Edit Buyer Data" : "Edit Legal Representative Data"}
         fieldsConfig={compradorFields}
         onSaveHandler={handleSaveComprador}
         initialData={currentBuyerInfo}
@@ -694,7 +694,7 @@ export default function RevisaoEnvioPage() {
         <EditInfoDialog
             isOpen={isEditEmpresaOpen}
             setIsOpen={setIsEditEmpresaOpen}
-            dialogTitle="Editar Informações da Empresa"
+            dialogTitle="Edit Company Information"
             fieldsConfig={empresaFields}
             onSaveHandler={handleSaveEmpresa}
             initialData={currentCompanyInfo}

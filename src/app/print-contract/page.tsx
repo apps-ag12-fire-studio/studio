@@ -11,7 +11,7 @@ import { ArrowLeft, Printer, Loader2, FilePenLine, Image as ImageIcon, QrCode, E
 import { StoredProcessState, loadProcessState, saveProcessState, initialStoredProcessState, BuyerInfo, CompanyInfo } from "@/lib/process-store";
 import { EditInfoDialog, FieldConfig } from "@/components/processo/edit-info-dialog";
 
-// Componente para o rodapé de impressão personalizado
+// Component for the custom print footer
 const PrintFooter = ({ processId }: { processId: string | null }) => {
   if (!processId) return null;
 
@@ -23,12 +23,12 @@ const PrintFooter = ({ processId }: { processId: string | null }) => {
   return (
     <div className="custom-print-footer print-only">
       <div className="verification-text">
-        <p>Para verificar a autenticidade deste documento, acesse:</p>
+        <p>To verify the authenticity of this document, visit:</p>
         <p className="font-semibold">{verificationUrl}</p>
       </div>
       <Image 
         src={qrCodeUrl} 
-        alt={`QR Code para verificação do Processo ID ${processId}`} 
+        alt={`QR Code for verification of Process ID ${processId}`} 
         width={80} 
         height={80}
         className="qr-code-image"
@@ -53,10 +53,10 @@ export default function PrintContractPage() {
     const fetchDataAndUpdateSignature = async () => {
       setIsLoading(true);
       let loadedData = await loadProcessState(); // Step 1: Load current state
-      const today = new Date().toLocaleDateString('pt-BR');
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       let finalSigningString = ""; // This will be the string set in the contract
       let locationDisplayForContract = ""; // What actually goes into contract's location part
-      let geoStatusMessageForToast = "A geolocalização não foi solicitada ou falhou. A Cidade/Estado são baseados no modelo do contrato ou requerem entrada manual."; // Default toast message part
+      let geoStatusMessageForToast = "Geolocation was not requested or failed. City/State are based on the contract template or require manual input."; // Default toast message part
 
       // Step 2: Define how to construct the signing string based on contract's current location and geo attempt
       const updateSigningStringAndDetermineDisplay = (
@@ -69,9 +69,9 @@ export default function PrintContractPage() {
 
         if (isGenericLocationInContract) {
           if (geoAttemptSuccessful && coordinates) {
-            locationDisplayForContract = `Local (GPS Detectado)`; // For contract
+            locationDisplayForContract = `Location (GPS Detected)`; // For contract
           } else {
-            locationDisplayForContract = "[Local da Assinatura]"; // Fallback for contract
+            locationDisplayForContract = "[Place of Signing]"; // Fallback for contract
           }
         } else { // Specific location already in contract
           locationDisplayForContract = determinedLocationPart;
@@ -87,7 +87,7 @@ export default function PrintContractPage() {
         ) => {
         
         if (geoSuccess && coordinates) {
-            geoStatusMessageForToast = `Coordenadas GPS obtidas (${coordinates.latitude.toFixed(2)}, ${coordinates.longitude.toFixed(2)}). A Cidade/Estado exatas ainda requerem confirmação manual ou um serviço de geocodificação reversa (não configurado).`;
+            geoStatusMessageForToast = `GPS coordinates obtained (${coordinates.latitude.toFixed(2)}, ${coordinates.longitude.toFixed(2)}). Exact City/State still require manual confirmation or a reverse geocoding service (not configured).`;
         } else if (customGeoErrorMessage) {
             geoStatusMessageForToast = customGeoErrorMessage;
         } // else default geoStatusMessageForToast remains
@@ -118,8 +118,8 @@ export default function PrintContractPage() {
 
         if (typeof window !== 'undefined' && !localStorage.getItem('geolocationToastShownForPrintContractPage_v2')) {
             toast({
-                title: "Local e Data da Assinatura Atualizados",
-                description: `Data: ${today}. Local no contrato: "${locationDisplayForContract}". ${geoStatusMessageForToast}`,
+                title: "Location and Date of Signature Updated",
+                description: `Date: ${today}. Location in contract: "${locationDisplayForContract}". ${geoStatusMessageForToast}`,
                 duration: 12000, // Increased duration for better readability
             });
             localStorage.setItem('geolocationToastShownForPrintContractPage_v2', 'true');
@@ -137,13 +137,13 @@ export default function PrintContractPage() {
           },
           (error) => {
             console.warn("[Geolocation] Error Code:", error.code, "Message:", error.message);
-            let userFriendlyError = `Falha ao obter geolocalização (Erro ${error.code}). A Cidade/Estado são baseados no modelo ou requerem entrada manual.`;
+            let userFriendlyError = `Failed to get geolocation (Error ${error.code}). City/State are based on the template or require manual input.`;
             if (error.code === error.PERMISSION_DENIED) {
-              userFriendlyError = "Permissão de geolocalização negada. A Cidade/Estado são baseados no modelo ou requerem entrada manual.";
+              userFriendlyError = "Geolocation permission denied. City/State are based on the template or require manual input.";
             } else if (error.code === error.POSITION_UNAVAILABLE) {
-              userFriendlyError = "Informação de localização indisponível. A Cidade/Estado são baseados no modelo ou requerem entrada manual.";
+              userFriendlyError = "Location information unavailable. City/State are based on the template or require manual input.";
             } else if (error.code === error.TIMEOUT) {
-              userFriendlyError = "Tempo esgotado para obter geolocalização. A Cidade/Estado são baseados no modelo ou requerem entrada manual.";
+              userFriendlyError = "Timed out getting geolocation. City/State are based on the template or require manual input.";
             }
             processLoadedDataAfterGeoAttempt(false, undefined, userFriendlyError);
           },
@@ -151,7 +151,7 @@ export default function PrintContractPage() {
         );
       } else {
         console.warn("[Geolocation] Not supported by this browser.");
-        processLoadedDataAfterGeoAttempt(false, undefined, "Geolocalização não é suportada neste navegador. A Cidade/Estado são baseados no modelo ou requerem entrada manual.");
+        processLoadedDataAfterGeoAttempt(false, undefined, "Geolocation is not supported in this browser. City/State are based on the template or require manual input.");
       }
     };
 
@@ -188,24 +188,24 @@ export default function PrintContractPage() {
         title: (
           <div className="flex items-center">
             <CheckCircle2 className="mr-2 h-5 w-5 text-green-400" />
-            Dados do Comprador Atualizados
+            Buyer Data Updated
           </div>
         ), 
-        description: "Informações salvas e sincronizadas com o servidor.",
+        description: "Information saved and synced with the server.",
         className: "bg-secondary text-secondary-foreground border-secondary"
     });
   };
 
   const compradorFields: FieldConfig[] = [
-    { id: 'nome', label: 'Nome Completo', value: currentBuyerInfo.nome, type: 'text', required: true },
-    { id: 'cpf', label: 'CPF', value: currentBuyerInfo.cpf, type: 'text', required: true },
-    { id: 'telefone', label: 'Telefone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel', required: true },
+    { id: 'nome', label: 'Full Name', value: currentBuyerInfo.nome, type: 'text', required: true },
+    { id: 'cpf', label: 'ID / SSN', value: currentBuyerInfo.cpf, type: 'text', required: true },
+    { id: 'telefone', label: 'Phone (WhatsApp)', value: currentBuyerInfo.telefone, type: 'tel', required: true },
     { id: 'email', label: 'E-mail', value: currentBuyerInfo.email, type: 'email', required: true },
-    { id: 'logradouro', label: 'Logradouro (Rua, Av, Nº, Comp.)', value: currentBuyerInfo.logradouro || '', type: 'text', required: true },
-    { id: 'bairro', label: 'Bairro', value: currentBuyerInfo.bairro || '', type: 'text', required: true },
-    { id: 'cidade', label: 'Cidade', value: currentBuyerInfo.cidade || '', type: 'text', required: true },
-    { id: 'estado', label: 'Estado (UF)', value: currentBuyerInfo.estado || '', type: 'text', required: true },
-    { id: 'cep', label: 'CEP', value: currentBuyerInfo.cep || '', type: 'text', required: true },
+    { id: 'logradouro', label: 'Address (Street, No., Apt.)', value: currentBuyerInfo.logradouro || '', type: 'text', required: true },
+    { id: 'bairro', label: 'Neighborhood / Area', value: currentBuyerInfo.bairro || '', type: 'text', required: true },
+    { id: 'cidade', label: 'City', value: currentBuyerInfo.cidade || '', type: 'text', required: true },
+    { id: 'estado', label: 'State', value: currentBuyerInfo.estado || '', type: 'text', required: true },
+    { id: 'cep', label: 'ZIP Code', value: currentBuyerInfo.cep || '', type: 'text', required: true },
   ];
 
 
@@ -217,8 +217,8 @@ export default function PrintContractPage() {
       } catch (error) {
         console.error("Error calling window.print():", error);
         toast({
-            title: "Erro ao Imprimir",
-            description: "Não foi possível abrir a caixa de diálogo de impressão.",
+            title: "Error Printing",
+            description: "Could not open the print dialog.",
             variant: "destructive"
         });
         setIsPrinting(false); 
@@ -228,7 +228,7 @@ export default function PrintContractPage() {
 
   const handleProceedToSignedUpload = async () => {
     if (!currentProcessState || !currentProcessState.processId) {
-        toast({ title: "Erro de Processo", description: "ID do processo não encontrado. Não é possível prosseguir.", variant: "destructive" });
+        toast({ title: "Process Error", description: "Process ID not found. Cannot proceed.", variant: "destructive" });
         return;
     }
     const stateToSave = {...currentProcessState, currentStep: "/processo/foto-contrato-assinado" };
@@ -236,8 +236,8 @@ export default function PrintContractPage() {
     setCurrentProcessState(stateToSave); 
 
     toast({
-      title: "Impressão (Simulada) Concluída!",
-      description: "Prossiga para anexar a foto do contrato assinado.",
+      title: "Print (Simulated) Complete!",
+      description: "Proceed to attach the photo of the signed contract.",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push('/processo/foto-contrato-assinado');
@@ -252,7 +252,7 @@ export default function PrintContractPage() {
         <div className="mb-4 p-2 border border-dashed border-border text-center text-sm text-muted-foreground document-to-print">
           <FilePenLine className="h-8 w-8 mx-auto mb-1 text-primary" />
           {label} (PDF)
-          <p className="text-xs print-hidden">Conteúdo de PDFs não é exibido na pré-visualização de impressão da página, mas será incluído na impressão se o navegador suportar.</p>
+          <p className="text-xs print-hidden">PDF content is not displayed in the page print preview, but will be included in the print if the browser supports it.</p>
         </div>
       );
     }
@@ -277,7 +277,7 @@ export default function PrintContractPage() {
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
           <CardContent className="p-10 text-center flex flex-col items-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground">Carregando dados e geolocalização...</p>
+            <p className="text-lg text-muted-foreground">Loading data and geolocation...</p>
           </CardContent>
         </Card>
       </div>
@@ -293,12 +293,12 @@ export default function PrintContractPage() {
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-md shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
           <CardHeader className="items-center p-8">
-            <CardTitle className="text-2xl text-destructive font-headline">Erro Crítico de Sessão</CardTitle>
+            <CardTitle className="text-2xl text-destructive font-headline">Critical Session Error</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-6">Não foi possível encontrar os dados do processo atual (ID ausente ou estado nulo após carregamento). Por favor, inicie o processo novamente.</p>
+            <p className="text-muted-foreground mb-6">Could not find the current process data (ID missing or null state after loading). Please start the process again.</p>
             <Button onClick={() => router.push('/')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
-              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para o Início
+              <ArrowLeft className="mr-2 h-5 w-5" /> Back to Home
             </Button>
           </CardContent>
         </Card>
@@ -319,12 +319,12 @@ export default function PrintContractPage() {
 
   if (extractedDataMissing || internalTeamMemberInfoMissing || buyerInfoMissing || companyInfoMissingForPJ) {
     let missingPartsDescriptionList = [];
-    if (extractedDataMissing) missingPartsDescriptionList.push("Dados do Contrato");
-    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Informações do Responsável Interno (Nome, CPF, Email, Telefone, Cargo)");
-    if (buyerInfoMissing) missingPartsDescriptionList.push("Informações do Comprador/Representante (Nome, CPF, Email, Telefone, Endereço Completo)");
-    if (companyInfoMissingForPJ) missingPartsDescriptionList.push("Informações da Empresa (PJ - Razão Social, CNPJ)");
+    if (extractedDataMissing) missingPartsDescriptionList.push("Contract Data");
+    if (internalTeamMemberInfoMissing) missingPartsDescriptionList.push("Internal Responsible Information (Name, ID, Email, Phone, Role)");
+    if (buyerInfoMissing) missingPartsDescriptionList.push("Buyer/Representative Information (Name, ID, Email, Phone, Full Address)");
+    if (companyInfoMissingForPJ) missingPartsDescriptionList.push("Company Information (Legal Name, Tax ID)");
     
-    const descriptionText = `Dados essenciais para impressão não encontrados: ${missingPartsDescriptionList.join('; ')}. Verifique as etapas anteriores ou se o processo foi reiniciado.`;
+    const descriptionText = `Essential data for printing not found: ${missingPartsDescriptionList.join('; ')}. Check previous steps or if the process was reset.`;
 
     console.error(
         '[PrintContractPage] Essential data for printing missing. \nDescription:', descriptionText,
@@ -347,23 +347,23 @@ export default function PrintContractPage() {
        <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center bg-background p-6">
         <Card className="w-full max-w-lg shadow-card-premium rounded-2xl bg-card/80 backdrop-blur-sm">
           <CardHeader className="items-center p-8">
-            <CardTitle className="text-2xl text-destructive font-headline text-center">Erro ao Carregar Dados para Impressão</CardTitle>
+            <CardTitle className="text-2xl text-destructive font-headline text-center">Error Loading Data for Printing</CardTitle>
           </CardHeader>
           <CardContent className="text-center pb-8 px-8">
-            <p className="text-muted-foreground mb-2">Os seguintes dados essenciais não foram encontrados para gerar o contrato:</p>
+            <p className="text-muted-foreground mb-2">The following essential data was not found to generate the contract:</p>
             <ul className="list-disc list-inside text-left text-muted-foreground mb-4 text-sm inline-block">
-                {extractedDataMissing && <li>Dados do Contrato</li>}
-                {internalTeamMemberInfoMissing && <li>Informações do Responsável Interno (incluindo Cargo)</li>}
-                {buyerInfoMissing && <li>Informações do Comprador/Representante (incluindo Endereço)</li>}
-                {companyInfoMissingForPJ && <li>Informações da Empresa (PJ)</li>}
+                {extractedDataMissing && <li>Contract Data</li>}
+                {internalTeamMemberInfoMissing && <li>Internal Responsible Information (including Role)</li>}
+                {buyerInfoMissing && <li>Buyer/Representative Information (including Address)</li>}
+                {companyInfoMissingForPJ && <li>Company Information</li>}
             </ul>
-            <p className="text-muted-foreground mb-6">Por favor, volte e verifique se todas as informações foram preenchidas e salvas corretamente nas etapas anteriores. Se o problema persistir, tente reiniciar o processo.</p>
+            <p className="text-muted-foreground mb-6">Please go back and check if all information was filled out and saved correctly in the previous steps. If the problem persists, try restarting the process.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button onClick={() => router.push('/processo/revisao-envio')} variant="outline" className="border-primary/80 text-primary hover:bg-primary/10 text-base py-3 rounded-lg">
-                    <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Revisão
+                    <ArrowLeft className="mr-2 h-5 w-5" /> Back to Review
                 </Button>
                 <Button onClick={() => router.push('/')} variant="outline" className="border-destructive/80 text-destructive hover:bg-destructive/10 text-base py-3 rounded-lg">
-                     Voltar para o Início
+                     Back to Home
                 </Button>
             </div>
           </CardContent>
@@ -384,42 +384,42 @@ export default function PrintContractPage() {
 
 
   const vendedorNome = selectedPlayer ||
-                       (nomesDasPartesArray.find(nome => String(nome).toUpperCase().includes("VENDEDOR"))) ||
-                       "PABLO MARÇAL (ou empresa representante oficial)";
+                       (nomesDasPartesArray.find(nome => String(nome).toUpperCase().includes("SELLER"))) ||
+                       "PABLO MARÇAL (or official representative company)";
 
   const vendedorDocumento = documentosDasPartesArray.find((doc, index) => {
     const nomeParteCorrigido = Array.isArray(nomesDasPartesArray) && nomesDasPartesArray[index] ? String(nomesDasPartesArray[index]).toUpperCase() : "";
-    return nomeParteCorrigido.includes("VENDEDOR") || (selectedPlayer && nomeParteCorrigido.includes(selectedPlayer.toUpperCase()));
-  }) || "[CNPJ DA EMPRESA VENDEDORA]";
+    return nomeParteCorrigido.includes("SELLER") || (selectedPlayer && nomeParteCorrigido.includes(selectedPlayer.toUpperCase()));
+  }) || "[SELLING COMPANY TAX ID]";
 
 
   const renderCompradorInfo = () => {
-    const displayAddress = `${currentBuyerInfo.logradouro || '[Logradouro]'},\n${currentBuyerInfo.bairro || '[Bairro]'}\n${currentBuyerInfo.cidade || '[Cidade]'} - ${currentBuyerInfo.estado || '[UF]'},\nCEP: ${currentBuyerInfo.cep || '[CEP]'}`;
-    const fullAddressPlaceholder = '[ENDEREÇO COMPLETO DO COMPRADOR:\nLogradouro, Bairro,\nCidade - UF, CEP: CEP]';
+    const displayAddress = `${currentBuyerInfo.logradouro || '[Address Line]'},\n${currentBuyerInfo.bairro || '[Neighborhood]'}\n${currentBuyerInfo.cidade || '[City]'} - ${currentBuyerInfo.estado || '[State]'},\nZIP: ${currentBuyerInfo.cep || '[ZIP]'}`;
+    const fullAddressPlaceholder = '[BUYER\'S FULL ADDRESS:\nStreet, Neighborhood,\nCity - State, ZIP: ZIP]';
 
 
     if (buyerType === 'pj' && companyInfo && currentBuyerInfo) {
       return (
         <>
-          <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA JURÍDICA):</p>
-          <p><strong>Razão Social:</strong> {companyInfo.razaoSocial || '[RAZÃO SOCIAL DA EMPRESA]'}</p>
-          <p><strong>CNPJ:</strong> {companyInfo.cnpj || '[CNPJ DA EMPRESA]'}</p>
-          <p><strong>Endereço (Sede):</strong> <span className="whitespace-pre-line">{currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</span></p>
-          <p><strong>Representada por:</strong> {currentBuyerInfo.nome || '[NOME DO REPRESENTANTE]'}</p>
-          <p><strong>CPF do Representante:</strong> {currentBuyerInfo.cpf || '[CPF DO REPRESENTANTE]'}</p>
-          <p><strong>E-mail:</strong> {currentBuyerInfo.email || '[E-MAIL DO REPRESENTANTE]'}</p>
-          <p><strong>Telefone:</strong> {currentBuyerInfo.telefone || '[TELEFONE DO REPRESENTANTE]'}</p>
+          <p className="font-headline text-primary/90 text-base">BUYER (COMPANY):</p>
+          <p><strong>Legal Name:</strong> {companyInfo.razaoSocial || '[COMPANY LEGAL NAME]'}</p>
+          <p><strong>Tax ID:</strong> {companyInfo.cnpj || '[COMPANY TAX ID]'}</p>
+          <p><strong>Address (Headquarters):</strong> <span className="whitespace-pre-line">{currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</span></p>
+          <p><strong>Represented by:</strong> {currentBuyerInfo.nome || '[REPRESENTATIVE NAME]'}</p>
+          <p><strong>Representative's ID/SSN:</strong> {currentBuyerInfo.cpf || '[REPRESENTATIVE ID]'}</p>
+          <p><strong>E-mail:</strong> {currentBuyerInfo.email || '[REPRESENTATIVE EMAIL]'}</p>
+          <p><strong>Phone:</strong> {currentBuyerInfo.telefone || '[REPRESENTATIVE PHONE]'}</p>
         </>
       );
     }
     return (
       <>
-        <p className="font-headline text-primary/90 text-base">COMPRADOR (PESSOA FÍSICA):</p>
-        <p><strong>Nome:</strong> {currentBuyerInfo?.nome || '[NOME DO COMPRADOR]'}</p>
-        <p><strong>CPF:</strong> {currentBuyerInfo?.cpf || '[CPF DO COMPRADOR]'}</p>
-        <p><strong>E-mail:</strong> {currentBuyerInfo?.email || '[E-MAIL DO COMPRADOR]'}</p>
-        <p><strong>Telefone:</strong> {currentBuyerInfo?.telefone || '[TELEFONE DO COMPRADOR]'}</p>
-        <p><strong>Endereço:</strong> <span className="whitespace-pre-line">{currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</span></p>
+        <p className="font-headline text-primary/90 text-base">BUYER (INDIVIDUAL):</p>
+        <p><strong>Name:</strong> {currentBuyerInfo?.nome || '[BUYER NAME]'}</p>
+        <p><strong>ID/SSN:</strong> {currentBuyerInfo?.cpf || '[BUYER ID]'}</p>
+        <p><strong>E-mail:</strong> {currentBuyerInfo?.email || '[BUYER EMAIL]'}</p>
+        <p><strong>Phone:</strong> {currentBuyerInfo?.telefone || '[BUYER PHONE]'}</p>
+        <p><strong>Address:</strong> <span className="whitespace-pre-line">{currentBuyerInfo.logradouro ? displayAddress : fullAddressPlaceholder}</span></p>
 
       </>
     );
@@ -429,106 +429,106 @@ export default function PrintContractPage() {
     <>
       <header className="text-center py-8 print-hidden">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
-          Contrato Fácil
+          Easy Contract
         </div>
         <p className="mb-4 text-sm text-foreground/80">
-          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+          International Platform Financial - SAAS Solution with Artificial Intelligence in training by Antônio Fogaça.
         </p>
         <p className="text-xl text-muted-foreground font-headline">
-          Passo 5: Impressão do Contrato e Documentos
+          Step 5: Printing the Contract and Documents
         </p>
       </header>
       <div className="printable-page-wrapper">
         <div className="w-full max-w-3xl space-y-8 mx-auto my-0 print:my-0 print:mx-auto print:space-y-0">
           <div className="print-hidden text-center mb-6">
-              <h1 className="text-3xl font-headline text-primary text-glow-gold">Pré-visualização do Contrato e Documentos</h1>
-              <p className="text-muted-foreground mt-2">Este conjunto está pronto para impressão. Após imprimir e assinar, anexe a foto do contrato assinado.</p>
+              <h1 className="text-3xl font-headline text-primary text-glow-gold">Contract and Documents Preview</h1>
+              <p className="text-muted-foreground mt-2">This set is ready for printing. After printing and signing, attach the photo of the signed contract.</p>
           </div>
           <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
             <CardHeader className="border-b border-border/50 pb-4 p-6">
               <CardTitle className="text-xl sm:text-2xl font-headline text-primary text-center uppercase tracking-wider">
-                Contrato de Compra de Produto Digital
+                Digital Product Purchase Agreement
               </CardTitle>
               <CardDescription className="text-center text-muted-foreground mt-2 text-sm">
-                Instrumento Particular de Compra e Acesso {selectedPlayer ? ` - Player: ${selectedPlayer}` : ''}
+                Private Instrument of Purchase and Access {selectedPlayer ? ` - Player: ${selectedPlayer}` : ''}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 sm:p-8 space-y-6 text-sm contract-text-content text-foreground/90 leading-relaxed">
               <div className="flex justify-between items-start print-hidden">
-                <p>Pelo presente instrumento particular, de um lado:</p>
+                <p>By this private instrument, on one hand:</p>
                 <Button variant="ghost" size="icon" onClick={() => setIsEditCompradorOpen(true)} className="text-primary/70 hover:text-primary -mt-2 -mr-2">
                     <Edit3 className="h-5 w-5" />
                 </Button>
               </div>
-               <p className="print-only">Pelo presente instrumento particular, de um lado:</p>
+               <p className="print-only">By this private instrument, on one hand:</p>
 
 
               <div className="space-y-1 pl-4 border-l-2 border-primary/30 py-2">
                 {renderCompradorInfo()}
               </div>
 
-              <p>E de outro lado:</p>
+              <p>And on the other hand:</p>
 
               <div className="space-y-1 pl-4 border-l-2 border-primary/30 py-2">
-                <p className="font-headline text-primary/90 text-base">VENDEDOR:</p>
-                <p><strong>Nome:</strong> {vendedorNome}</p>
-                <p><strong>CNPJ/CPF:</strong> {vendedorDocumento}</p>
-                <p><strong>Endereço:</strong> [ENDEREÇO COMPLETO DA EMPRESA VENDEDORA]</p>
-                <p><strong>E-mail:</strong> [E-MAIL DA EMPRESA VENDEDORA]</p>
+                <p className="font-headline text-primary/90 text-base">SELLER:</p>
+                <p><strong>Name:</strong> {vendedorNome}</p>
+                <p><strong>Tax ID:</strong> {vendedorDocumento}</p>
+                <p><strong>Address:</strong> [SELLING COMPANY FULL ADDRESS]</p>
+                <p><strong>E-mail:</strong> [SELLING COMPANY EMAIL]</p>
               </div>
 
-              <p>Têm entre si justo e contratado o seguinte:</p>
+              <p>Hereby agree and contract as follows:</p>
               <hr className="my-4 border-border/30"/>
-              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">1. OBJETO DO CONTRATO</h3>
-              <p className="pl-4">1.1. O presente contrato tem por objeto a aquisição do produto digital denominado: <strong>{extractedData?.objetoDoContrato || '[NOME DO PRODUTO DIGITAL]'}</strong>, de autoria de {selectedPlayer || 'Pablo Marçal'} (ou empresa representante), disponibilizado via acesso online, conforme especificações detalhadas na oferta do produto.</p>
+              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">1. OBJECT OF THE CONTRACT</h3>
+              <p className="pl-4">1.1. The object of this contract is the purchase of the digital product named: <strong>{extractedData?.objetoDoContrato || '[DIGITAL PRODUCT NAME]'}</strong>, authored by {selectedPlayer || 'Pablo Marçal'} (or representative company), made available via online access, according to the specifications detailed in the product offer.</p>
               <hr className="my-4 border-border/30"/>
-              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">2. VALOR E CONDIÇÕES DE PAGAMENTO</h3>
-              <p className="pl-4">2.1. O valor total para a aquisição do produto digital é de <strong>{extractedData?.valorPrincipal || 'R$ [VALOR TOTAL]'}</strong>.</p>
-              <p className="pl-4">2.2. Forma de Pagamento: {extractedData?.condicoesDePagamento ? extractedData.condicoesDePagamento : 'Conforme selecionado pelo COMPRADOR no ato da compra.'}</p>
+              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">2. PRICE AND PAYMENT TERMS</h3>
+              <p className="pl-4">2.1. The total price for the purchase of the digital product is <strong>{extractedData?.valorPrincipal || '$[TOTAL PRICE]'}</strong>.</p>
+              <p className="pl-4">2.2. Payment Method: {extractedData?.condicoesDePagamento ? extractedData.condicoesDePagamento : 'As selected by the BUYER at the time of purchase.'}</p>
               <hr className="my-4 border-border/30"/>
-              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">3. ACESSO E ENTREGA</h3>
-              <p className="pl-4">3.1. O produto será entregue digitalmente, com as credenciais e instruções de acesso enviadas para o e-mail cadastrado pelo COMPRADOR.</p>
-              <p className="pl-4">3.2. O prazo de acesso ao conteúdo do produto é de {extractedData?.prazoContrato || '[PRAZO DE ACESSO]'} a contar da data de liberação do acesso.</p>
+              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">3. ACCESS AND DELIVERY</h3>
+              <p className="pl-4">3.1. The product will be delivered digitally, with access credentials and instructions sent to the email address registered by the BUYER.</p>
+              <p className="pl-4">3.2. The access period to the product content is {extractedData?.prazoContrato || '[ACCESS PERIOD]'} from the date of access release.</p>
               <hr className="my-4 border-border/30"/>
-              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">4. DIREITOS E RESPONSABILIDADES</h3>
-              <p className="pl-4">4.1. O COMPRADOR compromete-se a utilizar o conteúdo exclusivamente para fins pessoais e intransferíveis, sendo vedada a reprodução, cópia, distribuição, ou comercialização do material sem autorização expressa e por escrito do VENDEDOR.</p>
-              <p className="pl-4">4.2. O VENDEDOR garante o funcionamento da plataforma de acesso e a disponibilidade do conteúdo durante o prazo contratado, ressalvadas interrupções por manutenções programadas ou motivos de força maior.</p>
+              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">4. RIGHTS AND RESPONSIBILITIES</h3>
+              <p className="pl-4">4.1. The BUYER agrees to use the content exclusively for personal and non-transferable purposes, and is prohibited from reproducing, copying, distributing, or commercializing the material without the express written authorization of the SELLER.</p>
+              <p className="pl-4">4.2. The SELLER guarantees the functioning of the access platform and the availability of the content during the contracted period, except for interruptions due to scheduled maintenance or force majeure.</p>
               <hr className="my-4 border-border/30"/>
-              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">5. POLÍTICA DE REEMBOLSO</h3>
-              <p className="pl-4">5.1. O COMPRADOR poderá solicitar o cancelamento e reembolso integral do valor pago no prazo de 07 (sete) dias corridos a contar da data da compra, conforme Art. 49 do Código de Defesa do Consumidor.</p>
+              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">5. REFUND POLICY</h3>
+              <p className="pl-4">5.1. The BUYER may request cancellation and a full refund of the amount paid within 07 (seven) calendar days from the date of purchase, in accordance with consumer protection laws.</p>
               <hr className="my-4 border-border/30"/>
-              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">6. DISPOSIÇÕES GERAIS</h3>
-              <p className="pl-4">6.1. As partes elegem o foro da comarca de {extractedData?.foroEleito || '[CIDADE/UF DO FORO]'} para dirimir quaisquer controvérsias oriundas do presente contrato.</p>
+              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide">6. GENERAL PROVISIONS</h3>
+              <p className="pl-4">6.1. The parties elect the jurisdiction of {extractedData?.foroEleito || '[CITY/STATE OF JURISDICTION]'} to settle any disputes arising from this contract.</p>
               {extractedData?.outrasObservacoesRelevantes && (
-                  <p className="pl-4 mt-2"><strong>Observações Adicionais:</strong> {extractedData.outrasObservacoesRelevantes}</p>
+                  <p className="pl-4 mt-2"><strong>Additional Notes:</strong> {extractedData.outrasObservacoesRelevantes}</p>
               )}
               <hr className="my-6 border-border/30"/>
-              <p className="text-center mt-8 text-muted-foreground">{extractedData?.localEDataAssinatura || '[Local], [Data]'}</p>
+              <p className="text-center mt-8 text-muted-foreground">{extractedData?.localEDataAssinatura || '[Place], [Date]'}</p>
               <div className="mt-12 space-y-10">
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
                    <p className="text-sm min-h-[1.25rem]">
-                     {buyerType === 'pj' && companyInfo ? companyInfo.razaoSocial : currentBuyerInfo?.nome || '[NOME DO COMPRADOR/EMPRESA]'}
-                     {buyerType === 'pj' && currentBuyerInfo && <span className="block text-xs text-muted-foreground">Representado por: {currentBuyerInfo.nome}</span>}
+                     {buyerType === 'pj' && companyInfo ? companyInfo.razaoSocial : currentBuyerInfo?.nome || '[BUYER/COMPANY NAME]'}
+                     {buyerType === 'pj' && currentBuyerInfo && <span className="block text-xs text-muted-foreground">Represented by: {currentBuyerInfo.nome}</span>}
                    </p>
-                   <p className="text-xs text-muted-foreground">(COMPRADOR{buyerType === 'pj' ? ' - PESSOA JURÍDICA' : ''})</p>
+                   <p className="text-xs text-muted-foreground">(BUYER{buyerType === 'pj' ? ' - COMPANY' : ''})</p>
                 </div>
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
-                   <p className="text-sm min-h-[1.25rem]">[ESPAÇO PARA ASSINATURA DO REPRESENTANTE LEGAL]</p>
-                   <p className="text-xs text-muted-foreground">(VENDEDOR - Representante Legal {selectedPlayer ? `- ${selectedPlayer}`: ''})</p>
+                   <p className="text-sm min-h-[1.25rem]">[SPACE FOR LEGAL REPRESENTATIVE'S SIGNATURE]</p>
+                   <p className="text-xs text-muted-foreground">(SELLER - Legal Representative {selectedPlayer ? `- ${selectedPlayer}`: ''})</p>
                 </div>
               </div>
               <hr className="my-6 border-border/30"/>
-              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide text-center">TESTEMUNHAS</h3>
+              <h3 className="font-semibold text-base text-primary/90 font-headline uppercase tracking-wide text-center">WITNESSES</h3>
               <div className="mt-8 space-y-10">
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
-                   <p className="text-sm min-h-[1.25rem]">{internalTeamMemberInfo.nome || '[ASSINATURA TESTEMUNHA - RESP. INTERNO]'}</p>
-                   <p className="text-xs text-muted-foreground">(Testemunha - Responsável Interno)</p>
-                   {internalTeamMemberInfo.cpf && <p className="text-xs text-muted-foreground">CPF: {internalTeamMemberInfo.cpf}</p>}
+                   <p className="text-sm min-h-[1.25rem]">{internalTeamMemberInfo.nome || '[WITNESS SIGNATURE - INTERNAL RESP.]'}</p>
+                   <p className="text-xs text-muted-foreground">(Witness - Internal Responsible)</p>
+                   {internalTeamMemberInfo.cpf && <p className="text-xs text-muted-foreground">ID/SSN: {internalTeamMemberInfo.cpf}</p>}
                 </div>
                 <div className="w-full sm:w-3/4 mx-auto border-b border-foreground/70 pb-2 text-center">
-                   <p className="text-sm min-h-[1.25rem]">[ESPAÇO PARA ASSINATURA DA SEGUNDA TESTEMUNHA]</p>
-                   <p className="text-xs text-muted-foreground">(Testemunha)</p>
-                   <p className="text-xs text-muted-foreground">CPF: [CPF DA SEGUNDA TESTEMUNHA]</p>
+                   <p className="text-sm min-h-[1.25rem]">[SPACE FOR SECOND WITNESS SIGNATURE]</p>
+                   <p className="text-xs text-muted-foreground">(Witness)</p>
+                   <p className="text-xs text-muted-foreground">ID/SSN: [SECOND WITNESS ID/SSN]</p>
                 </div>
               </div>
             </CardContent>
@@ -538,26 +538,26 @@ export default function PrintContractPage() {
           <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/95 printable-area">
             <CardHeader className="border-b border-border/50 pb-4 p-6">
               <CardTitle className="text-xl sm:text-2xl font-headline text-primary text-center uppercase tracking-wider">
-                <ImageIcon className="inline-block mr-2 h-6 w-6" /> Anexos - Documentos do Comprador
+                <ImageIcon className="inline-block mr-2 h-6 w-6" /> Attachments - Buyer's Documents
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 sm:p-8 space-y-4">
               {buyerType === 'pf' && (
                 <>
-                  {renderDocumentImage(currentProcessState.rgAntigoFrente?.previewUrl, 'RG (Antigo) - Frente')}
-                  {renderDocumentImage(currentProcessState.rgAntigoVerso?.previewUrl, 'RG (Antigo) - Verso')}
-                  {renderDocumentImage(currentProcessState.cnhAntigaFrente?.previewUrl, 'CNH (Antiga) - Frente')}
-                  {renderDocumentImage(currentProcessState.cnhAntigaVerso?.previewUrl, 'CNH (Antiga) - Verso')}
+                  {renderDocumentImage(currentProcessState.rgAntigoFrente?.previewUrl, 'ID Card (Old) - Front')}
+                  {renderDocumentImage(currentProcessState.rgAntigoVerso?.previewUrl, 'ID Card (Old) - Back')}
+                  {renderDocumentImage(currentProcessState.cnhAntigaFrente?.previewUrl, 'Driver\'s License (Old) - Front')}
+                  {renderDocumentImage(currentProcessState.cnhAntigaVerso?.previewUrl, 'Driver\'s License (Old) - Back')}
                 </>
               )}
               {buyerType === 'pj' && (
                 <>
-                  {renderDocumentImage(currentProcessState.cartaoCnpjFile?.previewUrl, 'Cartão CNPJ')}
-                  {renderDocumentImage(currentProcessState.docSocioFrente?.previewUrl, 'Documento do Sócio/Representante - Frente')}
-                  {renderDocumentImage(currentProcessState.docSocioVerso?.previewUrl, 'Documento do Sócio/Representante - Verso')}
+                  {renderDocumentImage(currentProcessState.cartaoCnpjFile?.previewUrl, 'Company Registration Doc')}
+                  {renderDocumentImage(currentProcessState.docSocioFrente?.previewUrl, 'Partner/Representative\'s ID - Front')}
+                  {renderDocumentImage(currentProcessState.docSocioVerso?.previewUrl, 'Partner/Representative\'s ID - Back')}
                 </>
               )}
-              {renderDocumentImage(currentProcessState.comprovanteEndereco?.previewUrl, buyerType === 'pf' ? 'Comprovante de Endereço Pessoal' : 'Comprovante de Endereço da Empresa')}
+              {renderDocumentImage(currentProcessState.comprovanteEndereco?.previewUrl, buyerType === 'pf' ? 'Personal Proof of Address' : 'Company Proof of Address')}
             </CardContent>
              <PrintFooter processId={processId} />
           </Card>
@@ -570,21 +570,21 @@ export default function PrintContractPage() {
             >
               {isPrinting ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Preparando Impressão...
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Preparing Print...
                 </>
               ) : (
                 <>
-                  <Printer className="mr-2 h-5 w-5" /> Imprimir Tudo
+                  <Printer className="mr-2 h-5 w-5" /> Print All
                 </>
               )}
             </Button>
             <Button onClick={handleProceedToSignedUpload} className="flex-1 bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-4 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105">
-               <FilePenLine className="mr-2 h-5 w-5" /> Contrato Assinado - Anexar Foto
+               <FilePenLine className="mr-2 h-5 w-5" /> Signed Contract - Attach Photo
             </Button>
           </div>
           <div className="mt-4 w-full max-w-3xl print-hidden">
              <Button variant="outline" onClick={() => router.push('/processo/revisao-envio')} className="w-full border-primary/80 text-primary hover:bg-primary/10 text-lg py-4 rounded-lg">
-              <ArrowLeft className="mr-2 h-5 w-5" /> Voltar para Revisão
+              <ArrowLeft className="mr-2 h-5 w-5" /> Back to Review
             </Button>
           </div>
         </div>
@@ -592,7 +592,7 @@ export default function PrintContractPage() {
       <EditInfoDialog
         isOpen={isEditCompradorOpen}
         setIsOpen={setIsEditCompradorOpen}
-        dialogTitle={buyerType === 'pf' ? "Editar Dados do Comprador" : "Editar Dados do Representante Legal"}
+        dialogTitle={buyerType === 'pf' ? "Edit Buyer Data" : "Edit Legal Representative Data"}
         fieldsConfig={compradorFields}
         onSaveHandler={handleSaveComprador}
         initialData={currentBuyerInfo}

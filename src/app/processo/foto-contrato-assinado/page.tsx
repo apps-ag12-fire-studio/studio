@@ -50,8 +50,8 @@ export default function FotoContratoAssinadoPage() {
 
       if (!loadedState || !loadedState.extractedData || !loadedState.buyerInfo || !loadedState.internalTeamMemberInfo || !loadedState.processId) {
         toast({
-          title: 'Sequência Incorreta ou Dados Incompletos',
-          description: 'Por favor, complete todas as etapas anteriores, incluindo a preparação para impressão, antes de anexar a foto do contrato assinado.',
+          title: 'Incorrect Sequence or Incomplete Data',
+          description: 'Please complete all previous steps, including preparing for print, before attaching the signed contract photo.',
           variant: 'destructive',
           duration: 7000,
         });
@@ -70,7 +70,7 @@ export default function FotoContratoAssinadoPage() {
     if (file && processState.processId) { 
       setIsUploadingSignedContract(true);
       setSignedContractUploadProgress(0);
-      toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+      toast({ title: "Upload Started", description: `Preparing to upload ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       if (processState.signedContractPhotoStoragePath) {
         try {
@@ -78,7 +78,7 @@ export default function FotoContratoAssinadoPage() {
           await deleteObject(oldPhotoRef);
           
         } catch (deleteError) {
-          console.warn("[FotoContratoAssinado] Could not delete old signed contract photo:", deleteError);
+          console.warn("[SignedContractPhoto] Could not delete old signed contract photo:", deleteError);
         }
       }
       
@@ -94,8 +94,8 @@ export default function FotoContratoAssinadoPage() {
           setSignedContractUploadProgress(Math.round(calculatedProgress));
         },
         (error: FirebaseStorageError) => {
-          console.error(`[FotoContratoAssinado] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}`);
-          toast({ title: "Erro no Upload", description: `Não foi possível enviar a foto. (Erro: ${error.code})`, variant: "destructive", duration: 7000 });
+          console.error(`[SignedContractPhoto] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}`);
+          toast({ title: "Upload Error", description: `Could not upload the photo. (Error: ${error.code})`, variant: "destructive", duration: 7000 });
           setIsUploadingSignedContract(false);
           setSignedContractUploadProgress(null);
           if (photoInputRef.current) photoInputRef.current.value = "";
@@ -119,10 +119,10 @@ export default function FotoContratoAssinadoPage() {
             };
             setProcessState(newState);
             await saveProcessState(newState); 
-            toast({ title: "Upload Concluído!", description: `${file.name} enviado e registrado.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+            toast({ title: "Upload Complete!", description: `${file.name} has been uploaded and registered.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
-            console.error("[FotoContratoAssinado] Error getting download URL or saving to Firestore:", error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao processar o arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
+            console.error("[SignedContractPhoto] Error getting download URL or saving to Firestore:", error);
+            toast({ title: "Post-Upload Error", description: `Failed to process the file ${file.name}. (Error: ${error.message})`, variant: "destructive"});
             setSignedContractUploadProgress(null);
             const newState = {...processState, signedContractPhotoPreview: null, signedContractPhotoName: file.name, signedContractPhotoStoragePath: filePath};
             setProcessState(newState);
@@ -134,7 +134,7 @@ export default function FotoContratoAssinadoPage() {
         }
       );
     } else if (!processState.processId) {
-        toast({ title: "Erro de Sessão", description: "ID do processo não encontrado. Não é possível fazer upload.", variant: "destructive"});
+        toast({ title: "Session Error", description: "Process ID not found. Cannot upload.", variant: "destructive"});
         if (photoInputRef.current) photoInputRef.current.value = "";
     } else {
         if (photoInputRef.current) photoInputRef.current.value = "";
@@ -146,11 +146,11 @@ export default function FotoContratoAssinadoPage() {
 
   const validateStep = () => {
     if (!processState.signedContractPhotoName || !processState.signedContractPhotoPreview) {
-      toast({ title: "Foto Obrigatória", description: "Por favor, anexe a foto do contrato assinado.", variant: "destructive" });
+      toast({ title: "Photo Required", description: "Please attach the photo of the signed contract.", variant: "destructive" });
       return false;
     }
     if (!processState.buyerInfo?.nome || isInternalTeamMemberInfoEmpty(processState.internalTeamMemberInfo)) {
-        toast({ title: "Dados Incompletos", description: "Informações do comprador ou responsável interno estão faltando. Volte e preencha.", variant: "destructive"});
+        toast({ title: "Incomplete Data", description: "Buyer or internal responsible information is missing. Go back and fill it out.", variant: "destructive"});
         return false;
     }
     return true;
@@ -195,18 +195,18 @@ export default function FotoContratoAssinadoPage() {
         title: (
           <div className="flex items-center">
             <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
-            Processo Enviado com Sucesso!
+            Process Submitted Successfully!
           </div>
         ),
-        description: `Contrato assinado e documentos enviados para o banco de dados. Você será redirecionado.`,
+        description: `Signed contract and documents sent to the database. You will be redirected.`,
         className: "bg-green-600 text-primary-foreground border-green-700", 
       });
       clearProcessState(); 
       router.push("/confirmation");
 
     } catch (error: any) {
-      console.error("[FotoContratoAssinado] Final Submission Error:", error);
-      toast({ title: "Erro no Envio Final", description: `Não foi possível enviar os dados. (Erro: ${error.message})`, variant: "destructive" });
+      console.error("[SignedContractPhoto] Final Submission Error:", error);
+      toast({ title: "Final Submission Error", description: `Could not submit the data. (Error: ${error.message})`, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -243,7 +243,7 @@ export default function FotoContratoAssinadoPage() {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Verificando etapa do processo...</p>
+        <p className="mt-4 text-muted-foreground">Verifying process step...</p>
       </div>
     );
   }
@@ -254,24 +254,24 @@ export default function FotoContratoAssinadoPage() {
     <>
       <header className="text-center py-8">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
-          Contrato Fácil
+          Easy Contract
         </div>
         <p className="mb-4 text-sm text-foreground/80">
-          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+          International Platform Financial - SAAS Solution with Artificial Intelligence in training by Antônio Fogaça.
         </p>
         <p className="text-xl text-muted-foreground font-headline">
-          Passo 6: Foto do Contrato Assinado
+          Step 6: Signed Contract Photo
         </p>
       </header>
 
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
-          <CardTitle className="flex items-center text-2xl font-headline text-primary"><Camera className="mr-3 h-7 w-7" />Foto do Contrato Impresso e Assinado</CardTitle>
-          <CardDescription className="text-foreground/70 pt-1">Envie uma imagem nítida do contrato após ele ter sido impresso e devidamente assinado por todas as partes.</CardDescription>
+          <CardTitle className="flex items-center text-2xl font-headline text-primary"><Camera className="mr-3 h-7 w-7" />Photo of Printed and Signed Contract</CardTitle>
+          <CardDescription className="text-foreground/70 pt-1">Upload a clear image of the contract after it has been printed and duly signed by all parties.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div>
-            <Label htmlFor="signed-contract-photo-input" className="mb-2 block text-sm font-medium uppercase tracking-wider text-foreground/90">Carregar foto do contrato assinado</Label>
+            <Label htmlFor="signed-contract-photo-input" className="mb-2 block text-sm font-medium uppercase tracking-wider text-foreground/90">Upload signed contract photo</Label>
              <div className="flex items-center gap-2">
                 <Input
                   id="signed-contract-photo-input"
@@ -285,22 +285,22 @@ export default function FotoContratoAssinadoPage() {
                   disabled={globalDisableCondition}
                 />
             </div>
-            <p id="signed-contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use a câmera ou selecione um arquivo de imagem. {processState.signedContractPhotoName && `Atual: ${processState.signedContractPhotoName}`}</p>
+            <p id="signed-contract-photo-hint" className="mt-2 text-xs text-muted-foreground">Use the camera or select an image file. {processState.signedContractPhotoName && `Current: ${processState.signedContractPhotoName}`}</p>
           </div>
           {isUploadingSignedContract && typeof signedContractUploadProgress === 'number' && (
              <div className="mt-4 space-y-2">
                 <div className="flex items-center space-x-2 text-primary">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Enviando {signedContractUploadProgress}%...</span>
+                    <span>Uploading {signedContractUploadProgress}%...</span>
                 </div>
                 <Progress value={signedContractUploadProgress} className="w-full h-2 bg-primary/20" />
             </div>
           )}
           {processState.signedContractPhotoPreview && !isUploadingSignedContract && (
             <div className="mt-4">
-              <p className="text-sm font-medium mb-2 uppercase tracking-wider text-foreground/90">Pré-visualização do Contrato Assinado:</p>
+              <p className="text-sm font-medium mb-2 uppercase tracking-wider text-foreground/90">Signed Contract Preview:</p>
               <div className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-dashed border-primary/30 bg-background/50 flex items-center justify-center" data-ai-hint="signed contract">
-                <Image src={processState.signedContractPhotoPreview} alt="Pré-visualização do contrato assinado" layout="fill" objectFit="contain" />
+                <Image src={processState.signedContractPhotoPreview} alt="Preview of signed contract" layout="fill" objectFit="contain" />
               </div>
             </div>
           )}
@@ -309,8 +309,8 @@ export default function FotoContratoAssinadoPage() {
 
       <Card className="mt-8 shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
-            <CardTitle className="flex items-center text-2xl font-headline text-primary"><UploadCloud className="mr-3 h-7 w-7" />Finalizar Processo</CardTitle>
-            <CardDescription className="text-foreground/70 pt-1">Após anexar a foto do contrato assinado, envie o processo completo para o banco de dados.</CardDescription>
+            <CardTitle className="flex items-center text-2xl font-headline text-primary"><UploadCloud className="mr-3 h-7 w-7" />Finalize Process</CardTitle>
+            <CardDescription className="text-foreground/70 pt-1">After attaching the signed contract photo, submit the complete process to the database.</CardDescription>
         </CardHeader>
         <CardFooter className="p-6">
           <Button
@@ -320,7 +320,7 @@ export default function FotoContratoAssinadoPage() {
             className="w-full bg-gradient-to-br from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-lg py-6 rounded-lg text-primary-foreground shadow-glow-gold transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:shadow-none disabled:bg-muted"
           >
             {isSubmitting ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Sparkles className="mr-2 h-6 w-6" />}
-            {isSubmitting ? "Enviando Processo..." : "Finalizar e Enviar Processo"}
+            {isSubmitting ? "Submitting Process..." : "Finalize and Submit Process"}
           </Button>
         </CardFooter>
       </Card>
@@ -333,7 +333,7 @@ export default function FotoContratoAssinadoPage() {
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
           { isSubmitting && globalDisableCondition ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ArrowLeft className="mr-2 h-5 w-5" /> }
-          { isSubmitting && globalDisableCondition ? "Processando..." : "Voltar para Impressão" }
+          { isSubmitting && globalDisableCondition ? "Processing..." : "Back to Printing" }
         </Button>
       </div>
     </>

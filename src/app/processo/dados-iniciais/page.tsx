@@ -32,63 +32,63 @@ interface ContractTemplate {
 
 const contractTemplates: ContractTemplate[] = [
   {
-    id: 'compra-produto-digital',
-    displayName: 'Modelo de Compra de Produto Digital',
+    id: 'digital-product-purchase',
+    displayName: 'Digital Product Purchase Agreement',
     data: (selectedPlayer: string | null) => ({
-      nomesDasPartes: ["CLIENTE EXEMPLO, COMO COMPRADOR", `${selectedPlayer || 'NOME DO PLAYER'}, COMO VENDEDOR`],
-      documentosDasPartes: ["000.000.000-00", "[CNPJ DA EMPRESA VENDEDORA]"],
-      objetoDoContrato: `PRODUTO DIGITAL (Player: ${selectedPlayer || 'NOME DO PLAYER'})`,
-      valorPrincipal: "R$ 15.000,00 (quinze mil reais)",
-      condicoesDePagamento: "Pagamento único via Pix.",
-      prazoContrato: "Acesso por 12 meses",
-      localEDataAssinatura: "São Paulo, Data Atual",
-      foroEleito: "Comarca de São Paulo/SP",
-      outrasObservacoesRelevantes: `Contrato modelo para ${selectedPlayer || 'NOME DO PLAYER'} carregado para demonstração.`
+      nomesDasPartes: ["EXAMPLE CLIENT, AS BUYER", `${selectedPlayer || 'PLAYER NAME'}, AS SELLER`],
+      documentosDasPartes: ["000.000.000-00", "[SELLING COMPANY TIN]"],
+      objetoDoContrato: `DIGITAL PRODUCT (Player: ${selectedPlayer || 'PLAYER NAME'})`,
+      valorPrincipal: "$ 15,000.00 (fifteen thousand dollars)",
+      condicoesDePagamento: "Single payment via Wire Transfer.",
+      prazoContrato: "12 months access",
+      localEDataAssinatura: "New York, Current Date",
+      foroEleito: "Courts of New York/NY",
+      outrasObservacoesRelevantes: `Template agreement for ${selectedPlayer || 'PLAYER NAME'} loaded for demonstration.`
     })
   },
   {
-    id: 'prestacao-servicos',
-    displayName: 'Contrato de Prestação de Serviços',
+    id: 'service-agreement',
+    displayName: 'Service Agreement',
     data: (selectedPlayer: string | null) => ({
-      nomesDasPartes: ["[NOME DO CONTRATANTE], como CONTRATANTE", `${selectedPlayer || '[NOME DO CONTRATADO]'}, como CONTRATADO`],
-      documentosDasPartes: ["[CPF/CNPJ DO CONTRATANTE]", "[CPF/CNPJ DO CONTRATADO]"],
-      objetoDoContrato: `Prestação de Serviços de [DESCREVER O SERVIÇO] (Contratado: ${selectedPlayer || '[NOME DO CONTRATADO]'})`,
-      valorPrincipal: "R$ [VALOR]",
-      condicoesDePagamento: "[FORMA DE PAGAMENTO]",
-      prazoContrato: "[XX] dias/semanas/meses, iniciando-se em [DATA INICIAL]",
-      localEDataAssinatura: "[Local], [Data]",
-      foroEleito: "[CIDADE/UF]",
-      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: O presente contrato tem por objeto a prestação dos seguintes serviços: [DESCREVER O SERVIÇO]. Cláusula 4 – Obrigações das Partes: O Contratado deverá entregar os serviços descritos com qualidade e pontualidade. O Contratante deverá efectuar os pagamentos nos prazos combinados. Cláusula 5 – Rescisão: Este contrato poderá ser rescindido por qualquer das partes mediante aviso prévio de [X] dias."
+      nomesDasPartes: ["[CLIENT NAME], as CLIENT", `${selectedPlayer || '[PROVIDER NAME]'}, as PROVIDER`],
+      documentosDasPartes: ["[CLIENT TIN]", "[PROVIDER TIN]"],
+      objetoDoContrato: `Provision of [SERVICE DESCRIPTION] services (Provider: ${selectedPlayer || '[PROVIDER NAME]'})`,
+      valorPrincipal: "$ [AMOUNT]",
+      condicoesDePagamento: "[PAYMENT METHOD]",
+      prazoContrato: "[XX] days/weeks/months, starting on [START DATE]",
+      localEDataAssinatura: "[City, State], [Date]",
+      foroEleito: "[CITY/STATE]",
+      outrasObservacoesRelevantes: "Clause 1 - Object: The purpose of this agreement is the provision of the following services: [SERVICE DESCRIPTION]. Clause 4 - Obligations of the Parties: The Provider shall deliver the described services with quality and punctuality. The Client shall make payments on the agreed dates. Clause 5 - Termination: This agreement may be terminated by either party with [X] days prior notice."
     })
   },
   {
-    id: 'parceria-comercial',
-    displayName: 'Contrato de Parceria Comercial',
+    id: 'business-partnership',
+    displayName: 'Business Partnership Agreement',
     data: (selectedPlayer: string | null) => ({
-      nomesDasPartes: [`${selectedPlayer || '[NOME EMPRESA 1]'}, como PARCEIRA 1`, "[NOME EMPRESA 2], como PARCEIRA 2"],
-      documentosDasPartes: ["[CNPJ EMPRESA 1]", "[CNPJ EMPRESA 2]"],
-      objetoDoContrato: `Parceria Comercial entre ${selectedPlayer || '[NOME EMPRESA 1]'} e [NOME EMPRESA 2] para [DESCREVER A FINALIDADE: EX: DIVULGAÇÃO CONJUNTA, VENDA DE PRODUTOS, PRESTAÇÃO DE SERVIÇOS EM CONJUNTO ETC.]`,
-      valorPrincipal: "Lucros/Resultados divididos conforme: [DESCREVER PORCENTAGEM OU MODELO DE DISTRIBUIÇÃO]",
-      condicoesDePagamento: `Responsabilidades: ${selectedPlayer || '[EMPRESA 1]'}: [RESPONSABILIDADES DA EMPRESA 1]; [EMPRESA 2]: [RESPONSABILIDADES DA EMPRESA 2].`,
-      prazoContrato: "[XX] meses, com início em [DATA]",
-      localEDataAssinatura: "[Local], [Data]",
-      foroEleito: "[CIDADE/UF]",
-      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: As partes se comprometem a colaborar comercialmente para [DESCREVER A FINALIDADE]. Cláusula 5 – Rescisão: Poderá ser rescindido por qualquer das partes com aviso prévio de [X] dias."
+      nomesDasPartes: [`${selectedPlayer || '[COMPANY 1 NAME]'}, as PARTNER 1`, "[COMPANY 2 NAME], as PARTNER 2"],
+      documentosDasPartes: ["[COMPANY 1 TIN]", "[COMPANY 2 TIN]"],
+      objetoDoContrato: `Business Partnership between ${selectedPlayer || '[COMPANY 1 NAME]'} and [COMPANY 2 NAME] for [DESCRIBE PURPOSE: E.G., JOINT MARKETING, PRODUCT SALES, JOINT SERVICE PROVISION, ETC.]`,
+      valorPrincipal: "Profits/Results shared as follows: [DESCRIBE PERCENTAGE OR DISTRIBUTION MODEL]",
+      condicoesDePagamento: `Responsibilities: ${selectedPlayer || '[COMPANY 1]'}: [RESPONSIBILITIES OF COMPANY 1]; [COMPANY 2]: [RESPONSIBILITIES OF COMPANY 2].`,
+      prazoContrato: "[XX] months, starting on [DATE]",
+      localEDataAssinatura: "[City, State], [Date]",
+      foroEleito: "[CITY/STATE]",
+      outrasObservacoesRelevantes: "Clause 1 - Object: The parties commit to commercially collaborate for [DESCRIBE PURPOSE]. Clause 5 - Termination: May be terminated by either party with [X] days prior notice."
     })
   },
   {
-    id: 'confidencialidade-nda',
-    displayName: 'Contrato de Confidencialidade (NDA)',
+    id: 'confidentiality-agreement-nda',
+    displayName: 'Confidentiality Agreement (NDA)',
     data: (selectedPlayer: string | null) => ({
-      nomesDasPartes: [`${selectedPlayer || '[NOME PARTE REVELADORA]'}, como PARTE REVELADORA`, "[NOME PARTE RECEPTORA], como PARTE RECEPTORA"],
-      documentosDasPartes: ["[CPF/CNPJ PARTE REVELADORA]", "[CPF/CNPJ PARTE RECEPTORA]"],
-      objetoDoContrato: `Acordo de Confidencialidade (NDA) entre ${selectedPlayer || '[NOME PARTE REVELADORA]'} e [NOME PARTE RECEPTORA] para [FINALIDADE DO ACORDO]`,
-      valorPrincipal: "Não aplicável",
-      condicoesDePagamento: "Cláusula 3 – Obrigações da Parte Receptora: Não divulgar as informações recebidas; Utilizá-las apenas para os fins permitidos; Proteger o conteúdo com o mesmo cuidado que protegeria suas próprias informações.",
-      prazoContrato: "Cláusula 4 – Vigência: Este acordo entra em vigor na data de assinatura e permanecerá válido por [X ANOS] após o término da relação entre as partes.",
-      localEDataAssinatura: "[Local], [Data]",
-      foroEleito: "[CIDADE/UF]",
-      outrasObservacoesRelevantes: "Cláusula 1 – Objeto: Este acordo visa proteger as informações confidenciais trocadas entre as partes no contexto de [FINALIDADE DO ACORDO]. Cláusula 2 – Definição de Informação Confidencial: Considera-se confidencial toda e qualquer informação escrita, oral, visual ou eletrônica, revelada por uma das partes à outra."
+      nomesDasPartes: [`${selectedPlayer || '[DISCLOSING PARTY NAME]'}, as DISCLOSING PARTY`, "[RECEIVING PARTY NAME], as RECEIVING PARTY"],
+      documentosDasPartes: ["[DISCLOSING PARTY TIN]", "[RECEIVING PARTY TIN]"],
+      objetoDoContrato: `Confidentiality Agreement (NDA) between ${selectedPlayer || '[DISCLOSING PARTY NAME]'} and [RECEIVING PARTY NAME] for [PURPOSE OF AGREEMENT]`,
+      valorPrincipal: "Not applicable",
+      condicoesDePagamento: "Clause 3 – Obligations of the Receiving Party: Not to disclose the information received; To use it only for the permitted purposes; To protect the content with the same care as it would protect its own information.",
+      prazoContrato: "Clause 4 – Term: This agreement comes into effect on the date of signature and will remain valid for [X YEARS] after the termination of the relationship between the parties.",
+      localEDataAssinatura: "[City, State], [Date]",
+      foroEleito: "[CITY/STATE]",
+      outrasObservacoesRelevantes: "Clause 1 – Object: This agreement aims to protect the confidential information exchanged between the parties in the context of [PURPOSE OF AGREEMENT]. Clause 2 – Definition of Confidential Information: Any written, oral, visual, or electronic information disclosed by one party to the other is considered confidential."
     })
   }
 ];
@@ -147,12 +147,12 @@ export default function DadosIniciaisPage() {
 
   const handleSelectContractTemplate = (templateId: string) => {
     if (!processState.selectedPlayer) {
-      toast({ title: "Player Não Selecionado", description: "Por favor, selecione um Player primeiro.", variant: "destructive" });
+      toast({ title: "Player Not Selected", description: "Please select a Player first.", variant: "destructive" });
       return;
     }
     const template = contractTemplates.find(t => t.id === templateId);
     if (!template) {
-      toast({ title: "Modelo Não Encontrado", description: "Ocorreu um erro ao carregar o modelo de contrato.", variant: "destructive" });
+      toast({ title: "Template Not Found", description: "An error occurred while loading the contract template.", variant: "destructive" });
       return;
     }
 
@@ -170,16 +170,16 @@ export default function DadosIniciaisPage() {
   const validateStep = () => {
     const { internalTeamMemberInfo } = processState;
     if (!internalTeamMemberInfo.nome || !internalTeamMemberInfo.cpf || !internalTeamMemberInfo.telefone || !internalTeamMemberInfo.email || !internalTeamMemberInfo.cargo) { // Added cargo check
-      toast({ title: "Campos Obrigatórios", description: "Preencha todas as 'Informações do Responsável Interno', incluindo o Cargo.", variant: "destructive" });
+      toast({ title: "Required Fields", description: "Fill in all 'Internal Responsible Information', including Role.", variant: "destructive" });
       return false;
     }
     if (processState.contractSourceType === 'existing') {
       if (!processState.selectedPlayer) {
-        toast({ title: "Ação Necessária", description: "Selecione um Player.", variant: "destructive" });
+        toast({ title: "Action Required", description: "Select a Player.", variant: "destructive" });
         return false;
       }
       if (!processState.extractedData) {
-        toast({ title: "Ação Necessária", description: "Selecione um modelo de contrato para o Player escolhido.", variant: "destructive" });
+        toast({ title: "Action Required", description: "Select a contract template for the chosen Player.", variant: "destructive" });
         return false;
       }
     }
@@ -200,10 +200,10 @@ export default function DadosIniciaisPage() {
       title: (
         <div className="flex items-center">
           <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
-          Etapa 1 Concluída!
+          Step 1 Complete!
         </div>
       ),
-      description: "Dados iniciais validados e salvos. Carregando próxima etapa...",
+      description: "Initial data validated and saved. Loading next step...",
       className: "bg-green-600 text-primary-foreground border-green-700",
     });
     router.push(nextPath);
@@ -229,7 +229,7 @@ export default function DadosIniciaisPage() {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Carregando dados do processo...</p>
+        <p className="mt-4 text-muted-foreground">Loading process data...</p>
       </div>
     );
   }
@@ -238,22 +238,22 @@ export default function DadosIniciaisPage() {
     <>
       <header className="text-center py-8">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
-          Contrato Fácil
+          Easy Contract
         </div>
         <p className="mb-4 text-sm text-foreground/80">
-          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+          International Platform Financial - SAAS Solution with Artificial Intelligence in training by Antônio Fogaça.
         </p>
         <p className="text-xl text-muted-foreground font-headline">
-          Passo 1: Dados Iniciais
+          Step 1: Initial Data
         </p>
       </header>
 
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-2xl font-headline text-primary">
-            <FileSearch className="mr-3 h-7 w-7" /> O Contrato que será assinado é:
+            <FileSearch className="mr-3 h-7 w-7" /> The Contract to be signed is:
           </CardTitle>
-          <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Escolha como fornecer os dados do contrato.</CardDescription>
+          <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Choose how to provide the contract data.</CardDescription>
         </CardHeader>
         <CardContent className="p-6 pt-0">
           <RadioGroup
@@ -263,11 +263,11 @@ export default function DadosIniciaisPage() {
           >
             <div className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
               <RadioGroupItem value="new" id="source-new" className="border-primary/50 text-primary focus:ring-primary" />
-              <Label htmlFor="source-new" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Um Novo Modelo de Contrato <span className="text-sm text-muted-foreground">(Enviar Foto para Análise)</span></Label>
+              <Label htmlFor="source-new" className="font-medium text-lg cursor-pointer flex-1 text-foreground">A New Contract Template <span className="text-sm text-muted-foreground">(Upload Photo for Analysis)</span></Label>
             </div>
             <div className="flex items-center space-x-3 p-4 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer bg-background/30">
               <RadioGroupItem value="existing" id="source-existing" className="border-primary/50 text-primary focus:ring-primary" />
-              <Label htmlFor="source-existing" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Contrato Validado pela ADM <span className="text-sm text-muted-foreground">(Selecionar Modelo)</span></Label>
+              <Label htmlFor="source-existing" className="font-medium text-lg cursor-pointer flex-1 text-foreground">Admin Validated Contract <span className="text-sm text-muted-foreground">(Select Template)</span></Label>
             </div>
           </RadioGroup>
         </CardContent>
@@ -276,34 +276,34 @@ export default function DadosIniciaisPage() {
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-2xl font-headline text-primary">
-            <UserCog className="mr-3 h-7 w-7" /> Informações do Responsável Interno
+            <UserCog className="mr-3 h-7 w-7" /> Internal Responsible Information
           </CardTitle>
-          <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Dados do membro da equipe que está conduzindo este processo.</CardDescription>
+          <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Data of the team member conducting this process.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           <div>
-            <Label htmlFor="internal-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Nome Completo</Label>
-            <Input id="internal-nome" value={processState.internalTeamMemberInfo?.nome || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'nome')} placeholder="Nome do responsável interno" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="name"/>
+            <Label htmlFor="internal-nome" className="text-foreground/90 text-sm uppercase tracking-wider">Full Name</Label>
+            <Input id="internal-nome" value={processState.internalTeamMemberInfo?.nome || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'nome')} placeholder="Name of the internal responsible" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="name"/>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label htmlFor="internal-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">CPF</Label>
+              <Label htmlFor="internal-cpf" className="text-foreground/90 text-sm uppercase tracking-wider">ID / Social Security</Label>
               <Input id="internal-cpf" value={processState.internalTeamMemberInfo?.cpf || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cpf')} placeholder="000.000.000-00" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="on" />
             </div>
             <div>
-              <Label htmlFor="internal-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Telefone</Label>
+              <Label htmlFor="internal-telefone" className="text-foreground/90 text-sm uppercase tracking-wider">Phone</Label>
               <Input id="internal-telefone" type="tel" value={processState.internalTeamMemberInfo?.telefone || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'telefone')} placeholder="(00) 00000-0000" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="tel"/>
             </div>
           </div>
           <div>
             <Label htmlFor="internal-email" className="text-foreground/90 text-sm uppercase tracking-wider">E-mail</Label>
-            <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo?.email || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="email.interno@empresa.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="email"/>
+            <Input id="internal-email" type="email" value={processState.internalTeamMemberInfo?.email || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'email')} placeholder="internal.email@company.com" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="email"/>
           </div>
           <div>
             <Label htmlFor="internal-cargo" className="text-foreground/90 text-sm uppercase tracking-wider flex items-center">
-              <Briefcase className="mr-2 h-4 w-4" /> Cargo
+              <Briefcase className="mr-2 h-4 w-4" /> Role
             </Label>
-            <Input id="internal-cargo" value={processState.internalTeamMemberInfo?.cargo || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cargo')} placeholder="Cargo do responsável (ex: Vendedor, Gerente)" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="organization-title"/>
+            <Input id="internal-cargo" value={processState.internalTeamMemberInfo?.cargo || ''} onChange={(e) => handleInternalTeamMemberInputChange(e, 'cargo')} placeholder="Role of the responsible (e.g., Sales, Manager)" className="mt-2 bg-input border-border/70 focus:border-primary focus:ring-primary placeholder:text-muted-foreground/70 text-lg py-3" autoComplete="organization-title"/>
           </div>
         </CardContent>
       </Card>
@@ -312,14 +312,14 @@ export default function DadosIniciaisPage() {
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
-              <PlayersIcon className="mr-3 h-7 w-7" /> Selecionar Player (Expert)
+              <PlayersIcon className="mr-3 h-7 w-7" /> Select Player (Expert)
             </CardTitle>
-            <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Escolha o produtor do conteúdo ou parte principal do contrato.</CardDescription>
+            <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Choose the content producer or main party of the contract.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 pt-0">
             <Select value={processState.selectedPlayer || ""} onValueChange={handlePlayerSelect}>
               <SelectTrigger className="w-full bg-input border-border/70 focus:border-primary focus:ring-primary text-lg py-3 placeholder:text-muted-foreground/70">
-                <SelectValue placeholder="Selecione um Player/Expert..." />
+                <SelectValue placeholder="Select a Player/Expert..." />
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">
                 {players.map(player => (
@@ -337,9 +337,9 @@ export default function DadosIniciaisPage() {
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
             <CardTitle className="flex items-center text-2xl font-headline text-primary">
-              <FileTextIcon className="mr-3 h-7 w-7" /> Selecionar Modelo de Contrato
+              <FileTextIcon className="mr-3 h-7 w-7" /> Select Contract Template
             </CardTitle>
-            <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Escolha um modelo pré-definido para o Player: <strong>{processState.selectedPlayer}</strong></CardDescription>
+            <CardDescription className="text-foreground/70 pt-1 whitespace-normal">Choose a predefined template for the Player: <strong>{processState.selectedPlayer}</strong></CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 p-6 pt-0">
               {contractTemplates.map(template => (
@@ -360,7 +360,7 @@ export default function DadosIniciaisPage() {
                 </Button>
               ))}
               {processState.extractedData && processState.selectedContractTemplateName && (
-                <p className="text-sm text-green-400 text-center pt-2">Modelo "{processState.selectedContractTemplateName}" para {processState.selectedPlayer} carregado.</p>
+                <p className="text-sm text-green-400 text-center pt-2">Template "{processState.selectedContractTemplateName}" for {processState.selectedPlayer} loaded.</p>
               )}
           </CardContent>
         </Card>
@@ -375,11 +375,11 @@ export default function DadosIniciaisPage() {
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Aguarde...
+              Please wait...
             </>
           ) : (
             <>
-              Próximo <ArrowRight className="ml-2 h-5 w-5" />
+              Next <ArrowRight className="ml-2 h-5 w-5" />
             </>
           )}
         </Button>

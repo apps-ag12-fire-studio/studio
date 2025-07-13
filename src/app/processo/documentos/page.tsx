@@ -41,8 +41,8 @@ type DocumentSlotKey = Extract<keyof StoredProcessState,
 >;
 
 const pfDocOptions: { value: PfDocumentType; label: string; icon: React.ElementType }[] = [
-  { value: 'rgAntigo', label: 'RG (Antigo)', icon: FileBadge },
-  { value: 'cnhAntiga', label: 'CNH (Antiga)', icon: FileBadge2 },
+  { value: 'rgAntigo', label: 'ID Card (Old)', icon: FileBadge },
+  { value: 'cnhAntiga', label: 'Driver\'s License (Old)', icon: FileBadge2 },
 ];
 
 export default function DocumentosPage() {
@@ -85,7 +85,7 @@ export default function DocumentosPage() {
     if (file && processState.processId) {
       setUploadingDocKey(docKey);
       setUploadProgress(prev => ({ ...prev, [docKey]: 0 }));
-      toast({ title: "Upload Iniciado", description: `Preparando envio de ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
+      toast({ title: "Upload Started", description: `Preparing to upload ${file.name}...`, className: "bg-blue-600 text-white border-blue-700" });
 
       const currentDoc = processState[docKey] as DocumentFile | null;
       if (currentDoc?.storagePath) {
@@ -110,7 +110,7 @@ export default function DocumentosPage() {
         },
         (error: FirebaseStorageError) => {
           console.error(`[${docKey}] Firebase Storage Upload Error. Code: ${error.code}, Message: ${error.message}, Full Error Object:`, error);
-          toast({ title: "Erro no Upload", description: `Não foi possível enviar ${file.name}. (Erro: ${error.code})`, variant: "destructive", duration: 7000 });
+          toast({ title: "Upload Error", description: `Could not upload ${file.name}. (Error: ${error.code})`, variant: "destructive", duration: 7000 });
           setUploadingDocKey(null);
           setUploadProgress(prev => ({ ...prev, [docKey]: null }));
           const newState = { ...processState, [docKey]: null };
@@ -136,10 +136,10 @@ export default function DocumentosPage() {
             };
             setProcessState(newState);
             await saveProcessState(newState);
-            toast({ title: "Upload Concluído!", description: `${file.name} enviado e registrado.`, className: "bg-green-600 text-primary-foreground border-green-700" });
+            toast({ title: "Upload Complete!", description: `${file.name} has been uploaded and registered.`, className: "bg-green-600 text-primary-foreground border-green-700" });
           } catch (error: any) {
             console.error(`[${docKey}] Error getting download URL or saving to Firestore for ${file.name}:`, error);
-            toast({ title: "Erro Pós-Upload", description: `Falha ao processar o arquivo ${file.name}. (Erro: ${error.message})`, variant: "destructive"});
+            toast({ title: "Post-Upload Error", description: `Failed to process the file ${file.name}. (Error: ${error.message})`, variant: "destructive"});
             setUploadProgress(prev => ({ ...prev, [docKey]: null }));
              const newState = { ...processState, [docKey]: {
                 name: (processState[docKey] as DocumentFile)?.name || file.name,
@@ -156,7 +156,7 @@ export default function DocumentosPage() {
         }
       );
     } else if (!processState.processId) {
-        toast({ title: "Erro de Sessão", description: "ID do processo não encontrado. Não é possível fazer upload.", variant: "destructive"});
+        toast({ title: "Session Error", description: "Process ID not found. Cannot upload.", variant: "destructive"});
         if (inputElement) inputElement.value = "";
     } else {
       const currentDoc = processState[docKey] as DocumentFile | null;
@@ -172,10 +172,10 @@ export default function DocumentosPage() {
       try {
         const fileToDeleteRef = storageRef(storage, currentDoc.storagePath);
         await deleteObject(fileToDeleteRef);
-        toast({ title: "Arquivo Removido do Storage", description: `${currentDoc.name} removido do servidor.`, className: "bg-orange-500 text-white border-orange-600" });
+        toast({ title: "File Removed from Storage", description: `${currentDoc.name} removed from the server.`, className: "bg-orange-500 text-white border-orange-600" });
       } catch (error: any) {
         console.error(`[${docKey}] Error deleting file ${currentDoc.storagePath} from Firebase Storage:`, error);
-        toast({ title: "Erro ao Remover Arquivo do Storage", description: `Não foi possível remover ${currentDoc.name} do servidor. (Erro: ${error.message})`, variant: "destructive"});
+        toast({ title: "Error Removing File from Storage", description: `Could not remove ${currentDoc.name} from the server. (Error: ${error.message})`, variant: "destructive"});
       }
     }
 
@@ -199,7 +199,7 @@ export default function DocumentosPage() {
     const docName = currentDocInState?.name;
 
     if (!photoDownloadUrl) {
-      toast({ title: "Arquivo não encontrado", description: "Carregue um arquivo para ser analisado.", variant: "destructive"});
+      toast({ title: "File not found", description: "Upload a file to be analyzed.", variant: "destructive"});
       setAnalyzingDocKey(null);
       return;
     }
@@ -219,18 +219,18 @@ export default function DocumentosPage() {
       await saveProcessState(newState);
 
       toast({
-        title: `Análise de ${docName || docKey} Concluída!`,
-        description: "Dados extraídos do documento. Verifique abaixo.",
+        title: `Analysis of ${docName || docKey} Complete!`,
+        description: "Data extracted from the document. Please check below.",
         className: "bg-secondary text-secondary-foreground border-secondary"
       });
 
     } catch (error: any) {
       console.error(`[${docKey}] AI Document Analysis Error for ${docName}:`, error);
-      let userFriendlyErrorMessage = "A IA não conseguiu processar o documento. Verifique a qualidade da imagem ou tente novamente.";
+      let userFriendlyErrorMessage = "The AI could not process the document. Check the image quality or try again.";
       if (error?.message?.includes("An error occurred in the Server Components render") || error?.message?.includes("flow execution failed")) {
-         userFriendlyErrorMessage = "Falha ao analisar: A IA não conseguiu processar este documento. Tente uma imagem mais nítida, verifique os logs do Genkit ou se o documento é suportado.";
+         userFriendlyErrorMessage = "Analysis Failed: The AI could not process this document. Try a clearer image, check the Genkit logs, or see if the document is supported.";
       } else if (error.message) {
-        userFriendlyErrorMessage = `Erro na análise: ${error.message}`;
+        userFriendlyErrorMessage = `Analysis Error: ${error.message}`;
       }
 
       const newState = {
@@ -243,7 +243,7 @@ export default function DocumentosPage() {
       setProcessState(newState);
       await saveProcessState(newState);
       toast({
-        title: `Erro na Análise de ${docName || docKey}`,
+        title: `Error Analyzing ${docName || docKey}`,
         description: userFriendlyErrorMessage,
         variant: "destructive"
       });
@@ -255,7 +255,7 @@ export default function DocumentosPage() {
   const validateStep = useCallback(() => {
     if (processState.buyerType === 'pf') {
       if (!selectedPfDocType) {
-        toast({ title: "Tipo de Documento Necessário", description: "Selecione um tipo de documento pessoal para anexar.", variant: "destructive" });
+        toast({ title: "Document Type Required", description: "Select a personal document type to attach.", variant: "destructive" });
         return false;
       }
       let docIsValid = false;
@@ -268,25 +268,25 @@ export default function DocumentosPage() {
           break;
       }
       if (!docIsValid) {
-        const docLabel = pfDocOptions.find(opt => opt.value === selectedPfDocType)?.label || 'Documento Pessoal';
-        toast({ title: `Documentos Insuficientes (${docLabel})`, description: `Anexe frente e verso do ${docLabel}.`, variant: "destructive" });
+        const docLabel = pfDocOptions.find(opt => opt.value === selectedPfDocType)?.label || 'Personal Document';
+        toast({ title: `Insufficient Documents (${docLabel})`, description: `Attach both front and back of the ${docLabel}.`, variant: "destructive" });
         return false;
       }
       if (!processState.comprovanteEndereco?.previewUrl) {
-        toast({ title: "Comprovante de Endereço Necessário", description: "Anexe um comprovante de endereço.", variant: "destructive" });
+        toast({ title: "Proof of Address Required", description: "Please attach a proof of address.", variant: "destructive" });
         return false;
       }
     } else { // PJ
       if (!processState.companyInfo?.razaoSocial || !processState.companyInfo?.cnpj) {
-        toast({ title: "Dados da Empresa Incompletos", description: "Preencha Razão Social e CNPJ da empresa.", variant: "destructive"});
+        toast({ title: "Incomplete Company Data", description: "Fill in the Company's Legal Name and Tax ID.", variant: "destructive"});
         return false;
       }
       if (!processState.buyerInfo?.nome || !processState.buyerInfo?.cpf) {
-        toast({ title: "Dados do Representante Incompletos", description: "Preencha Nome e CPF do representante legal.", variant: "destructive"});
+        toast({ title: "Incomplete Representative Data", description: "Fill in the legal representative's Name and ID.", variant: "destructive"});
         return false;
       }
       if (!processState.cartaoCnpjFile?.previewUrl || !(processState.docSocioFrente?.previewUrl && processState.docSocioVerso?.previewUrl) || !processState.comprovanteEndereco?.previewUrl) {
-         toast({ title: "Documentos Insuficientes (PJ)", description: `Anexe Cartão CNPJ, Documento do Sócio (frente e verso), e Comprovante de Endereço da empresa.`, variant: "destructive" });
+         toast({ title: "Insufficient Documents (Company)", description: `Attach Company Registration, Representative's ID (front and back), and Company's Proof of Address.`, variant: "destructive" });
         return false;
       }
     }
@@ -303,10 +303,10 @@ export default function DocumentosPage() {
       title: (
         <div className="flex items-center">
           <CheckCircle2 className="mr-2 h-5 w-5 text-green-300" />
-          Etapa 3 Concluída!
+          Step 3 Complete!
         </div>
       ), 
-      description: "Documentos e informações salvos.", 
+      description: "Documents and information saved.", 
       className: "bg-green-600 text-primary-foreground border-green-700" 
     });
     router.push("/processo/revisao-envio");
@@ -416,28 +416,27 @@ export default function DocumentosPage() {
       let accumulatedChars = 0;
 
       let fieldsToDisplayOrder = [
-        { label: "Nome", value: analysisData.nomeCompleto },
-        { label: "CPF", value: analysisData.cpf },
-        { label: "Data Nasc.", value: analysisData.dataNascimento },
-        { label: "Mãe", value: analysisData.nomeMae },
-        { label: "RG", value: analysisData.rg },
-        { label: "Logradouro", value: analysisData.logradouro },
-        { label: "Bairro", value: analysisData.bairro },
-        { label: "Cidade", value: analysisData.cidade },
-        { label: "Estado", value: analysisData.estado },
-        { label: "CEP", value: analysisData.cep },
+        { label: "Name", value: analysisData.nomeCompleto },
+        { label: "ID/SSN", value: analysisData.cpf },
+        { label: "Birth Date", value: analysisData.dataNascimento },
+        { label: "Mother's Name", value: analysisData.nomeMae },
+        { label: "ID Card No.", value: analysisData.rg },
+        { label: "Address Line", value: analysisData.logradouro },
+        { label: "Neighborhood", value: analysisData.bairro },
+        { label: "City", value: analysisData.cidade },
+        { label: "State", value: analysisData.estado },
+        { label: "ZIP Code", value: analysisData.cep },
       ];
 
       if (docKey === 'comprovanteEndereco') {
         fieldsToDisplayOrder = [
-          { label: "Logradouro", value: analysisData.logradouro },
-          { label: "Bairro", value: analysisData.bairro },
-          { label: "Cidade", value: analysisData.cidade },
-          { label: "Estado", value: analysisData.estado },
-          { label: "CEP", value: analysisData.cep },
-          { label: "Nome Titular", value: analysisData.nomeCompleto },
-          { label: "CPF Titular", value: analysisData.cpf },
-          { label: "RG Titular", value: analysisData.rg },
+          { label: "Address Line", value: analysisData.logradouro },
+          { label: "Neighborhood", value: analysisData.bairro },
+          { label: "City", value: analysisData.cidade },
+          { label: "State", value: analysisData.estado },
+          { label: "ZIP Code", value: analysisData.cep },
+          { label: "Holder Name", value: analysisData.nomeCompleto },
+          { label: "Holder ID/SSN", value: analysisData.cpf },
         ];
       }
 
@@ -447,7 +446,7 @@ export default function DocumentosPage() {
           if (accumulatedChars + fieldString.length > MAX_TOTAL_CHARS && accumulatedChars > 0) {
             elementsToRender.push(
               <p key="truncation-message" className="text-muted-foreground italic break-all text-xs">
-                ... (mais dados extraídos, exibição limitada)
+                ... (more extracted data, display limited)
               </p>
             );
             break;
@@ -463,7 +462,7 @@ export default function DocumentosPage() {
             if (elementsToRender.length < fieldsToDisplayOrder.filter(f => f.value).length) {
                  elementsToRender.push(
                     <p key="truncation-message-after-fill" className="text-muted-foreground italic break-all text-xs">
-                    ... (mais dados podem ter sido omitidos)
+                    ... (more data may have been omitted)
                     </p>
                 );
             }
@@ -474,7 +473,7 @@ export default function DocumentosPage() {
       if (elementsToRender.length === 0) {
         elementsToRender.push(
           <p key="no-data-extracted" className="text-muted-foreground italic text-xs">
-            A IA analisou o documento, mas não extraiu dados para os campos esperados.
+            AI analyzed the document but did not extract data for the expected fields.
           </p>
         );
       }
@@ -487,19 +486,19 @@ export default function DocumentosPage() {
         {isCurrentlyUploadingThisSlot && typeof currentUploadPercent === 'number' && (
           <div className="flex flex-col items-center justify-center p-4 space-y-2 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <span>Enviando {currentUploadPercent}%...</span>
+            <span>Uploading {currentUploadPercent}%...</span>
             <Progress value={currentUploadPercent} className="w-full h-2 mt-1 bg-primary/20" />
           </div>
         )}
         {displayPreviewUrl && !isPdf && !isCurrentlyUploadingThisSlot && (
           <div className="relative w-full aspect-[16/10] rounded-md overflow-hidden border border-dashed border-primary/30">
-            <Image src={displayPreviewUrl} alt={`Pré-visualização de ${label}`} layout="fill" objectFit="contain" />
+            <Image src={displayPreviewUrl} alt={`Preview of ${label}`} layout="fill" objectFit="contain" />
           </div>
         )}
         {displayPreviewUrl && isPdf && !isCurrentlyUploadingThisSlot && (
             <div className="p-4 text-center text-muted-foreground border border-dashed border-primary/30 rounded-md">
                 <FileText className="mx-auto h-12 w-12 mb-2" />
-                PDF carregado: {displayDocName}. Pré-visualização não disponível.
+                PDF uploaded: {displayDocName}. Preview not available.
             </div>
         )}
         {!isCurrentlyUploadingThisSlot && (
@@ -525,7 +524,7 @@ export default function DocumentosPage() {
                   className="border-accent/80 text-accent hover:bg-accent/10 text-xs py-1 px-2"
                 >
                   {isCurrentlyAnalyzing ? <Loader2 className="mr-1 h-3 w-3 animate-spin"/> : <ScanSearch className="mr-1 h-3 w-3"/>}
-                  {isCurrentlyAnalyzing ? "Analisando..." : (currentDoc?.analysisResult && !(currentDoc.analysisResult as any).error ? "Reanalisar" : "Analisar IA")}
+                  {isCurrentlyAnalyzing ? "Analyzing..." : (currentDoc?.analysisResult && !(currentDoc.analysisResult as any).error ? "Re-analyze" : "Analyze AI")}
                 </Button>
               )}
               <Button type="button" variant="ghost" size="icon" onClick={() => removeDocument(docKey)} disabled={uploadingDocKey !== null || isCurrentlyAnalyzing || isNavigating || isStateLoading} className="text-destructive/70 hover:text-destructive h-7 w-7">
@@ -536,7 +535,7 @@ export default function DocumentosPage() {
         )}
         {currentDoc?.analysisResult && !isCurrentlyUploadingThisSlot && (
            <div className="mt-2 p-3 border-t border-border/30 text-xs space-y-1 bg-muted/20 rounded-b-md overflow-x-auto">
-            <p className="font-semibold text-primary/80 text-sm">Dados Extraídos por IA:</p>
+            <p className="font-semibold text-primary/80 text-sm">AI Extracted Data:</p>
             {(currentDoc.analysisResult as any).error ? (
                 <p className="text-destructive break-all">{(currentDoc.analysisResult as any).error}</p>
             ) : (
@@ -557,15 +556,15 @@ export default function DocumentosPage() {
       case 'rgAntigo':
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {renderDocumentSlot('rgAntigoFrente', 'RG (Antigo) - Frente')}
-            {renderDocumentSlot('rgAntigoVerso', 'RG (Antigo) - Verso')}
+            {renderDocumentSlot('rgAntigoFrente', 'ID Card (Old) - Front')}
+            {renderDocumentSlot('rgAntigoVerso', 'ID Card (Old) - Back')}
           </div>
         );
       case 'cnhAntiga':
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {renderDocumentSlot('cnhAntigaFrente', 'CNH (Antiga) - Frente')}
-            {renderDocumentSlot('cnhAntigaVerso', 'CNH (Antiga) - Verso')}
+            {renderDocumentSlot('cnhAntigaFrente', 'Driver\'s License (Old) - Front')}
+            {renderDocumentSlot('cnhAntigaVerso', 'Driver\'s License (Old) - Back')}
           </div>
         );
       default:
@@ -577,7 +576,7 @@ export default function DocumentosPage() {
     return (
       <div className="flex min-h-[calc(100vh-200px)] flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Carregando dados do processo...</p>
+        <p className="mt-4 text-muted-foreground">Loading process data...</p>
       </div>
     );
   }
@@ -588,19 +587,19 @@ export default function DocumentosPage() {
     <>
       <header className="text-center py-8">
         <div className="mb-1 text-5xl font-headline text-primary text-glow-gold uppercase tracking-wider">
-          Contrato Fácil
+          Easy Contract
         </div>
         <p className="mb-4 text-sm text-foreground/80">
-          Financeiro Plataforma Internacional - Solução SAAS com Inteligência Artificial em treinamento por Antônio Fogaça.
+          International Platform Financial - SAAS Solution with Artificial Intelligence in training by Antônio Fogaça.
         </p>
         <p className="text-xl text-muted-foreground font-headline">
-          Passo 3: Documentos e Dados do Comprador
+          Step 3: Buyer's Documents and Data
         </p>
       </header>
 
       <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-6">
-          <CardTitle className="flex items-center text-2xl font-headline text-primary"><Paperclip className="mr-3 h-7 w-7" />Tipo de Comprador</CardTitle>
+          <CardTitle className="flex items-center text-2xl font-headline text-primary"><Paperclip className="mr-3 h-7 w-7" />Buyer Type</CardTitle>
         </CardHeader>
         <CardContent className="p-6 pt-0">
           <RadioGroup
@@ -611,11 +610,11 @@ export default function DocumentosPage() {
           >
             <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30 has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
               <RadioGroupItem value="pf" id="type-pf" className="border-primary/50 text-primary focus:ring-primary" disabled={globalDisableCondition}/>
-              <Label htmlFor="type-pf" className="font-medium text-sm sm:text-base cursor-pointer flex items-center"><UserCircle className="mr-2 h-5 w-5"/>Pessoa Física</Label>
+              <Label htmlFor="type-pf" className="font-medium text-sm sm:text-base cursor-pointer flex items-center"><UserCircle className="mr-2 h-5 w-5"/>Individual</Label>
             </div>
             <div className="flex items-center space-x-2 p-3 border border-border rounded-xl hover:border-primary/70 transition-colors cursor-pointer flex-1 bg-background/30 has-[:disabled]:opacity-50 has-[:disabled]:cursor-not-allowed">
               <RadioGroupItem value="pj" id="type-pj" className="border-primary/50 text-primary focus:ring-primary" disabled={globalDisableCondition}/>
-              <Label htmlFor="type-pj" className="font-medium text-sm sm:text-base cursor-pointer flex items-center"><Building className="mr-2 h-5 w-5"/>Pessoa Jurídica</Label>
+              <Label htmlFor="type-pj" className="font-medium text-sm sm:text-base cursor-pointer flex items-center"><Building className="mr-2 h-5 w-5"/>Company</Label>
             </div>
           </RadioGroup>
         </CardContent>
@@ -624,22 +623,22 @@ export default function DocumentosPage() {
       {processState.buyerType === 'pj' && (
         <Card className="shadow-card-premium rounded-2xl border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="p-6">
-            <CardTitle className="flex items-center text-xl font-headline text-primary"><Building className="mr-3 h-6 w-6" />Dados da Empresa</CardTitle>
+            <CardTitle className="flex items-center text-xl font-headline text-primary"><Building className="mr-3 h-6 w-6" />Company Data</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 p-6 pt-0">
             <div>
-              <Label htmlFor="razaoSocial">Razão Social</Label>
+              <Label htmlFor="razaoSocial">Legal Name</Label>
               <Input id="razaoSocial" value={processState.companyInfo?.razaoSocial || ''} onChange={(e) => handleCompanyInfoChange(e, 'razaoSocial')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
             </div>
             <div>
-              <Label htmlFor="nomeFantasia">Nome Fantasia</Label>
+              <Label htmlFor="nomeFantasia">Trade Name</Label>
               <Input id="nomeFantasia" value={processState.companyInfo?.nomeFantasia || ''} onChange={(e) => handleCompanyInfoChange(e, 'nomeFantasia')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
             </div>
             <div>
-              <Label htmlFor="cnpj">CNPJ</Label>
+              <Label htmlFor="cnpj">Company Tax ID</Label>
               <Input id="cnpj" value={processState.companyInfo?.cnpj || ''} onChange={(e) => handleCompanyInfoChange(e, 'cnpj')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
             </div>
-             {renderDocumentSlot('cartaoCnpjFile', 'Cartão CNPJ (PDF ou Imagem)')}
+             {renderDocumentSlot('cartaoCnpjFile', 'Company Registration Doc (PDF or Image)')}
           </CardContent>
         </Card>
       )}
@@ -648,30 +647,30 @@ export default function DocumentosPage() {
         <CardHeader className="p-6">
           <CardTitle className="flex items-center text-xl font-headline text-primary">
             <UserCircle className="mr-3 h-6 w-6" />
-            {processState.buyerType === 'pf' ? "Documentos Pessoais do Comprador" : "Dados e Documentos do Representante Legal/Sócio"}
+            {processState.buyerType === 'pf' ? "Buyer's Personal Documents" : "Legal Representative's Data & Documents"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 p-6 pt-0">
           {processState.buyerType === 'pj' && processState.buyerInfo && (
             <>
               <div>
-                <Label htmlFor="repNome">Nome Completo do Representante</Label>
+                <Label htmlFor="repNome">Representative's Full Name</Label>
                 <Input id="repNome" value={processState.buyerInfo.nome} onChange={(e) => handleBuyerInfoChange(e, 'nome')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
               </div>
               <div>
-                <Label htmlFor="repCPF">CPF do Representante</Label>
+                <Label htmlFor="repCPF">Representative's ID/SSN</Label>
                 <Input id="repCPF" value={processState.buyerInfo.cpf} onChange={(e) => handleBuyerInfoChange(e, 'cpf')} className="mt-1 bg-input" disabled={globalDisableCondition}/>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderDocumentSlot('docSocioFrente', 'Doc. Representante (Frente)')}
-                {renderDocumentSlot('docSocioVerso', 'Doc. Representante (Verso)')}
+                {renderDocumentSlot('docSocioFrente', 'Representative\'s ID (Front)')}
+                {renderDocumentSlot('docSocioVerso', 'Representative\'s ID (Back)')}
               </div>
             </>
           )}
 
           {processState.buyerType === 'pf' && (
             <>
-              <Label className="text-base font-medium text-foreground/90 block mb-2">Qual documento pessoal deseja anexar?</Label>
+              <Label className="text-base font-medium text-foreground/90 block mb-2">Which personal document do you want to attach?</Label>
               <RadioGroup
                 value={selectedPfDocType}
                 onValueChange={(val) => handlePfDocTypeChange(val as PfDocumentType)}
@@ -691,7 +690,7 @@ export default function DocumentosPage() {
               {renderCurrentPfDocumentSlots()}
             </>
           )}
-          {renderDocumentSlot('comprovanteEndereco', processState.buyerType === 'pf' ? 'Comprovante de Endereço Pessoal (PDF ou Imagem)' : 'Comprovante de Endereço da Empresa (PDF ou Imagem)')}
+          {renderDocumentSlot('comprovanteEndereco', processState.buyerType === 'pf' ? 'Personal Proof of Address (PDF or Image)' : 'Company Proof of Address (PDF or Image)')}
         </CardContent>
       </Card>
 
@@ -702,7 +701,7 @@ export default function DocumentosPage() {
           disabled={globalDisableCondition}
           className="border-primary/80 text-primary hover:bg-primary/10 text-lg py-6 px-8 rounded-lg"
         >
-          <ArrowLeft className="mr-2 h-5 w-5" /> Voltar
+          <ArrowLeft className="mr-2 h-5 w-5" /> Back
         </Button>
         <Button
           onClick={handleNext}
@@ -712,11 +711,11 @@ export default function DocumentosPage() {
           {isNavigating && !globalDisableCondition ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Aguarde...
+              Please wait...
             </>
           ) : (
             <>
-              Próximo <ArrowRight className="ml-2 h-5 w-5" />
+              Next <ArrowRight className="ml-2 h-5 w-5" />
             </>
           )}
         </Button>
