@@ -12,9 +12,10 @@ export default function HomePage() {
   const router = useRouter();
 
   const handleStartProcess = () => {
-    clearProcessState(); // Limpa qualquer estado de processo anterior, incluindo activeProcessId
+    // Forcefully clear any previous state to ensure a clean start
+    clearProcessState(); 
 
-    const newProcessId = doc(collection(db, 'processos')).id; // Gera um ID único
+    const newProcessId = doc(collection(db, 'processos')).id; 
     setActiveProcessId(newProcessId);
 
     const initialState = { 
@@ -23,7 +24,8 @@ export default function HomePage() {
       currentStep: '/processo/dados-iniciais' 
     };
     
-    saveProcessState(initialState); // Salva no localStorage e inicia salvamento no Firestore
+    // Save the very initial clean state
+    saveProcessState(initialState); 
     
     router.push("/processo/dados-iniciais");
   };
